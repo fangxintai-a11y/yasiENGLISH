@@ -1,6 +1,6 @@
 <div align="center">
 
-<a href="https://0xlei.tech/words/"><img src="docs/assets/cover-v2.jpg" alt="词光 · Word Atlas — an illustrated world of words" width="100%"></a>
+<a href="https://0xlei.tech/words/"><img src="assets/cover-v2.jpg" alt="词光 · Word Atlas — an illustrated world of words" width="100%"></a>
 
 # Word Atlas · 词光
 
@@ -8,7 +8,7 @@
 
 7,298 IELTS words · Original illustrations · UK & US audio · Spaced repetition
 
-[**Try Word Atlas ↗**](https://0xlei.tech/words/)　 /　 [48-second film](docs/assets/launch.mp4)　 /　 [Get the dataset](data/)　 /　 [简体中文](README.md)
+[**Try Word Atlas ↗**](https://0xlei.tech/words/)　 /　 [48-second film](assets/launch.mp4)　 /　 [Get the dataset](data/)　 /　 [简体中文](word-atlas.md)
 
 [![Code: MIT](https://img.shields.io/badge/Code-MIT-17283B?style=flat-square)](LICENSE)
 [![Dataset: CC BY 4.0](https://img.shields.io/badge/Dataset-CC_BY_4.0-AD5038?style=flat-square)](CONTENT_LICENSE.md)
@@ -34,12 +34,12 @@ Word Atlas is an illustrated IELTS vocabulary app for Chinese-speaking learners.
 
 ### A vocabulary atlas you can listen to and practise with
 
-<img src="docs/assets/atlas-desktop.jpg" alt="Open-source edition: desktop vocabulary atlas" width="100%">
+<img src="assets/atlas-desktop.jpg" alt="Open-source edition: desktop vocabulary atlas" width="100%">
 
 <table>
 <tr>
-<td width="50%"><img src="docs/assets/today-mobile.jpg" alt="Daily study plan on mobile" width="100%"></td>
-<td width="50%"><img src="docs/assets/word-mobile.jpg" alt="Illustrated word card with pronunciation and examples" width="100%"></td>
+<td width="50%"><img src="assets/today-mobile.jpg" alt="Daily study plan on mobile" width="100%"></td>
+<td width="50%"><img src="assets/word-mobile.jpg" alt="Illustrated word card with pronunciation and examples" width="100%"></td>
 </tr>
 <tr><td align="center">A plan for today</td><td align="center">A scene for every word</td></tr>
 </table>
@@ -48,16 +48,16 @@ Word Atlas is an illustrated IELTS vocabulary app for Chinese-speaking learners.
 
 ### Watch your vocabulary take shape
 
-<img src="docs/assets/galaxy.jpg" alt="Vocabulary galaxy showing learning progress across topics" width="100%">
+<img src="assets/galaxy.jpg" alt="Vocabulary galaxy showing learning progress across topics" width="100%">
 
 Explore 19 topic groups, rotate and zoom the galaxy, and select a star to open its word card. Brightness reflects learning status. Built with WebGL2, with a fallback for unsupported devices.
 
 <details>
 <summary><b>Watch the 48-second introduction</b></summary>
 
-<a href="docs/assets/launch.mp4"><img src="docs/assets/launch-preview.webp" alt="Watch the Word Atlas introduction" width="100%"></a>
+<a href="docs/assets/launch.mp4"><img src="assets/launch-preview.webp" alt="Watch the Word Atlas introduction" width="100%"></a>
 
-[Play the full film with sound](docs/assets/launch.mp4)
+[Play the full film with sound](assets/launch.mp4)
 
 </details>
 
@@ -94,7 +94,7 @@ npm run check:atlas  # Dataset and media validation
 npm run build        # Production build in dist/
 ```
 
-For a subpath deployment: `ATLAS_BASE=/words/ npm run build`. See the [deployment guide](docs/deployment.md).
+For a subpath deployment: `ATLAS_BASE=/words/ npm run build`. See the [deployment guide](deployment.md).
 
 **Stack:** React 19 · TypeScript · Vite · ts-fsrs · WebGL2
 
@@ -105,7 +105,7 @@ Use the app as it is, or build your own learning tools, Anki decks and research 
 | Resource | Repository edition | Download / documentation |
 | :--- | :--- | :--- |
 | Entries | **7,298**, CEFR A1–C2, 19 topics | [JSON](data/word-atlas.json) · [CSV](data/word-atlas.csv) |
-| Examples | **14,596**, everyday and IELTS contexts, with Chinese translations | [Schema](docs/dataset.md) |
+| Examples | **14,596**, everyday and IELTS contexts, with Chinese translations | [Schema](dataset.md) |
 | Illustrations | **7,298**, 512 px WebP plus thumbnails | [Images](public/atlas/img/) |
 | Recordings | **22,905**, UK/US words and example sentences | [Audio](public/atlas/audio/) |
 
@@ -121,7 +121,7 @@ b2_environment = [w for w in words if w["cefr"] == "B2" and w["topic"] == "envir
 
 Text and illustrations were generated for this project using AI; speech was synthesized with ElevenLabs. Automated structure and consistency checks have been performed, but **the entire collection has not been manually reviewed**. Definitions, examples, illustrations or pronunciation may contain errors. This is not an official IELTS list and does not promise score improvements.
 
-[Generation pipeline](docs/pipeline.md) · [Learning model](docs/learning-model.md) · [Scripts](scripts/atlas/)
+[Generation pipeline](pipeline.md) · [Learning model](learning-model.md) · [Scripts](scripts/atlas/)
 
 ## Contributing
 

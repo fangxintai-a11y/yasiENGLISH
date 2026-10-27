@@ -1,17 +1,20 @@
-import { ArrowRight, Check, Lightbulb, RotateCcw, Share2, Volume2, X } from "lucide-react";
+import { ArrowRight, Check, Lightbulb, RotateCcw, Share2, Timer, Volume2, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { prefetch, useAtlas, useEntry } from "../atlas/context";
 import type { Entry, WordRef } from "../atlas/types";
+import { parseKey } from "../ielts/exam";
+import { diagnose, diffMarks, SPELL_LABEL, spelledRight } from "../ielts/spelling";
 import { play, stopAudio } from "../lib/audio";
 import { burst } from "../lib/burst";
 import { cue } from "../lib/sound";
 import { go } from "../lib/router";
 import { gap, normalize } from "../lib/text";
-import { answer, advance, buildSession, gradeFor, sessionStats } from "../store/session";
-import { Rating } from "../store/srs";
-import { store, useStore, type ActiveSession, type QuizKind, type Step } from "../store/store";
+import { answer, advance, atlasSynonyms, buildSession, gradeFor, isPractice, sessionStats, SPEED_LIMIT, stepKey, trackOf } from "../store/session";
+import { Rating, type Grade } from "../store/srs";
+import { store, useStore, type ActiveSession, type QuizKind, type Step, type Track } from "../store/store";
 import { EntryView, Highlight } from "../ui/EntryView";
 import { Illustration } from "../ui/Illustration";
+import { MnemonicBlock, WhyTags } from "../ui/Memory";
 import { Galaxy } from "../galaxy/Galaxy";
 import { AmbiencePicker } from "../ui/Ambience";
 import { Ring } from "../ui/Ring";
@@ -59,7 +62,8 @@ function Runner({ session }: { session: ActiveSession }) {
   const total = session.steps.length;
   const exit = () => {
     stopAudio();
-    go({ page: "today" });
+    if (isPractice(session)) store.progress((p) => ({ ...p, session: null }));
+    go({ page: isPractice(session) ? "ielts" : "today" });
   };
   return (
     <div className="learn">
@@ -93,6 +97,7 @@ function Intro({ step }: { step: Step }) {
   const { entry } = useEntry(step.id);
   const settings = useStore((s) => s.settings);
   const elapsed = useStepTimer();
+  const ref = atlas.byId.get(step.id);
   useEffect(() => {
     if (entry && settings.autoplay) void play(atlas.audio(entry, settings.accent), entry.w, settings.accent);
   }, [entry, atlas, settings.autoplay, settings.accent]);
@@ -102,13 +107,15 @@ function Intro({ step }: { step: Step }) {
     advance(elapsed());
   }, [elapsed]);
   useKeys({ Enter: next, " ": next });
-  if (!entry) return <span className="spinner" />;
+  if (!entry || !ref) return <span className="spinner" />;
   return (
     <div className="intro">
       <p className="stage-label">
         <span className="dot dot-new" /> 初次见面
       </p>
+      <WhyTags id={entry.id} />
       <EntryView entry={entry} mode="intro" />
+      <MnemonicBlock refw={ref} />
       <footer className="learn-actions">
         <button className="btn btn-primary btn-xl" onClick={next} autoFocus>
           认识了 <ArrowRight size={20} />
@@ -126,7 +133,13 @@ const KIND_LABEL: Record<QuizKind, string> = {
   picture: "看图，补全这句话",
   listen: "听，是哪个词？",
   spell: "拼出这个词",
+  paraphrase: "原文被改写了：哪个词能替换它？",
+  dictation: "听写 · 雅思听力拼错不得分",
+  produce: "写出这个词",
 };
+
+export const TRACK_LABEL: Record<Track, string> = { r: "阅读 · 识别", l: "听力 · 拼写", p: "写作 · 产出" };
+export const GRADE_LABEL: Record<Grade, string> = { [Rating.Again]: "重来", [Rating.Hard]: "困难", [Rating.Good]: "良好", [Rating.Easy]: "轻松" } as Record<Grade, string>;
 
 function Quiz({ step, session }: { step: Step & { kind: QuizKind }; session: ActiveSession }) {
   const atlas = useAtlas();
@@ -135,23 +148,27 @@ function Quiz({ step, session }: { step: Step & { kind: QuizKind }; session: Act
   const settings = useStore((s) => s.settings);
   const pending = session.pending;
   const elapsed = useStepTimer();
-  const [hints, setHints] = useState(0);
+  const [hints, setHints] = useState(step.kind === "produce" ? 1 : 0);
   const options = useMemo(() => (step.options ?? []).map((id) => atlas.byId.get(id)!).filter(Boolean), [atlas, step.options]);
+  const track = trackOf(step);
+  const correctId = step.kind === "paraphrase" ? step.answer : ref.id;
+  const typed = step.kind === "spell" || step.kind === "produce" || step.kind === "dictation";
 
   const submit = useCallback(
     (value: string, correct: boolean) => {
       if (pending) return;
       const ms = elapsed() * 1000;
       if (correct) {
-        const el = document.querySelector<HTMLElement>(step.kind === "spell" ? ".slots" : `[data-option="${value}"]`);
+        const el = document.querySelector<HTMLElement>(typed ? ".slots, .dictation-field" : `[data-option="${value}"]`);
         const r = el?.getBoundingClientRect();
         if (r) burst(r.left + r.width / 2, r.top + r.height / 2);
       }
       if (settings.sfx) void cue(correct ? "correct" : "wrong");
-      answer(atlas, step, correct, gradeFor(step.kind, correct, ms, hints > 0), value);
+      const hinted = step.kind === "produce" ? hints > 1 : hints > 0;
+      answer(atlas, step, correct, gradeFor(step.kind, correct, ms, hinted), value, ms);
       if (entry) void play(atlas.audio(entry, settings.accent), entry.w, settings.accent);
     },
-    [pending, elapsed, settings, atlas, step, hints, entry],
+    [pending, elapsed, settings, atlas, step, hints, entry, typed],
   );
 
   const next = useCallback(() => {
@@ -159,26 +176,32 @@ function Quiz({ step, session }: { step: Step & { kind: QuizKind }; session: Act
     advance(elapsed());
   }, [elapsed]);
 
+  const listenNow = step.kind === "listen" || step.kind === "dictation";
   useEffect(() => {
-    if (step.kind === "listen" && entry && !pending) void play(atlas.audio(entry, settings.accent), entry.w, settings.accent);
-  }, [step.kind, entry, atlas, settings.accent, pending]);
+    if (listenNow && entry && !pending) void play(atlas.audio(entry, settings.accent), entry.w, settings.accent);
+  }, [listenNow, entry, atlas, settings.accent, pending]);
 
   const keys: Record<string, () => void> = {};
   if (pending) {
     keys.Enter = next;
     keys[" "] = next;
-  } else if (step.kind !== "spell") {
-    options.forEach((o, i) => (keys[String(i + 1)] = () => submit(o.id, o.id === ref.id)));
+  } else if (!typed) {
+    options.forEach((o, i) => (keys[String(i + 1)] = () => submit(o.id, o.id === correctId)));
   }
   useKeys(keys);
 
   if (!entry) return <span className="spinner" />;
   const sentence = entry.ex[0] ? gap(entry.ex[0].en, entry.w) : null;
+  const replay = (rate = 1) => {
+    if (!pending && step.kind === "dictation") setHints((h) => h + 1);
+    void play(atlas.audio(entry, settings.accent), entry.w, settings.accent, rate);
+  };
 
   return (
     <div className={`quiz quiz-${step.kind} ${pending ? (pending.correct ? "is-right" : "is-wrong") : ""}`}>
       <p className="stage-label">
-        <span className={`dot ${step.retry ? "dot-retry" : "dot-review"}`} />
+        <span className={`dot ${step.retry ? "dot-retry" : track === "r" ? "dot-review" : `dot-${track}`}`} />
+        <span className={`track-chip track-${track}`}>{TRACK_LABEL[track]}</span>
         {step.retry ? "再见一面 · " : ""}
         {KIND_LABEL[step.kind]}
       </p>
@@ -209,26 +232,37 @@ function Quiz({ step, session }: { step: Step & { kind: QuizKind }; session: Act
             {sentence && pending && <p className="cloze-zh">{entry.ex[0].zh}</p>}
           </div>
         )}
-        {step.kind === "listen" && (
+        {step.kind === "paraphrase" && <ParaphrasePrompt entry={entry} pending={!!pending} />}
+        {(step.kind === "listen" || step.kind === "dictation") && (
           <div className="prompt-listen">
-            <button className="listen-orb" onClick={() => play(atlas.audio(entry, settings.accent), entry.w, settings.accent)} aria-label="再听一遍">
+            <button className="listen-orb" onClick={() => replay()} aria-label="再听一遍">
               <Volume2 size={40} strokeWidth={1.6} />
               <span />
             </button>
-            <button className="link" onClick={() => play(atlas.audio(entry, settings.accent), entry.w, settings.accent, 0.7)}>
+            <button className="link" onClick={() => replay(0.7)}>
               慢速再听
             </button>
+            {step.kind === "dictation" && !pending && <p className="muted small">考场只放一遍：重播会记为「困难」</p>}
           </div>
         )}
-        {step.kind === "spell" && <SpellPrompt entry={entry} refw={ref} hints={hints} />}
+        {step.kind === "spell" && <SpellPrompt entry={entry} refw={ref} withAudio />}
+        {step.kind === "produce" && <SpellPrompt entry={entry} refw={ref} withAudio={false} />}
       </section>
 
-      {step.kind === "spell" ? (
-        <SpellInput entry={entry} pending={pending} hints={hints} onHint={() => setHints((h) => Math.min(entry.w.length - 1, h + 1))} onSubmit={(v) => submit(v, normalize(v) === normalize(entry.w))} />
+      {step.kind === "dictation" ? (
+        <DictationInput pending={pending} onSubmit={(v) => submit(v, spelledRight(v, entry.w))} />
+      ) : step.kind === "spell" || step.kind === "produce" ? (
+        <SpellInput
+          entry={entry}
+          pending={pending}
+          hints={hints}
+          onHint={() => setHints((h) => Math.min(entry.w.length - 1, h + 1))}
+          onSubmit={(v) => submit(v, spelledRight(v, entry.w) || (!!sentence && normalize(v) === normalize(sentence.hidden)))}
+        />
       ) : (
         <ul className={`options ${step.kind === "meaning" ? "options-zh" : "options-en"}`}>
           {options.map((o, i) => {
-            const isAnswer = o.id === ref.id;
+            const isAnswer = o.id === correctId;
             const chosen = pending?.value === o.id;
             const cls = pending ? (isAnswer ? "is-answer" : chosen ? "is-chosen" : "is-dim") : "";
             return (
@@ -245,16 +279,30 @@ function Quiz({ step, session }: { step: Step & { kind: QuizKind }; session: Act
         </ul>
       )}
 
-      {pending && <Feedback entry={entry} refw={ref} correct={pending.correct} onNext={next} />}
+      {pending && <Feedback entry={entry} refw={ref} step={step} session={session} correct={pending.correct} value={pending.value} onNext={next} />}
     </div>
   );
 }
 
-function SpellPrompt({ entry, refw, hints }: { entry: Entry; refw: WordRef; hints: number }) {
+function ParaphrasePrompt({ entry, pending }: { entry: Entry; pending: boolean }) {
+  const ex = entry.ex[1] ?? entry.ex[0];
+  return (
+    <div className="prompt-paraphrase">
+      <p className="para-src" lang="en">
+        {ex ? <Highlight text={ex.en} word={entry.w} /> : <mark>{entry.w}</mark>}
+      </p>
+      {ex && pending && <p className="cloze-zh">{ex.zh}</p>}
+      <p className="muted small">
+        题目里常不会原样出现 <b lang="en">{entry.w}</b>，而是换成意思相同的词。
+      </p>
+    </div>
+  );
+}
+
+function SpellPrompt({ entry, refw, withAudio }: { entry: Entry; refw: WordRef; withAudio: boolean }) {
   const atlas = useAtlas();
   const accent = useStore((s) => s.settings.accent);
   const sentence = entry.ex[0] ? gap(entry.ex[0].en, entry.w) : null;
-  void hints;
   return (
     <div className="prompt-spell">
       <Illustration src={atlas.img(entry)} word={entry.w} topic={refw.topic} eager className="spell-art" />
@@ -263,15 +311,54 @@ function SpellPrompt({ entry, refw, hints }: { entry: Entry; refw: WordRef; hint
           <span className="pos">{entry.senses[0].pos}</span> {entry.senses[0].zh}
         </p>
         {sentence && (
-          <p className="cloze cloze-sm" lang="en">
-            {sentence.before}
-            <span className="blank">　　　</span>
-            {sentence.after}
-          </p>
+          <>
+            <p className="cloze cloze-sm" lang="en">
+              {sentence.before}
+              <span className="blank">　　　</span>
+              {sentence.after}
+            </p>
+            {!withAudio && <p className="cloze-zh">{entry.ex[0].zh}</p>}
+          </>
         )}
-        <Speak url={atlas.audio(entry, accent)} text={entry.w} accent={accent} size="sm" label="听发音" />
+        {withAudio && <Speak url={atlas.audio(entry, accent)} text={entry.w} accent={accent} size="sm" label="听发音" />}
       </div>
     </div>
+  );
+}
+
+function DictationInput({ pending, onSubmit }: { pending?: { correct: boolean; value: string }; onSubmit: (v: string) => void }) {
+  const [value, setValue] = useState("");
+  return (
+    <form
+      className="dictation"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (!pending && value.trim()) onSubmit(value);
+      }}
+    >
+      <input
+        className={`dictation-field ${pending ? (pending.correct ? "is-ok" : "is-bad") : ""}`}
+        value={pending ? pending.value : value}
+        onChange={(e) => !pending && setValue(e.target.value.slice(0, 40))}
+        autoFocus
+        autoCapitalize="off"
+        autoCorrect="off"
+        autoComplete="off"
+        spellCheck={false}
+        enterKeyHint="done"
+        placeholder="听到什么，写什么"
+        aria-label="听写"
+        readOnly={!!pending}
+        lang="en"
+      />
+      {!pending && (
+        <div className="spell-actions">
+          <button type="submit" className="btn btn-primary" disabled={!value.trim()}>
+            确认 <kbd>Enter</kbd>
+          </button>
+        </div>
+      )}
+    </form>
   );
 }
 
@@ -332,10 +419,31 @@ function SpellInput({ entry, pending, hints, onHint, onSubmit }: { entry: Entry;
   );
 }
 
-function Feedback({ entry, refw, correct, onNext }: { entry: Entry; refw: WordRef; correct: boolean; onNext: () => void }) {
+/** Why the card got its grade: the learner sees the rule, not a black box. */
+function GradeNote({ step, session }: { step: Step & { kind: QuizKind }; session: ActiveSession }) {
+  const key = stepKey(step);
+  const grade = session.graded[key];
+  const ms = session.ms?.[key];
+  if (step.retry || grade === undefined || ms === undefined) return null;
+  const limit = SPEED_LIMIT[step.kind];
+  const slow = grade === Rating.Hard && ms > limit;
+  return (
+    <p className={`grade-note g-${grade}`}>
+      <Timer size={14} /> {(ms / 1000).toFixed(1)} 秒 · 记为「{GRADE_LABEL[grade]}」
+      {slow && <span>{step.kind === "meaning" || step.kind === "listen" ? ` · 超过 ${limit / 1000} 秒，考场上等于没认出` : ` · 慢于 ${limit / 1000} 秒`}</span>}
+      {grade === Rating.Hard && !slow && <span> · 用了提示或重播</span>}
+      {isPractice(session) && <span> · 专项练习不改变记忆进度</span>}
+    </p>
+  );
+}
+
+function Feedback({ entry, refw, step, session, correct, value, onNext }: { entry: Entry; refw: WordRef; step: Step & { kind: QuizKind }; session: ActiveSession; correct: boolean; value: string; onNext: () => void }) {
   const atlas = useAtlas();
   const btn = useRef<HTMLButtonElement>(null);
   useEffect(() => btn.current?.focus({ preventScroll: true }), []);
+  const typedMiss = !correct && (step.kind === "dictation" || step.kind === "produce") && value.trim();
+  const tags = typedMiss ? diagnose(value, entry.w) : [];
+  const syns = step.kind === "paraphrase" ? atlasSynonyms(atlas, entry.id).map((id) => atlas.byId.get(id)!.word) : [];
   return (
     <div className={`feedback ${correct ? "is-right" : "is-wrong"}`} role="status">
       <div className="feedback-inner">
@@ -352,6 +460,29 @@ function Feedback({ entry, refw, correct, onNext }: { entry: Entry; refw: WordRe
               .map((s) => `${s.pos} ${s.zh}`)
               .join("　")}
           </p>
+          {typedMiss && (
+            <div className="spell-diag">
+              <p className="spell-diff" lang="en">
+                你写的 <s>{value}</s> → 正确{" "}
+                {diffMarks(value, entry.w).map((m, i) => (
+                  <b key={i} className={m.bad ? "is-bad" : ""}>
+                    {m.ch}
+                  </b>
+                ))}
+              </p>
+              {tags.map((t) => (
+                <p key={t} className="spell-tag">
+                  <span className="chip chip-why why-spell">{SPELL_LABEL[t].name}</span> {SPELL_LABEL[t].tip}
+                </p>
+              ))}
+            </div>
+          )}
+          {syns.length > 0 && (
+            <p className="feedback-syn" lang="en">
+              {entry.w} ≈ {syns.join(" · ")}
+            </p>
+          )}
+          <GradeNote step={step} session={session} />
           {entry.ex[0] && (
             <p className="feedback-ex" lang="en">
               <Highlight text={entry.ex[0].en} word={entry.w} />
@@ -373,11 +504,18 @@ function Summary({ session }: { session: ActiveSession }) {
   }, []);
   const stats = sessionStats(session);
   const words = [...new Set(session.steps.map((s) => s.id))].map((id) => atlas.byId.get(id)!).filter(Boolean);
-  const wrong = words.filter((w) => session.graded[w.id] === Rating.Again);
+  const wrongIds = new Set(
+    Object.entries(session.graded)
+      .filter(([, g]) => g === Rating.Again)
+      .map(([k]) => parseKey(k).id),
+  );
+  const wrong = words.filter((w) => wrongIds.has(w.id));
+  const skillCount = (t: Track) => Object.keys(session.graded).filter((k) => parseKey(k).track === t).length;
   const minutes = Math.max(1, Math.round(((session.finished ?? Date.now()) - session.started) / 60000));
+  const practice = isPractice(session);
   const done = () => {
     store.progress((p) => ({ ...p, session: null }));
-    go({ page: "today" });
+    go({ page: practice ? "ielts" : "today" });
   };
   const again = () => {
     const { progress, settings } = store.get();
@@ -388,9 +526,9 @@ function Summary({ session }: { session: ActiveSession }) {
       <div className="summary-card">
         <div className="summary-sky">
           <Galaxy mode="mini" highlight={words.map((w) => w.id)} ignite />
-          <p>今天点亮了 {words.length} 颗星</p>
+          <p>{practice ? `专项练习了 ${words.length} 个词` : `今天点亮了 ${words.length} 颗星`}</p>
         </div>
-        <p className="eyebrow">这一程结束了</p>
+        <p className="eyebrow">{session.label ?? "这一程结束了"}</p>
         <h1 className="display">{stats.accuracy >= 90 ? "漂亮的一程。" : stats.accuracy >= 60 ? "稳稳向前。" : "错过的，会再相遇。"}</h1>
         <div className="summary-stats">
           <Ring value={stats.accuracy / 100} size={128} tone={stats.accuracy >= 60 ? "sage" : "terra"}>
@@ -403,8 +541,16 @@ function Summary({ session }: { session: ActiveSession }) {
               <dd>{session.newIds.length}</dd>
             </div>
             <div>
-              <dt>复习</dt>
-              <dd>{session.reviewIds.length}</dd>
+              <dt>识别</dt>
+              <dd>{skillCount("r")}</dd>
+            </div>
+            <div>
+              <dt>听写</dt>
+              <dd>{skillCount("l")}</dd>
+            </div>
+            <div>
+              <dt>产出</dt>
+              <dd>{skillCount("p")}</dd>
             </div>
             <div>
               <dt>用时</dt>
@@ -417,16 +563,18 @@ function Summary({ session }: { session: ActiveSession }) {
         </div>
         <ul className="summary-words">
           {words.map((w) => (
-            <li key={w.id} className={session.graded[w.id] === Rating.Again ? "is-wrong" : ""}>
+            <li key={w.id} className={wrongIds.has(w.id) ? "is-wrong" : ""}>
               <Illustration src={atlas.img(w, "thumb")} word={w.word} topic={w.topic} />
               <span lang="en">{w.word}</span>
               <small>{w.zh}</small>
             </li>
           ))}
         </ul>
-        <p className="summary-note">FSRS 已为每个词排好下次相遇的时间。答错的词，会更早回来。</p>
+        <p className="summary-note">
+          {practice ? "专项练习只更新拼写诊断，不改变复习排程。" : "每张卡的成绩都由对错和反应时间自动判定。FSRS 已排好下次相遇：答错的会更早回来，考前两周会自动加密复习。"}
+        </p>
         <div className="summary-actions">
-          {wrong.length > 0 && (
+          {wrong.length > 0 && !practice && (
             <button className="btn btn-ghost" onClick={again}>
               <RotateCcw size={18} /> 再练 {wrong.length} 个错词
             </button>

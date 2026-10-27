@@ -1,4 +1,4 @@
-import { createEmptyCard, fsrs, Rating, State, type Card, type Grade } from "ts-fsrs";
+import { createEmptyCard, default_w, forgetting_curve, fsrs, Rating, State, type Card, type Grade } from "ts-fsrs";
 
 /** Serialized FSRS card. Dates are epoch milliseconds to keep backups small and JSON-safe. */
 export interface CardState {
@@ -14,6 +14,8 @@ export interface CardState {
   last?: number;
   /** First time the learner met the word. */
   seen: number;
+  /** 1 = seeded from the placement test (known word, waiting for a spot check). */
+  src?: 1;
 }
 
 export { Rating };
@@ -76,6 +78,45 @@ export function preview(prev: CardState | undefined, now: number, retention = 0.
 
 export function retrievability(c: CardState, now: number, retention = 0.9) {
   return scheduler(retention).get_retrievability(toCard(c), new Date(now), false) as number;
+}
+
+const DAY = 86400000;
+
+/** Probability of recall at time `at` if the card is not reviewed before then (fast path, no Card objects). */
+export function recallAt(c: CardState, at: number) {
+  const from = c.last ?? c.seen;
+  const days = Math.max(0, (at - from) / DAY);
+  return c.s > 0 ? forgetting_curve(default_w, days, c.s) : 0;
+}
+
+const means = new Map<number, number>();
+/**
+ * Average recall over one review interval when reviews keep up with the schedule: memory starts
+ * near 100% after a review and falls to the target retention by the next due date.
+ */
+export function meanRecall(retention: number) {
+  let m = means.get(retention);
+  if (m === undefined) {
+    // Interval length for S = 1 day; the curve shape does not depend on S.
+    let lo = 0;
+    let hi = 1e4;
+    for (let i = 0; i < 60; i++) {
+      const mid = (lo + hi) / 2;
+      if (forgetting_curve(default_w, mid, 1) > retention) lo = mid;
+      else hi = mid;
+    }
+    const steps = 200;
+    let sum = 0;
+    for (let i = 0; i < steps; i++) sum += forgetting_curve(default_w, ((i + 0.5) / steps) * lo, 1);
+    m = sum / steps;
+    means.set(retention, m);
+  }
+  return m;
+}
+
+/** A word the placement test showed as known: long-term memory, checked once at `due`. */
+export function seedKnown(now: number, due: number, stability: number): CardState {
+  return { due, s: stability, d: 4, el: 0, sd: Math.round((due - now) / DAY), ls: 0, reps: 1, lapses: 0, st: 2, last: now, seen: now, src: 1 };
 }
 
 /** Long-term memory: the card would still be recalled with 90% odds three weeks after review. */

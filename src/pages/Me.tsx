@@ -1,8 +1,11 @@
-import { Download, RotateCcw, Upload } from "lucide-react";
-import { useMemo, useRef } from "react";
+import { Download, KeyRound, RotateCcw, Upload } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
 import { useAtlas } from "../atlas/context";
+import { getKey, setKey } from "../ielts/aikey";
+import { allCards } from "../ielts/exam";
 import { isMastered } from "../store/srs";
-import { dayKey, exportBackup, importBackup, resetProgress, store, useStore, type Settings } from "../store/store";
+import { AI_MODELS, dayKey, exportBackup, importBackup, resetProgress, store, useStore, type Settings } from "../store/store";
+import { ExamFields } from "../ui/ExamSetup";
 import { toast } from "../ui/Toast";
 import { streakOf } from "./Today";
 
@@ -14,7 +17,7 @@ export function Me({ privateAvailable }: { privateAvailable: boolean }) {
   const file = useRef<HTMLInputElement>(null);
 
   const stats = useMemo(() => {
-    const cards = Object.values(progress.cards);
+    const cards = allCards(progress).map(([, c]) => c);
     const days = Object.values(progress.days);
     const r = days.reduce((n, d) => n + d.r, 0);
     const c = days.reduce((n, d) => n + d.c, 0);
@@ -29,7 +32,8 @@ export function Me({ privateAvailable }: { privateAvailable: boolean }) {
       return cards.filter((x) => (i === 0 ? x.due <= end.getTime() : x.due >= start.getTime() && x.due <= end.getTime())).length;
     });
     void now;
-    return { learned: cards.length, mastered: cards.filter(isMastered).length, reviews: r, accuracy: r ? Math.round((c / r) * 100) : 0, minutes: Math.round(t / 60), forecast };
+    const words = Object.values(progress.cards);
+    return { learned: words.length, mastered: words.filter(isMastered).length, reviews: r, accuracy: r ? Math.round((c / r) * 100) : 0, minutes: Math.round(t / 60), forecast };
   }, [progress]);
 
   const set = (patch: Partial<Settings>) => store.settings(patch);
@@ -37,7 +41,7 @@ export function Me({ privateAvailable }: { privateAvailable: boolean }) {
     const blob = new Blob([exportBackup()], { type: "application/json" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = `word-atlas-backup-${dayKey()}.json`;
+    a.download = `band-galaxy-backup-${dayKey()}.json`;
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 2000);
   };
@@ -108,8 +112,23 @@ export function Me({ privateAvailable }: { privateAvailable: boolean }) {
         </section>
 
         <section className="panel settings">
+          <h3 className="eyebrow">考试计划</h3>
+          <ExamFields />
+          {progress.placement && (
+            <p className="muted">
+              摸底结果：约认识 {progress.placement.estimate.toLocaleString()} 个词，{progress.placement.seeded.toLocaleString()} 个已会的词在分散抽查中。
+            </p>
+          )}
+          <button className="btn btn-ghost" onClick={() => store.settings({ onboarded: false })}>
+            重新摸底
+          </button>
+        </section>
+
+        <AiPanel />
+
+        <section className="panel settings">
           <h3 className="eyebrow">学习设置</h3>
-          <Field label="每日新词" hint="复习不设上限，算法只安排快要遗忘的词。">
+          <Field label="每日新词" hint="只在没设考试日期时生效；设定后由计划自动倒推。">
             <div className="segmented">
               {[5, 10, 15, 20, 30].map((n) => (
                 <button key={n} className={settings.dailyNew === n ? "is-on" : ""} onClick={() => set({ dailyNew: n })}>
@@ -164,7 +183,8 @@ export function Me({ privateAvailable }: { privateAvailable: boolean }) {
           <Toggle label="自动播放发音" on={settings.autoplay} set={(v) => set({ autoplay: v })} />
           <Toggle label="界面音效" on={settings.sfx} set={(v) => set({ sfx: v })} />
           <Toggle label="开屏动画（每天一次）" on={settings.splash} set={(v) => set({ splash: v })} />
-          <Toggle label="复习时加入拼写题" on={settings.spell} set={(v) => set({ spell: v })} />
+          <Toggle label="听力拼写卡（王陆语料库词，识别稳定后解锁听写）" on={settings.trackL} set={(v) => set({ trackL: v })} />
+          <Toggle label="写作产出卡（学术词表 AWL，根据中文和语境写出单词）" on={settings.trackP} set={(v) => set({ trackP: v })} />
           {privateAvailable && (
             <Field label="词库" hint="私人词库只在本机开发服务器中可用，不会被打包发布。">
               <div className="segmented">
@@ -206,6 +226,65 @@ export function Me({ privateAvailable }: { privateAvailable: boolean }) {
         </section>
       </div>
     </div>
+  );
+}
+
+/** The learner's own Claude API key, kept in this browser only. */
+function AiPanel() {
+  const model = useStore((s) => s.settings.aiModel);
+  const [key, setKeyState] = useState(getKey);
+  const [show, setShow] = useState(false);
+  const saved = !!getKey();
+  return (
+    <section className="panel settings">
+      <h3 className="eyebrow">AI 助教 · Claude</h3>
+      <p className="muted">错词阅读和造句批改会用你自己的 Claude API Key，从浏览器直接请求 api.anthropic.com，费用记在你的账户上。Key 只保存在这台设备的浏览器里，不会进入导出的备份。</p>
+      <label className="field">
+        <div>
+          <b>API Key</b>
+          <small>{saved ? "已保存在本机" : "在 console.anthropic.com 创建"}</small>
+        </div>
+        <span className="key-row">
+          <KeyRound size={16} />
+          <input type={show ? "text" : "password"} value={key} onChange={(e) => setKeyState(e.target.value)} placeholder="sk-ant-…" autoComplete="off" spellCheck={false} aria-label="Claude API Key" />
+          <button type="button" className="link" onClick={() => setShow(!show)}>
+            {show ? "隐藏" : "显示"}
+          </button>
+        </span>
+      </label>
+      <div className="data-actions">
+        <button
+          className="btn btn-primary"
+          onClick={() => {
+            setKey(key);
+            toast(key.trim() ? "API Key 已保存在本机" : "已清除 API Key", "ok");
+          }}
+        >
+          保存
+        </button>
+        {saved && (
+          <button
+            className="btn btn-ghost"
+            onClick={() => {
+              setKey("");
+              setKeyState("");
+              toast("已清除 API Key");
+            }}
+          >
+            清除
+          </button>
+        )}
+      </div>
+      <Field label="模型" hint="Opus 质量最好；Sonnet / Haiku 更快更便宜。">
+        <div className="segmented">
+          {AI_MODELS.map((m) => (
+            <button key={m} className={model === m ? "is-on" : ""} onClick={() => store.settings({ aiModel: m })}>
+              {m.replace("claude-", "").replace(/-(\d)-(\d)$/, " $1.$2")}
+            </button>
+          ))}
+        </div>
+      </Field>
+    </section>
   );
 }
 

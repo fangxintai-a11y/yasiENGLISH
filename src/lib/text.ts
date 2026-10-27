@@ -6,6 +6,12 @@ const IRREGULAR = new Map(
     .map(([base, ...forms]) => [base, forms] as const),
 );
 
+const IRREGULAR_BASE = new Map<string, string>();
+IRREGULAR.forEach((forms, base) => forms.forEach((f) => IRREGULAR_BASE.has(f) || IRREGULAR_BASE.set(f, base)));
+
+/** Base form for an irregular inflection ("taught" → "teach"), if known. */
+export const irregularBase = (form: string) => IRREGULAR_BASE.get(form.toLowerCase());
+
 /** Find the headword (or an inflected form) inside an example sentence. */
 export function headwordPattern(word: string) {
   const w = word.trim().toLowerCase();

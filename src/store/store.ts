@@ -2,18 +2,32 @@ import { useSyncExternalStore } from "react";
 import type { Accent } from "../atlas/types";
 import type { CardState, Grade } from "./srs";
 
-export type QuizKind = "meaning" | "picture" | "listen" | "spell";
-export type Step = { id: string; kind: "intro" } | { id: string; kind: QuizKind; retry?: boolean; options?: string[] };
+export type QuizKind = "meaning" | "picture" | "listen" | "spell" | "paraphrase" | "dictation" | "produce";
+/**
+ * One word, three memories: r = recognise it while reading (≤3 s), l = hear it and spell it
+ * exactly (IELTS listening), p = produce it from meaning and context (writing / speaking).
+ */
+export type Track = "r" | "l" | "p";
+export type Step =
+  | { id: string; kind: "intro" }
+  | { id: string; kind: QuizKind; retry?: boolean; options?: string[]; track?: Track; answer?: string };
 
 export interface ActiveSession {
   id: string;
   started: number;
   steps: Step[];
   index: number;
-  /** First-attempt grade per word; retries never change it. */
+  /** First-attempt grade per card key (see cardKey); retries never change it. */
   graded: Record<string, Grade>;
   newIds: string[];
   reviewIds: string[];
+  /** Listening / production cards met in this session, as card keys. */
+  skillKeys?: string[];
+  /** Reaction time of the first attempt per card key, for the feedback panel. */
+  ms?: Record<string, number>;
+  label?: string;
+  /** Drill rounds: answers never change memory or daily stats. */
+  practice?: boolean;
   /** Answer shown but not yet continued; survives reload without double counting. */
   pending?: { correct: boolean; value: string };
   finished?: number;
@@ -34,16 +48,59 @@ export interface TypingRound {
   accuracy: number;
 }
 
+export interface SpellMiss {
+  id: string;
+  typed: string;
+  at: number;
+  tags: string[];
+}
+
+export interface Placement {
+  at: number;
+  /** Estimated share of known words per CEFR level. */
+  levels: number[];
+  estimate: number;
+  seeded: number;
+}
+
+export interface ReadingQuestion {
+  q: string;
+  a: "TRUE" | "FALSE" | "NOT GIVEN";
+  why: string;
+}
+
+/** An IELTS-style passage written around the learner's weakest words. */
+export interface Reading {
+  id: string;
+  at: number;
+  title: string;
+  passage: string;
+  zh: string;
+  words: string[];
+  questions: ReadingQuestion[];
+  answers: (string | null)[];
+}
+
 export interface Progress {
   version: 2;
   datasetId: string;
+  /** Recognition cards (track r), keyed by word id. */
   cards: Record<string, CardState>;
+  /** Listening (l:id) and production (p:id) cards. */
+  skills: Record<string, CardState>;
   bookmarks: string[];
   days: Record<string, DayStat>;
   typing: TypingRound[];
   session: ActiveSession | null;
   /** Rolling list of recent mistakes, newest first. */
   mistakes: string[];
+  /** Misspelling pattern → count, from listening dictation. */
+  spell: Record<string, number>;
+  spellLog: SpellMiss[];
+  placement: Placement | null;
+  /** Words to learn before the regular path (from pasted texts). */
+  queue: string[];
+  readings: Reading[];
 }
 
 export interface Settings {
@@ -60,7 +117,18 @@ export interface Settings {
   ambience: "off" | "stars" | "rain" | "sea" | "forest" | "fire" | "voyage" | "cafe";
   ambienceVolume: number;
   splash: boolean;
+  /** IELTS exam day as YYYY-MM-DD; empty when not booked yet. */
+  examDate: string;
+  /** Daily study time the plan is built around. */
+  dailyMinutes: number;
+  targetBand: number;
+  /** Listening-dictation and production tracks. */
+  trackL: boolean;
+  trackP: boolean;
+  aiModel: string;
 }
+
+export const AI_MODELS = ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"] as const;
 
 export const defaultSettings: Settings = {
   accent: "uk",
@@ -76,17 +144,29 @@ export const defaultSettings: Settings = {
   ambience: "stars",
   ambienceVolume: 0.45,
   splash: true,
+  examDate: "",
+  dailyMinutes: 30,
+  targetBand: 6.5,
+  trackL: true,
+  trackP: true,
+  aiModel: AI_MODELS[0],
 };
 
 export const emptyProgress = (datasetId: string): Progress => ({
   version: 2,
   datasetId,
   cards: {},
+  skills: {},
   bookmarks: [],
   days: {},
   typing: [],
   session: null,
   mistakes: [],
+  spell: {},
+  spellLog: [],
+  placement: null,
+  queue: [],
+  readings: [],
 });
 
 export const dayKey = (d = new Date()) =>
@@ -134,10 +214,40 @@ function validCard(v: unknown): v is CardState {
   );
 }
 
+const str = (v: unknown, max = 20000): v is string => typeof v === "string" && v.length <= max;
+const strs = (v: unknown, n: number) => (Array.isArray(v) ? v.filter((x): x is string => str(x, 200)).slice(0, n) : []);
+
+function validReading(v: unknown): v is Reading {
+  return (
+    isObj(v) &&
+    str(v.id, 80) &&
+    num(v.at, 0) &&
+    str(v.title, 300) &&
+    str(v.passage) &&
+    str(v.zh) &&
+    Array.isArray(v.words) &&
+    Array.isArray(v.questions) &&
+    v.questions.every((q) => isObj(q) && str(q.q, 600) && ["TRUE", "FALSE", "NOT GIVEN"].includes(q.a as string) && str(q.why, 1200)) &&
+    Array.isArray(v.answers)
+  );
+}
+
 export function sanitizeProgress(v: unknown, datasetId: string): Progress {
   const out = emptyProgress(datasetId);
   if (!isObj(v) || v.version !== 2) return out;
   if (isObj(v.cards)) for (const [k, c] of Object.entries(v.cards)) if (validCard(c)) out.cards[k] = c;
+  if (isObj(v.skills)) for (const [k, c] of Object.entries(v.skills)) if (/^[lp]:/.test(k) && validCard(c)) out.skills[k] = c;
+  if (isObj(v.spell)) for (const [k, n] of Object.entries(v.spell)) if (k.length < 40 && num(n, 0, 1e6)) out.spell[k] = n as number;
+  if (Array.isArray(v.spellLog))
+    out.spellLog = v.spellLog
+      .filter((m): m is SpellMiss => isObj(m) && str(m.id, 80) && str(m.typed, 80) && num(m.at, 0) && Array.isArray(m.tags))
+      .map((m) => ({ id: m.id, typed: m.typed, at: m.at, tags: strs(m.tags, 8) }))
+      .slice(0, 200);
+  const pl = v.placement;
+  if (isObj(pl) && num(pl.at, 0) && Array.isArray(pl.levels) && pl.levels.every((x) => num(x, 0, 1)) && num(pl.estimate, 0) && num(pl.seeded, 0))
+    out.placement = { at: pl.at as number, levels: pl.levels as number[], estimate: pl.estimate as number, seeded: pl.seeded as number };
+  out.queue = strs(v.queue, 2000);
+  if (Array.isArray(v.readings)) out.readings = v.readings.filter(validReading).slice(0, 30);
   if (Array.isArray(v.bookmarks)) out.bookmarks = v.bookmarks.filter((x): x is string => typeof x === "string").slice(0, 20000);
   if (Array.isArray(v.mistakes)) out.mistakes = v.mistakes.filter((x): x is string => typeof x === "string").slice(0, 300);
   if (isObj(v.days))
@@ -173,6 +283,12 @@ export function sanitizeSettings(v: unknown): Settings {
   if (["off", "stars", "rain", "sea", "forest", "fire", "voyage", "cafe"].includes(v.ambience as string)) s.ambience = v.ambience as Settings["ambience"];
   if (num(v.ambienceVolume, 0, 1)) s.ambienceVolume = v.ambienceVolume as number;
   if (typeof v.splash === "boolean") s.splash = v.splash;
+  if (v.examDate === "" || (typeof v.examDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v.examDate))) s.examDate = v.examDate;
+  if (num(v.dailyMinutes, 5, 240)) s.dailyMinutes = Math.round(v.dailyMinutes as number);
+  if (num(v.targetBand, 4, 9) && Number.isInteger((v.targetBand as number) * 2)) s.targetBand = v.targetBand as number;
+  if (typeof v.trackL === "boolean") s.trackL = v.trackL;
+  if (typeof v.trackP === "boolean") s.trackP = v.trackP;
+  if ((AI_MODELS as readonly string[]).includes(v.aiModel as string)) s.aiModel = v.aiModel as string;
   return s;
 }
 
@@ -296,6 +412,7 @@ function markDirty() {
 }
 
 export function importBackup(text: string): { ok: true; cards: number } | { ok: false; error: string } {
+  // Backups never carry the AI key; it stays in this browser only.
   let data: unknown;
   try {
     data = JSON.parse(text);

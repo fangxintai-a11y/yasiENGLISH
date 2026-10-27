@@ -8,6 +8,7 @@ import { Illustration } from "./Illustration";
 import { Speak } from "./Speak";
 import { shareWord } from "./share";
 import { openWord } from "../lib/router";
+import { Constellation, MnemonicBlock, TrackMeters, WhyTags } from "./Memory";
 
 export function Highlight({ text, word }: { text: string; word: string }) {
   const parts = splitHighlight(text, word);
@@ -89,11 +90,12 @@ export function EntryView({ entry, mode = "detail", eager = true }: { entry: Ent
             </div>
           )}
         </header>
+        {mode === "detail" && <WhyTags id={entry.id} />}
         {ref && (
           <p className="specimen">
             № {String(ref.order + 1).padStart(4, "0")}
             <i />
-            Word Atlas
+            Band Galaxy
           </p>
         )}
         <h2 className="headword" lang="en">
@@ -191,6 +193,10 @@ export function EntryView({ entry, mode = "detail", eager = true }: { entry: Ent
         )}
 
         {entry.note && <p className="usage-note">用法提醒：{entry.note}</p>}
+
+        {mode === "detail" && ref && <MnemonicBlock refw={ref} />}
+        {mode === "detail" && <Constellation id={entry.id} />}
+        {mode === "detail" && <TrackMeters id={entry.id} />}
 
         {mode === "detail" && card && (
           <p className="memory-note">

@@ -78,8 +78,16 @@ void main(){
   float tw = mix(1.0, 0.7 + 0.3 * sin(uTime * (1.0 + aSeed * 2.5) + aSeed * 50.0), uMotion);
   // Unlearned words are coloured stardust; learning brightens them, mastery makes them blaze.
   float size = 3.4 + aSeed * 1.6; float alpha = 0.78; vec3 col = mix(aColor, vec3(0.8, 0.84, 1.0), 0.28);
-  if (aState > 0.5) { size = 7.5; alpha = 1.0; col = mix(aColor, vec3(1.0, 0.85, 0.5), 0.35); }
-  if (aState > 1.5) { size = 10.0; alpha = 1.0; col = mix(aColor, vec3(1.0, 0.97, 0.9), 0.6); }
+  // Learned stars encode recall: 1..2 learning, 2..2.5 mastered. Fading memories dim to embers.
+  if (aState > 0.5 && aState < 2.5) {
+    bool mastered = aState >= 1.999;
+    float r = mastered ? clamp((aState - 2.0) * 2.04, 0.0, 1.0) : clamp(aState - 1.0, 0.0, 1.0);
+    float lit = smoothstep(0.6, 0.93, r);
+    size = (mastered ? 10.0 : 7.5) * mix(0.72, 1.0, lit);
+    alpha = mix(0.42, 1.0, lit);
+    col = mastered ? mix(aColor, vec3(1.0, 0.97, 0.9), 0.6) : mix(aColor, vec3(1.0, 0.85, 0.5), 0.35);
+    col = mix(vec3(0.86, 0.38, 0.26), col, lit);
+  }
   if (aState > 2.5) { size = 13.0; alpha = 1.0; col = vec3(1.0, 0.74, 0.34); }
   if (abs(float(gl_VertexID) - uHover) < 0.5) { size *= 2.4; alpha = 1.0; col = vec3(1.0); }
   gl_PointSize = max(1.2, size * uScale / clip.w) * (aState > 0.5 ? 1.0 : tw);
@@ -457,8 +465,9 @@ export class GalaxyEngine {
       const d = this.screen[i * 3 + 2];
       if (d <= 0) continue;
       const st = this.states[i];
-      const size = (st > 2.5 ? 7 : st > 1.5 ? 5 : st > 0.5 ? 3.5 : 1.3) * (i === this.hover ? 2 : 1) * Math.min(this.w, this.h) / 520 / d;
-      const a = (st > 0.5 ? 0.9 : 0.3 * (0.7 + 0.3 * Math.sin(t + i))) * intro;
+      const size = (st > 2.5 ? 7 : st >= 1.999 ? 5 : st > 0.5 ? 3.5 : 1.3) * (i === this.hover ? 2 : 1) * Math.min(this.w, this.h) / 520 / d;
+      const recall = st > 2.5 ? 1 : st >= 1.999 ? (st - 2) * 2.04 : st - 1;
+      const a = (st > 0.5 ? 0.35 + 0.55 * Math.max(0, Math.min(1, (recall - 0.6) / 0.33)) : 0.3 * (0.7 + 0.3 * Math.sin(t + i))) * intro;
       g.fillStyle = `rgba(${(c[i * 3] * 255) | 0},${(c[i * 3 + 1] * 255) | 0},${(c[i * 3 + 2] * 255) | 0},${a})`;
       g.fillRect(this.screen[i * 3] - size / 2, this.screen[i * 3 + 1] - size / 2, Math.max(1, size), Math.max(1, size));
     }

@@ -4,7 +4,7 @@ import { useAtlas } from "../atlas/context";
 import type { WordRef } from "../atlas/types";
 import { openWord } from "../lib/router";
 import { cue, playFile } from "../lib/sound";
-import { isMastered } from "../store/srs";
+import { isMastered, recallAt, type CardState } from "../store/srs";
 import { store, useStore } from "../store/store";
 import { Illustration } from "../ui/Illustration";
 import { detectQuality, GalaxyEngine } from "./engine";
@@ -26,14 +26,22 @@ export function useGalaxyLayout() {
 
 const reduced = () => typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-/** Brightness of every star from the learner's memory state. */
-function starStates(layout: GalaxyLayout, cards: Record<string, { st: number; s: number } | undefined>, highlight?: Set<string>) {
+/**
+ * Brightness of every star from the learner's memory right now: 1..2 while learning and
+ * 2..2.5 once mastered, scaled by the probability of recall, so forgetting is visible.
+ */
+function starStates(layout: GalaxyLayout, cards: Record<string, CardState | undefined>, highlight?: Set<string>) {
   const out = new Float32Array(layout.n);
+  const now = Date.now();
   layout.ids.forEach((id, i) => {
     if (highlight?.has(id)) out[i] = 3;
     else {
       const c = cards[id];
-      out[i] = c ? (isMastered(c as never) ? 2 : 1) : 0;
+      if (!c) out[i] = 0;
+      else {
+        const r = Math.max(0, Math.min(0.999, recallAt(c, now)));
+        out[i] = isMastered(c) ? 2 + r * 0.49 : 1 + r;
+      }
     }
   });
   return out;

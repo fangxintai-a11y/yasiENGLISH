@@ -1,198 +1,81 @@
-<div align="center">
+# 雅思星图 · Band Galaxy
 
-<a href="https://0xlei.tech/words/"><img src="docs/assets/cover-v2.jpg" alt="词光 Word Atlas — 一词一画，点亮雅思" width="100%"></a>
+**按雅思的考法记单词。** 一个词三条记忆曲线，从考试那天倒推每天的计划，答题自动评分，还能预测考试当天你记得多少个词。
 
-# 词光 · Word Atlas
+本项目在开源项目 [词光 Word Atlas](https://github.com/designfuchen/word-atlas)（7,298 个雅思词条，配插画和英美发音）的基础上，加了一层雅思专用的学习引擎，并整合了以下几份公开资料：
 
-**把单词变成画面，让复习有迹可循。**
+- [DictionaryByGPT4](https://github.com/Ceelog/DictionaryByGPT4)：词根和记忆辅助
+- 雅思王听力语料库：听力高频词
+- Academic Word List：写作学术词
+- FSRS：间隔重复算法
+- Claude API：AI 阅读和批改
 
-7,298 个雅思词条 · 原创插画 · 英美发音 · FSRS 间隔复习
+> 个人学习测试用途。第三方内容的来源和许可见 [`data/sources/README.md`](data/sources/README.md)；如涉及侵权，相应内容会移除。
 
-[**立即体验 ↗**](https://0xlei.tech/words/)　 /　 [48 秒介绍](docs/assets/launch.mp4)　 /　 [下载词库](data/)　 /　 [English](README.en.md)
+## 和普通背单词 app 的不同
 
-[![Code: MIT](https://img.shields.io/badge/Code-MIT-17283B?style=flat-square)](LICENSE)
-[![Dataset: CC BY 4.0](https://img.shields.io/badge/Dataset-CC_BY_4.0-AD5038?style=flat-square)](CONTENT_LICENSE.md)
-[![Follow on X](https://img.shields.io/badge/X-@yangleiocx3-17283B?style=flat-square&logo=x&logoColor=white)](https://x.com/yangleiocx3)
-
-<br>
-
-<a href="https://0xlei.tech/words/"><img src="https://0xlei.tech/words/beta/banner.png" alt="词光 iOS 首批内测：微信扫码加入内测群" width="100%"></a>
-
-**词光 iOS 正在开发，首批内测招募中。** 微信扫上图二维码进群；二维码过期或群满了，打开 [网站](https://0xlei.tech/words/) 点顶栏「内测」，加作者微信拉你进群。
-
-</div>
-
----
-
-词光是一款以插画和语境为核心的雅思背词应用。看画面理解词义，听发音建立联系，再用主动回忆和间隔复习巩固记忆。无需账号，学习进度保存在自己的设备上。
-
-> **版本说明**：这个仓库提供词光的开源基础版及配套数据集。在线网站独立迭代，功能与仓库可能不同；仓库里的代码和内容分别遵循下方的 MIT / CC BY 4.0 授权。
-
-[产品预览](#产品预览) · [学习方式](#学习方式) · [本地运行](#本地运行) · [开放数据](#开放数据) · [参与贡献](#参与贡献)
-
-## 产品预览
-
-### 一本可以听、可以练的单词图鉴
-
-<img src="docs/assets/atlas-desktop.jpg" alt="开源版桌面图鉴：插画词卡和词汇浏览" width="100%">
-
-<table>
-<tr>
-<td width="50%"><img src="docs/assets/today-mobile.jpg" alt="手机端今日学习页" width="100%"></td>
-<td width="50%"><img src="docs/assets/word-mobile.jpg" alt="手机端词卡，展示插画、英美发音与例句" width="100%"></td>
-</tr>
-<tr><td align="center">每日计划，把注意力放在今天</td><td align="center">插画、词义、发音，在一张词卡里</td></tr>
-</table>
-
-<sub>以上为仓库开源版的实际界面。页首为品牌概念插画。</sub>
-
-### 学过的词，汇成自己的星图
-
-<img src="docs/assets/galaxy.jpg" alt="词汇星图界面：按话题组织单词，展示学习进度" width="100%">
-
-19 个话题组成词汇星图。拖动旋转、滚动缩放，点击星星打开词卡；学习状态用不同亮度呈现。采用 WebGL2 渲染，不支持的设备提供降级显示。
-
-<details>
-<summary><b>看 48 秒宣传片</b></summary>
-
-<a href="docs/assets/launch.mp4"><img src="docs/assets/launch-preview.webp" alt="点击观看词光宣传片" width="100%"></a>
-
-[播放完整视频（含声音）](docs/assets/launch.mp4)
-
-</details>
-
-## 学习方式
-
-| 环节 | 你会做什么 |
-| :--- | :--- |
-| **看见** | 每个词配一幅插画、中英释义、两条原创例句，以及搭配、词族和用法提示。 |
-| **听见** | 切换英音、美音，听日常例句朗读；部分词条另含第二条例句录音。 |
-| **想起** | 看义选词、看图补句、听音辨词、拼写，逐步练习主动回忆。 |
-| **复习** | FSRS 根据学习记录安排复习，目标记忆率可调。只有首次作答计入正确率。 |
-| **积累** | 星图展示学习进度；打字练习独立统计；支持导出和恢复本地进度。 |
-
-**本地优先。** 无需注册；看过的词条与媒体可缓存供离线使用。换设备前，请先导出进度备份。
-
-<details>
-<summary><b>听发音、例句与环境声样本</b></summary>
-
-
-
-拿 *abandon* 举例，点开就能听（在线播放）：
-
-| | |
-|---|---|
-| 🇬🇧 英音 | [abandon /əˈbændən/](https://0xlei.tech/words/atlas/audio/uk/abandon.mp3) |
-| 🇺🇸 美音 | [abandon /əˈbændən/](https://0xlei.tech/words/atlas/audio/us/abandon.mp3) |
-| 📖 例句朗读 | [We had to abandon our car in the snow.](https://0xlei.tech/words/atlas/audio/ex/abandon.mp3) |
-
-全部 7,298 个词都有英音、美音和例句朗读，还有 1,011 个重点词的第二条例句也配了朗读。
-
-### 环境声与交互声音
-
-| | |
-|---|---|
-| 🎙 **开屏配音** | [「欢迎打开雅思大门」](https://0xlei.tech/words/sfx/splash-voice.mp3)：星尘汇聚成“词光”，大门打开 |
-| 🌌 **星图配音** | [「这是你的词汇星图。每学会一个词，就点亮一颗星。」](https://0xlei.tech/words/sfx/voice-galaxy-hello.mp3) |
-| 🎵 **星空音乐** | [一段可无缝循环的原创配乐](https://0xlei.tech/words/sfx/amb-stars.mp3)，默认陪你背词 |
-| 🌧 **6 段环境声** | [雨天图书馆](https://0xlei.tech/words/sfx/amb-rain.mp3) · [清晨海岸](https://0xlei.tech/words/sfx/amb-sea.mp3) · [林间早晨](https://0xlei.tech/words/sfx/amb-forest.mp3) · [夜晚壁炉](https://0xlei.tech/words/sfx/amb-fire.mp3) · [远航船舱](https://0xlei.tech/words/sfx/amb-voyage.mp3) · [安静咖啡馆](https://0xlei.tech/words/sfx/amb-cafe.mp3) |
-| ✨ **界面音效** | 答对、答错、翻卡、打字、连胜、点亮星星……每个操作都有自己的声音；读单词时背景音会自动压低 |
-
-全部素材都在仓库里：插画在 `public/atlas/img/`，录音在 `public/atlas/audio/`，这两类按 CC BY 4.0 开放；界面声音和配乐在 `public/sfx/`，随应用一起提供。
-
-
-</details>
+| | 做法 | 为什么记得更快、更牢 |
+|---|---|---|
+| **一个词，三种记忆** | 阅读识别（3 秒内认出）、听力拼写（听写，拼错不得分）、写作产出（看中文和语境写出单词），三张卡各走一条 FSRS 曲线。识别稳定后，再解锁听写卡（王陆语料库中的 1,672 个词）和产出卡（AWL 中的 833 个词）。 | 认识、会拼、会用是三种不同的记忆。只练考试会考的那一面，不浪费时间。 |
+| **考试日倒推引擎** | 根据考试日期、目标分数和每天的分钟数，算出每天学多少新词。考前 7 天只复习；考前 14 天把目标记忆率升到 95%。首页显示「考试当天预计记得 X / Y 个目标词」，以及「如果今天起不复习，只剩 Z 个」。 | 每张卡在任意时刻的回忆概率都由 FSRS 算出来，所以预测是计算结果，不是估计。 |
+| **客观评分** | 没有「认识 / 模糊 / 忘记」按钮。答错记为重来；答对但超时、用了提示或重播记为困难；其余记为良好。每题都显示「1.8 秒 · 记为良好」。 | 自评总是偏高。在考场上，要想 5 秒才认出来的词，等于不认识。 |
+| **永不爆仓** | 复习按「对考试的价值 × 遗忘风险」排序，每天只安排做得完的量。复习积压时暂停新词，其余复习自动平摊到之后几天。 | 背单词 app 最常见的弃坑原因是复习堆积太多，这里直接避免了。 |
+| **会变暗的星图** | 每颗星的亮度等于此刻能想起这个词的概率，快忘的词会暗成余烬。首页会显示「今晚 N 颗星会变暗 → 先救它们」。 | 遗忘曲线变成看得见的东西，复习就有了动力。 |
+| **同义替换星座** | 稳定的词会以替换题出现（「原文被改写了，哪个词能替换它？」），词条页会画出这个词的同义词星座。 | 雅思阅读和听力的核心考点就是同义替换。 |
+| **拼写诊断** | 听写拼错时，会指出错误类型：双写字母、-ance/-ence、不发音字母、ie/ei 等；并按你最常错的类型出专项听写。英式和美式拼写都算对。 | 针对性地纠正你自己的错误模式。 |
+| **3 分钟摸底** | 从 B1 开始自适应出题，每级 6 题，6 秒内答对才算认识。已经掌握的级别不再从头教，只在未来几周内分散抽查。 | 不在已经会的词上浪费时间。 |
+| **睡前学，晨间回测** | 晚上推荐学新词；第二天早上首页会出现「晨间回测：昨晚的 N 个新词」。 | 睡眠有助于巩固刚学的内容。 |
+| **AI 错词阅读** | Claude 用你的错词写一篇雅思风格的学术短文，配 5 道 True / False / Not Given 题，可以朗读、看中文翻译，点击目标词查看词条。 | 错词在真实题型里再出现一次。 |
+| **AI 造句批改** | 用学术词写一句话，按考官标准评 0–3 分，给出改正版和 7 分版本。分数会计入这个词的「写作产出」记忆。 | 主动用出来，是记牢一个词最强的证据。 |
+| **文章取词** | 粘贴任意英文（真题或外刊），列出你没学过的词和快忘的词，一键排进新词队列。 | 学的就是你正在读的内容。 |
 
 ## 本地运行
 
-需要 **Node.js 20+** 和 npm。仓库含完整图片与录音，首次下载可能较久。
+需要 Node.js 20 以上。仓库包含完整的插画和音频（约 730 MB）。
 
 ```bash
-git clone --depth 1 https://github.com/designfuchen/word-atlas.git
-cd word-atlas
+git clone https://github.com/fangxintai-a11y/yasiENGLISH.git
+cd yasiENGLISH
 npm ci
-npm run dev
+npm run dev        # http://localhost:5188
 ```
-
-打开 **http://localhost:5188**。
 
 ```bash
-npm test             # 单元测试
-npm run check:atlas  # 词库结构与媒体校验
-npm run build        # 构建到 dist/
+npm test             # 单元测试：引擎、摸底、拼写诊断、文章取词、FSRS
+npm run build        # 生产构建到 dist/（PWA，可添加到手机桌面）
+npm run build:ielts  # 用 data/sources 重新生成 public/ielts（雅思标签、助记）
 ```
 
-子路径部署：`ATLAS_BASE=/words/ npm run build`。完整说明见 [部署文档](docs/deployment.md)。
+**AI 功能**：在「我的 → AI 助教」里填入你自己的 Claude API Key。Key 只保存在当前浏览器，不会写进导出的备份；请求从浏览器直接发往 `api.anthropic.com`，费用记在你的账户上。默认模型是 Claude Opus 5.5，也可以切换到 Sonnet 5.5 或 Haiku 5.5。
 
-**技术栈**：React 19 · TypeScript · Vite · ts-fsrs · WebGL2
+## 代码结构
 
-## 开放数据
+在词光原有结构的基础上，新增或改动的部分：
 
-不仅可以直接使用应用，也可以把词库用于自己的学习工具、Anki 牌组或研究项目。
-
-| 资源 | 开源版内容 | 入口 |
-| :--- | :--- | :--- |
-| 词条 | **7,298** 条，CEFR A1–C2、19 个话题 | [JSON](data/word-atlas.json) · [CSV](data/word-atlas.csv) |
-| 例句 | **14,596** 条，日常与雅思语境，附中文翻译 | [字段说明](docs/dataset.md) |
-| 插画 | **7,298** 幅，512 px WebP，另有缩略图 | [图片目录](public/atlas/img/) |
-| 录音 | **22,905** 段，英音、美音与例句朗读 | [音频目录](public/atlas/audio/) |
-
-```python
-import json
-from pathlib import Path
-
-words = json.loads(Path("data/word-atlas.json").read_text(encoding="utf-8"))
-b2_environment = [w for w in words if w["cefr"] == "B2" and w["topic"] == "environment"]
+```
+src/ielts/
+  exam.ts          考试日倒推引擎：目标词、阶段、负荷模型、考试当天预测、每日优先级
+  placement.ts     自适应摸底和已会词的抽查排期
+  spelling.ts      拼写诊断（Damerau 对齐 + 错误分类）、英式 / 美式变体
+  textimport.ts    文章取词与词形还原
+  tags.ts          加载雅思标签和助记数据
+  ai.ts / aikey.ts Claude 阅读生成和造句批改（AI SDK 按需加载）
+src/store/session.ts   三轨卡片、新题型（同义替换、听写、产出）、客观评分
+src/pages/Ielts.tsx    雅思专项：考试计划、拼写诊断、同义替换、文章取词、AI 阅读、AI 造句
+src/pages/Today.tsx    考试倒计时与预测、救星、三种记忆、晨间回测
+src/pages/Onboarding.tsx  考试设定和 3 分钟摸底
+src/galaxy/            星图亮度 = 回忆概率
+scripts/ielts/build_ielts.py  生成 public/ielts/*
+data/sources/          第三方原始数据
 ```
 
-<details>
-<summary><b>查看一条词条的数据结构</b></summary>
+学习进度只存在浏览器的 localStorage 里，可以在「我的」里导出和导入备份。
 
-```json
-{
-  "id": "principle",
-  "w": "principle",
-  "uk": "/ˈprɪnsəpəl/",
-  "us": "/ˈprɪnsəpəl/",
-  "senses": [{ "pos": "n.", "zh": "原则；行为准则", "en": "A belief or rule that guides decisions and behaviour." }],
-  "ex": [
-    { "en": "I refused the extra money as a matter of principle.", "zh": "出于原则，我拒绝了那笔额外的钱。" },
-    { "en": "The principle of equal opportunity should guide policies designed to improve access to higher education.", "zh": "…" }
-  ],
-  "col": ["in principle｜原则上", "basic principle｜基本原则"],
-  "fam": ["principled (adj.)"],
-  "tip": "principle 是原则；principal 是校长、主要的。",
-  "cefr": "B2",
-  "topic": "thinking"
-}
-```
+## 许可
 
-</details>
+- 代码：MIT（沿用词光，见 [LICENSE](LICENSE)）
+- 词光的词库、插画和录音：CC BY 4.0（Word Atlas contributors），见 [CONTENT_LICENSE.md](CONTENT_LICENSE.md)
+- `public/ielts/mnemo`：来自 DictionaryByGPT4，CC BY-SA 4.0
+- 雅思王听力语料库、Academic Word List：版权归原作者，这里只用于个人学习测试，详见 [`data/sources/README.md`](data/sources/README.md)
 
-### 内容来源与局限
-
-释义、例句、插画和录音为本项目生成：文字与插画使用生成式 AI，语音使用 ElevenLabs。内容经过自动结构与一致性校验，**尚未逐条人工审校**，可能出现释义、例句、插画或发音错误。它不是官方雅思词表，也不承诺提分。
-
-[内容生成流程](docs/pipeline.md) · [记忆模型](docs/learning-model.md) · [生成脚本](scripts/atlas/)
-
-## 参与贡献
-
-发现问题时，请附上**词条 ID、复现步骤和预期结果**。内容纠错如有词典或其他可靠依据，也请一并提供。
-
-- [报告问题](https://github.com/designfuchen/word-atlas/issues/new/choose)：词条纠错、界面问题或使用建议。
-- [贡献指南](CONTRIBUTING.md)：数据同步、代码规范和提交前检查。
-- [安全政策](SECURITY.md)：安全问题的反馈方式。
-
-## 授权
-
-| 范围 | 许可 |
-| :--- | :--- |
-| 应用代码 | [MIT](LICENSE) |
-| 词库文本、插画与词条录音 | [CC BY 4.0](CONTENT_LICENSE.md)，署名 Word Atlas contributors（词光） |
-| 第三方依赖与字体 | 遵循各自许可，详见相应文件 |
-
----
-
-由 [@designfuchen](https://github.com/designfuchen) 制作。产品进展与制作过程见 [X · @yangleiocx3](https://x.com/yangleiocx3)。
-
-如果词光对你有用，欢迎 Star，或把它分享给正在学英语的朋友。
+词光原项目的说明见 [docs/word-atlas.md](docs/word-atlas.md)。

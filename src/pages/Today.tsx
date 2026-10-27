@@ -1,9 +1,11 @@
-import { ArrowRight, Flame, Keyboard, Sparkles } from "lucide-react";
-import { useEffect, useMemo } from "react";
+import { ArrowRight, CalendarClock, Flame, Keyboard, Sparkles, Sunrise } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { prefetch, useAtlas, useEntry } from "../atlas/context";
 import { go, openWord } from "../lib/router";
 import { cue } from "../lib/sound";
 import { hashSeed } from "../lib/text";
+import { fadingTonight, lastNightWords, parseKey, skillLevels, type ExamPlan, type Phase } from "../ielts/exam";
+import { useTags } from "../ielts/tags";
 import { buildSession, masteredCount, todayPlan } from "../store/session";
 import { isMastered } from "../store/srs";
 import { dayKey, store, useStore } from "../store/store";
@@ -11,6 +13,8 @@ import { Galaxy } from "../galaxy/Galaxy";
 import { Highlight, Pronounce } from "../ui/EntryView";
 import { Illustration } from "../ui/Illustration";
 import { Ring } from "../ui/Ring";
+import { ExamFields } from "../ui/ExamSetup";
+import { Sheet } from "../ui/Sheet";
 
 const BRAND = `${import.meta.env.BASE_URL}brand`;
 
@@ -35,11 +39,13 @@ export function streakOf(days: Record<string, { r: number }>) {
 
 export function Today() {
   const atlas = useAtlas();
+  const tags = useTags();
   const progress = useStore((s) => s.progress);
   const settings = useStore((s) => s.settings);
-  const plan = useMemo(() => todayPlan(atlas, progress, settings), [atlas, progress, settings]);
+  const [setup, setSetup] = useState(false);
+  const plan = useMemo(() => todayPlan(atlas, progress, settings), [atlas, progress, settings, tags]); // eslint-disable-line react-hooks/exhaustive-deps
   // Warm the first cards of today's journey so the session opens instantly.
-  const firstIds = [...plan.due.slice(0, 4), ...plan.fresh.slice(0, 6)].join(",");
+  const firstIds = [...plan.due.slice(0, 4).map((k) => parseKey(k).id), ...plan.fresh.slice(0, 6)].join(",");
   useEffect(() => {
     const ids = firstIds.split(",").filter(Boolean);
     const t = window.setTimeout(() => void prefetch(atlas, ids), 800);
@@ -48,14 +54,21 @@ export function Today() {
   const now = new Date();
   const today = progress.days[dayKey()];
   const streak = streakOf(progress.days);
-  const active = progress.session && !progress.session.finished ? progress.session : null;
-  const total = plan.due.length + plan.fresh.length;
-  const goal = settings.dailyNew + Math.min(plan.due.length, 60);
+  const active = progress.session && !progress.session.finished && !progress.session.practice ? progress.session : null;
+  const total = plan.due.length + plan.fresh.length + plan.unlock.length;
+  const goal = plan.fresh.length + (today?.n ?? 0) + Math.min(plan.due.length, 60);
   const doneToday = today?.r ?? 0;
+  const byTrack = (t: string) => plan.due.filter((k) => parseKey(k).track === t).length;
+  const skillDue = byTrack("l") + byTrack("p") + plan.unlock.length;
 
-  const start = (opts?: { reviewOnly?: boolean; extra?: number }) => {
+  const start = (opts?: { reviewOnly?: boolean; extra?: number; ids?: string[]; label?: string }) => {
     if (!active) {
-      const s = buildSession(atlas, progress, opts?.extra ? { ...settings, dailyNew: (today?.n ?? 0) + opts.extra } : settings, { reviewOnly: opts?.reviewOnly });
+      const s = buildSession(atlas, progress, settings, {
+        extraNew: opts?.extra,
+        reviewOnly: opts?.reviewOnly,
+        ids: opts?.ids,
+        label: opts?.label,
+      });
       if (!s.steps.length) return;
       store.progress((p) => ({ ...p, session: s }));
     }
@@ -73,6 +86,7 @@ export function Today() {
   const learned = Object.keys(progress.cards).length;
   const mastered = masteredCount(progress);
   const teaser = (active ? active.newIds : plan.fresh).slice(0, 5).map((id) => atlas.byId.get(id)!).filter(Boolean);
+  const evening = now.getHours() >= 19;
 
   return (
     <div className="page today">
@@ -80,8 +94,10 @@ export function Today() {
         <p className="eyebrow">
           {now.getMonth() + 1}月{now.getDate()}日 · 星期{"日一二三四五六"[now.getDay()]}
         </p>
-        <h1 className="display">{greeting(now.getHours())}，探索者。</h1>
+        <h1 className="display">{greeting(now.getHours())}，考鸭。</h1>
       </header>
+
+      <ExamHero plan={plan.plan} onSetup={() => setSetup(true)} />
 
       <section className={`journey ${total === 0 && !active ? "is-clear" : ""}`}>
         <img className="journey-art" src={`${BRAND}/hero.webp`} alt="" fetchPriority="high" />
@@ -96,7 +112,7 @@ export function Today() {
             </>
           ) : total > 0 ? (
             <>
-              <p className="eyebrow eyebrow-light">今日旅程</p>
+              <p className="eyebrow eyebrow-light">{plan.plan.phase === "sprint" ? "冲刺期 · 今日只复习" : "今日旅程"}</p>
               <h2>
                 {plan.due.length > 0 && (
                   <>
@@ -110,7 +126,16 @@ export function Today() {
                   </>
                 )}
               </h2>
-              <p className="journey-lede">约 {plan.minutes} 分钟。先温故，再知新。</p>
+              <p className="journey-lede">
+                约 {plan.minutes} 分钟
+                {skillDue > 0 && ` · 含听写 / 产出 ${skillDue} 张`}
+                {plan.unlock.length > 0 && `（新解锁 ${plan.unlock.length}）`}。
+                {plan.backlog
+                  ? ` 积压了 ${plan.deferred} 个低优先级复习：今天先救最要紧的，其余平摊到之后几天，暂停新词。`
+                  : evening && plan.fresh.length
+                    ? " 睡前学新词，明早回测，睡眠会帮你巩固。"
+                    : " 先温故，再知新。"}
+              </p>
             </>
           ) : (
             <>
@@ -133,7 +158,7 @@ export function Today() {
                 {active ? "继续旅程" : "开始今天的旅程"} <ArrowRight size={20} />
               </button>
             ) : (
-              <button className="btn btn-primary btn-xl" onClick={() => start({ extra: 5 })}>
+              <button className="btn btn-primary btn-xl" onClick={() => start({ extra: 5 })} disabled={plan.plan.phase === "sprint"}>
                 再认识 5 个新词 <Sparkles size={18} />
               </button>
             )}
@@ -143,8 +168,8 @@ export function Today() {
               </button>
             )}
             {!active && total === 0 && (
-              <button className="btn btn-glass" onClick={() => go({ page: "practice" })}>
-                <Keyboard size={18} /> 打字练习
+              <button className="btn btn-glass" onClick={() => go({ page: "ielts" })}>
+                <Keyboard size={18} /> 雅思专项
               </button>
             )}
           </div>
@@ -152,6 +177,9 @@ export function Today() {
       </section>
 
       <div className="today-grid">
+        <MorningCheck onStart={(ids) => start({ ids, label: "晨间回测" })} disabled={!!active} />
+        <FadingStars onStart={(ids) => start({ ids, label: "救星行动" })} disabled={!!active} />
+        <SkillPanel />
         <WordOfDay />
 
         <section className="panel streak-panel">
@@ -195,7 +223,179 @@ export function Today() {
         <GalaxyPanel learned={learned} total={atlas.count} />
         <Topics />
       </div>
+
+      <Sheet open={setup} onClose={() => setSetup(false)} label="考试计划">
+        <div className="setup-sheet">
+          <p className="eyebrow">考试计划</p>
+          <h2 className="display">从考试那天倒推。</h2>
+          <ExamFields />
+          <button className="btn btn-primary btn-xl" onClick={() => setSetup(false)}>
+            好的 <ArrowRight size={20} />
+          </button>
+        </div>
+      </Sheet>
     </div>
+  );
+}
+
+const PHASE_NOTE: Record<Phase, string> = {
+  free: "",
+  learn: "学习期：每天新词 + 复习，考前 7 天进入冲刺。",
+  sprint: "冲刺期：不再学新词，复习加密到 95% 记忆率，让记忆在考试当天达到峰值。",
+  after: "考试已经过去，愿你考出理想分数。设定下一次考试，计划会重新倒推。",
+};
+
+/** Countdown and the forecast: how many target words you will still recall on exam day. */
+function ExamHero({ plan, onSetup }: { plan: ExamPlan; onSetup: () => void }) {
+  const minutes = useStore((s) => s.settings.dailyMinutes);
+  const band = useStore((s) => s.settings.targetBand);
+  if (plan.days === null)
+    return (
+      <section className="exam-hero is-empty">
+        <CalendarClock size={26} strokeWidth={1.6} />
+        <div>
+          <b>还没设定考试日期</b>
+          <p className="muted">设定后，计划会从考试那天倒推每天学多少，并算出考试当天你能记住几个词。</p>
+        </div>
+        <button className="btn btn-primary" onClick={onSetup}>
+          设定考试 <ArrowRight size={18} />
+        </button>
+      </section>
+    );
+  const pct = (n: number) => `${Math.max(0, Math.min(100, (n / Math.max(1, plan.target)) * 100))}%`;
+  const short = plan.newPerDay < plan.need;
+  return (
+    <section className="exam-hero">
+      <button className="exam-count" onClick={onSetup} aria-label="修改考试计划">
+        <small>距雅思</small>
+        <b>{Math.max(0, plan.days)}</b>
+        <small>天 · 目标 {band}</small>
+      </button>
+      <div className="exam-forecast">
+        <p className="eyebrow">按计划走，考试当天预计记得</p>
+        <p className="forecast-num">
+          <b>{plan.forecast.toLocaleString()}</b>
+          <span> / {plan.target.toLocaleString()} 个目标词</span>
+        </p>
+        <div className="forecast-bar" role="img" aria-label={`预计 ${plan.forecast}，若停止复习 ${plan.ifStop}`}>
+          <span style={{ width: pct(plan.forecast) }} />
+          <em style={{ width: pct(plan.ifStop) }} />
+        </div>
+        <p className="forecast-legend">
+          <i className="lg-plan" /> 按计划 <i className="lg-stop" /> 如果今天起不再复习：只剩 <b>{plan.ifStop.toLocaleString()}</b>
+        </p>
+        <p className="muted">
+          {plan.phase === "learn" && `每天 ${plan.newPerDay} 个新词 · `}
+          {PHASE_NOTE[plan.phase]}
+        </p>
+        {short && plan.phase === "learn" && (
+          <p className="warn-text">
+            按每天 {minutes} 分钟，考前学不完全部 {plan.remaining.toLocaleString()} 个目标词；每天约 {plan.minutesNeeded} 分钟才够。{" "}
+            <button className="link" onClick={onSetup}>
+              调整
+            </button>
+          </p>
+        )}
+      </div>
+    </section>
+  );
+}
+
+/** Memory curves made visible: these stars dim below the target tonight. */
+function FadingStars({ onStart, disabled }: { onStart: (ids: string[]) => void; disabled: boolean }) {
+  const progress = useStore((s) => s.progress);
+  const fading = useMemo(() => fadingTonight(progress, Date.now()), [progress]);
+  const sample = fading.slice(0, 18);
+  if (!Object.keys(progress.cards).length) return null;
+  return (
+    <section className={`panel fading-panel ${fading.length ? "" : "is-calm"}`}>
+      <div className="fading-sky" aria-hidden="true">
+        {sample.map((id, i) => (
+          <i key={id} style={{ "--i": i, "--x": `${(hashSeed(id) % 90) + 5}%`, "--y": `${(hashSeed(id + "y") % 70) + 10}%` } as React.CSSProperties} />
+        ))}
+      </div>
+      <h3 className="eyebrow">遗忘曲线 · 今晚</h3>
+      {fading.length ? (
+        <>
+          <p className="fading-num">
+            <b>{fading.length}</b> 颗星今晚会变暗
+          </p>
+          <p className="muted">它们的记忆率正掉到 {Math.round(store.get().settings.retention * 100)}% 以下。现在复习一次，收益最大。</p>
+          <button className="btn btn-terra" onClick={() => onStart(fading.slice(0, 60))} disabled={disabled}>
+            先救它们 <ArrowRight size={18} />
+          </button>
+        </>
+      ) : (
+        <>
+          <p className="fading-num">所有星都亮着</p>
+          <p className="muted">今晚没有词会掉到目标记忆率以下。</p>
+        </>
+      )}
+    </section>
+  );
+}
+
+/** Three memories per word: reading, listening, writing. */
+function SkillPanel() {
+  const atlas = useAtlas();
+  const tags = useTags();
+  const progress = useStore((s) => s.progress);
+  const settings = useStore((s) => s.settings);
+  const lv = useMemo(() => skillLevels(atlas, progress, settings, tags, Date.now()), [atlas, progress, settings, tags]);
+  const rows = [
+    ["阅读识别", "3 秒内认出目标词", lv.reading, "r"],
+    ["听力拼写", "王陆语料库词，听到能拼对", lv.listening, "l"],
+    ["写作产出", "学术词表 AWL，想到能写出", lv.writing, "p"],
+  ] as const;
+  return (
+    <section className="panel skill-panel">
+      <div className="panel-head">
+        <h3 className="eyebrow">一个词，三种记忆</h3>
+        <button className="link" onClick={() => go({ page: "ielts" })}>
+          专项练习
+        </button>
+      </div>
+      <ul className="skill-bars">
+        {rows.map(([name, desc, v, t]) => (
+          <li key={name} className={`skill-${t}`}>
+            <span>
+              <b>{name}</b>
+              <small>
+                {desc} · {v.total.toLocaleString()} 词
+              </small>
+            </span>
+            <i>
+              <em style={{ width: `${v.value * 100}%` }} />
+            </i>
+            <strong>{Math.round(v.value * 100)}%</strong>
+          </li>
+        ))}
+      </ul>
+      <p className="muted">百分比 = 这一组词此刻能被想起的平均概率。认识 ≠ 会拼 ≠ 会用，三条记忆曲线分开排程。</p>
+    </section>
+  );
+}
+
+/** Sleep consolidates new words: test last night's words first thing in the morning. */
+function MorningCheck({ onStart, disabled }: { onStart: (ids: string[]) => void; disabled: boolean }) {
+  const progress = useStore((s) => s.progress);
+  const now = new Date();
+  const ids = useMemo(() => lastNightWords(progress, Date.now()), [progress]);
+  if (now.getHours() < 5 || now.getHours() >= 13 || ids.length < 3) return null;
+  return (
+    <section className="panel morning-panel">
+      <Sunrise size={26} strokeWidth={1.6} />
+      <div>
+        <h3 className="eyebrow">晨间回测</h3>
+        <p>
+          昨晚的 <b>{ids.length}</b> 个新词，睡了一觉还记得吗？
+        </p>
+        <p className="muted">睡眠会巩固睡前学的内容。醒来先测一遍，记得牢的会更牢。</p>
+      </div>
+      <button className="btn btn-primary" onClick={() => onStart(ids)} disabled={disabled}>
+        测一测
+      </button>
+    </section>
   );
 }
 
