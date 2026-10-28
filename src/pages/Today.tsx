@@ -12,6 +12,7 @@ import { dayKey, store, useStore } from "../store/store";
 import { Galaxy } from "../galaxy/Galaxy";
 import { Highlight, Pronounce } from "../ui/EntryView";
 import { Illustration } from "../ui/Illustration";
+import { OfflineNudge } from "../ui/OfflineNudge";
 import { Ring } from "../ui/Ring";
 import { ExamFields } from "../ui/ExamSetup";
 import { Sheet } from "../ui/Sheet";
@@ -98,6 +99,8 @@ export function Today() {
       </header>
 
       <ExamHero plan={plan.plan} onSetup={() => setSetup(true)} />
+
+      <OfflineNudge />
 
       <section className={`journey ${total === 0 && !active ? "is-clear" : ""}`}>
         <img className="journey-art" src={`${BRAND}/hero.webp`} alt="" fetchPriority="high" />

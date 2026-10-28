@@ -1280,3 +1280,205 @@ input[type="date"],
   line-height: 1.6;
   color: var(--ink-2);
 }
+
+/* ---------- offline pack (我的 · 离线包, Today nudge) ---------- */
+
+.pack-status {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-2);
+  background: var(--paper-2);
+  white-space: nowrap;
+}
+.pack-status.is-run {
+  color: var(--sky);
+  background: var(--sky-soft);
+}
+.pack-status.is-ok {
+  color: var(--sage-ink);
+  background: var(--sage-soft);
+}
+.pack-status.is-warn {
+  color: var(--ochre);
+  background: var(--ochre-soft);
+}
+.pack-status.is-bad {
+  color: var(--terra-ink);
+  background: var(--terra-soft);
+}
+.pack-groups {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+}
+.pack-groups li {
+  border-top: 1px solid var(--line);
+}
+.pack-groups label {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+  cursor: pointer;
+}
+.pack-groups label.is-required {
+  cursor: default;
+}
+.pack-groups input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--terra);
+}
+.pack-groups span {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+.pack-groups b {
+  font-weight: 600;
+}
+.pack-groups small {
+  color: var(--ink-3);
+  font-size: 12.5px;
+}
+.pack-groups em {
+  font: 600 14px var(--mono);
+  font-style: normal;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+.pack-total {
+  margin: 0;
+  padding: 12px 0 0;
+  border-top: 1px solid var(--line);
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.pack-total b {
+  font: 700 24px var(--serif);
+  font-variant-numeric: tabular-nums;
+}
+.pack-total small,
+.pack-space {
+  color: var(--ink-3);
+  font-size: 12.5px;
+}
+.pack-space {
+  margin: 8px 0 0;
+}
+.pack-progress {
+  margin-top: 16px;
+  display: grid;
+  gap: 8px;
+}
+.pack-bar {
+  position: relative;
+  height: 10px;
+  border-radius: 10px;
+  background: var(--paper-3);
+  overflow: hidden;
+}
+.pack-bar span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: inherit;
+  background: var(--sky);
+  transition: width 0.3s linear;
+}
+.pack-progress p {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 14px;
+  font-size: 12.5px;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+.pack-progress b {
+  color: var(--ink);
+  font-size: 13px;
+}
+.pack-warn {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: var(--r);
+  background: var(--terra-soft);
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+}
+.pack-warn p {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--terra-ink);
+}
+.pack-failed {
+  margin-top: 14px;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+.pack-failed summary {
+  cursor: pointer;
+  color: var(--terra-ink);
+  font-weight: 600;
+}
+.pack-failed ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 2px;
+  font: 12px var(--mono);
+  word-break: break-all;
+}
+
+.pack-nudge {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: 8px 14px;
+  margin-bottom: 16px;
+  padding: 12px 12px 12px 18px;
+  border-radius: var(--r-lg);
+  background: linear-gradient(135deg, color-mix(in oklab, var(--sky-soft) 80%, var(--card)), var(--card));
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-sm);
+}
+.pack-nudge > svg {
+  color: var(--sky);
+}
+.pack-nudge p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--ink-2);
+}
+.pack-nudge b {
+  color: var(--ink);
+}
+.pack-nudge .btn {
+  height: 38px;
+  padding: 0 16px;
+  font-size: 14px;
+}
+@media (max-width: 520px) {
+  .pack-nudge {
+    grid-template-columns: auto 1fr auto;
+  }
+  .pack-nudge .btn {
+    grid-column: 2 / 4;
+    justify-self: start;
+    grid-row: 2;
+  }
+  .pack-nudge .icon-btn {
+    grid-row: 1;
+    grid-column: 3;
+  }
+}

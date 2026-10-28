@@ -6,6 +6,7 @@ import { allCards } from "../ielts/exam";
 import { isMastered } from "../store/srs";
 import { AI_MODELS, dayKey, exportBackup, importBackup, resetProgress, store, useStore, type Settings } from "../store/store";
 import { ExamFields } from "../ui/ExamSetup";
+import { OfflinePanel } from "../ui/OfflinePanel";
 import { toast } from "../ui/Toast";
 import { streakOf } from "./Today";
 
@@ -198,6 +199,8 @@ export function Me({ privateAvailable }: { privateAvailable: boolean }) {
             </Field>
           )}
         </section>
+
+        <OfflinePanel />
 
         <section className="panel">
           <h3 className="eyebrow">数据</h3>
