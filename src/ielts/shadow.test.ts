@@ -64,3 +64,10 @@ test("a sentence practised today is not picked again; a due one is", () => {
   // a's IELTS sentence is resting, so its everyday one comes up; c's due sentence comes back.
   assert.deepEqual(picked, [{ id: "a", i: 0 }, { id: "c", i: 0 }, { id: "b", i: 1 }]);
 });
+
+test("words just studied come first when a round is started from a session", () => {
+  const words = ["a", "b", "c", "d"].map((id) => ({ id, media: 24 }));
+  const cards = { a: { ...review(undefined, Rating.Good, now), last: now } };
+  const picked = pickSentences(words, cards, emptyShadow(), now, 3, 0, ["d", "c"]);
+  assert.deepEqual(picked, [{ id: "d", i: 1 }, { id: "c", i: 1 }, { id: "a", i: 1 }]);
+});

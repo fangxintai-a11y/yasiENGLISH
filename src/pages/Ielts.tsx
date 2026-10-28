@@ -1,4 +1,4 @@
-import { ArrowRight, BookOpenText, CalendarClock, Headphones, PenLine, Sparkles, Swords, Waypoints, Wand2 } from "lucide-react";
+import { ArrowRight, BookOpenText, CalendarClock, Headphones, PenLine, Sparkles, Swords, Waypoints, Wand2, Zap } from "lucide-react";
 import { useMemo } from "react";
 import { useAtlas } from "../atlas/context";
 import { allCards, examPlan, parseKey, SPRINT_DAYS } from "../ielts/exam";
@@ -8,6 +8,7 @@ import { store, useStore, type Step } from "../store/store";
 import { ExamFields } from "../ui/ExamSetup";
 import { toast } from "../ui/Toast";
 import { ConfuseTab } from "./ielts/ConfuseTab";
+import { FlashTab } from "./ielts/FlashTab";
 import { ImportTab } from "./ielts/ImportTab";
 import { ParaphraseTab } from "./ielts/ParaphraseTab";
 import { ReadingTab } from "./ielts/ReadingTab";
@@ -19,6 +20,7 @@ const TABS = [
   ["spell", "拼写诊断", Headphones],
   ["para", "同义替换", Waypoints],
   ["confuse", "易混词", Swords],
+  ["flash", "一分钟闪测", Zap],
   ["import", "文章取词", BookOpenText],
   ["reading", "AI 错词阅读", Sparkles],
   ["writing", "AI 造句批改", PenLine],
@@ -44,6 +46,7 @@ export function Ielts({ route }: { route: Extract<Route, { page: "ielts" }> }) {
       {tab === "spell" && <SpellTab />}
       {tab === "para" && <ParaphraseTab />}
       {tab === "confuse" && <ConfuseTab />}
+      {tab === "flash" && <FlashTab />}
       {tab === "import" && <ImportTab />}
       {tab === "reading" && <ReadingTab />}
       {tab === "writing" && <WritingTab />}

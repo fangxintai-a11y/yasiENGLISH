@@ -185,6 +185,7 @@ export function Me({ privateAvailable }: { privateAvailable: boolean }) {
           <Toggle label="界面音效" on={settings.sfx} set={(v) => set({ sfx: v })} />
           <Toggle label="开屏动画（每天一次）" on={settings.splash} set={(v) => set({ splash: v })} />
           <Toggle label="新词先猜后看（先遮住释义，想一想再揭晓）" on={settings.guessFirst} set={(v) => set({ guessFirst: v })} />
+          <Toggle label="句子优先（新词先在雅思例句里见面；每轮学完接着跟读这些句子。单词测验和复习照常）" on={settings.sentenceFirst} set={(v) => set({ sentenceFirst: v })} />
           <Toggle label="听力拼写卡（王陆语料库词，识别稳定后解锁听写）" on={settings.trackL} set={(v) => set({ trackL: v })} />
           <Toggle label="写作产出卡（学术词表 AWL，根据中文和语境写出单词）" on={settings.trackP} set={(v) => set({ trackP: v })} />
           <Field label="跟读时语音识别打分" hint="用浏览器的语音识别逐词核对你说的句子。iPhone / iPad 上它可能和录音抢麦克风，「自动」在那里只录音、不打分。">

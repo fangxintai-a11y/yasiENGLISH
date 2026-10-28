@@ -1,9 +1,10 @@
-import { ArrowRight, Check, Lightbulb, RotateCcw, Share2, Timer, Volume2, X } from "lucide-react";
+import { ArrowRight, Check, Lightbulb, Mic, RotateCcw, Share2, Timer, Volume2, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { prefetch, useAtlas, useEntry } from "../atlas/context";
 import type { Entry, WordRef } from "../atlas/types";
 import { parseKey } from "../ielts/exam";
 import { diagnose, diffMarks, SPELL_LABEL, spelledRight } from "../ielts/spelling";
+import { shadowNext } from "../ielts/shadow";
 import { nextSyllableEnd, parseSyllables, pieceStarts, useSyllables } from "../ielts/syllables";
 import { play, stopAudio } from "../lib/audio";
 import { burst } from "../lib/burst";
@@ -102,9 +103,15 @@ function Intro({ step }: { step: Step }) {
   const ref = atlas.byId.get(step.id);
   // Guess first: trying to recall a meaning before seeing it makes it stick better than just reading it.
   const [revealed, setRevealed] = useState(!settings.guessFirst);
+  // 句子优先: meet the word inside its IELTS sentence (the everyday one when there is none).
+  const exI = entry && settings.sentenceFirst && entry.ex.length ? (entry.ex[1]?.en ? 1 : 0) : null;
   useEffect(() => {
-    if (entry && settings.autoplay) void play(atlas.audio(entry, settings.accent), entry.w, settings.accent);
-  }, [entry, atlas, settings.autoplay, settings.accent]);
+    if (!entry || !settings.autoplay) return;
+    const word = () => void play(atlas.audio(entry, settings.accent), entry.w, settings.accent);
+    if (exI === null) return word();
+    // The sentence first, then the word on its own once the sentence has played through.
+    void play(atlas.audio(entry, exI ? "ex2" : "ex"), "", "us").then((r) => r === "recorded" && word());
+  }, [entry, atlas, settings.autoplay, settings.accent, exI]);
   const next = useCallback(() => {
     stopAudio();
     if (store.get().settings.sfx) void cue("flip");
@@ -126,10 +133,20 @@ function Intro({ step }: { step: Step }) {
   return (
     <div className={`intro ${revealed ? "" : "is-guessing"}`}>
       <p className="stage-label">
-        <span className="dot dot-new" /> 初次见面{revealed ? "" : " · 先猜它的意思"}
+        <span className="dot dot-new" /> 初次见面{revealed ? "" : exI !== null ? " · 先从句子里猜它的意思" : " · 先猜它的意思"}
       </p>
       <WhyTags id={entry.id} />
       <div className="guess-zone" onClick={revealed ? undefined : reveal}>
+        {exI !== null && (
+          <section className="intro-sentence">
+            <p className="eyebrow">{exI ? "雅思语境" : "例句"} · 先在句子里认识它</p>
+            <p className="intro-sentence-en" lang="en">
+              <Highlight text={entry.ex[exI].en} word={entry.w} />
+              <Speak url={atlas.audio(entry, exI ? "ex2" : "ex")} text={entry.ex[exI].en} accent="us" size="sm" className="ex-speak" />
+            </p>
+            <p className="ex-zh">{entry.ex[exI].zh}</p>
+          </section>
+        )}
         <EntryView entry={entry} mode="intro" />
         <MnemonicBlock refw={ref} />
       </div>
@@ -590,6 +607,14 @@ function Summary({ session }: { session: ActiveSession }) {
     const { progress, settings } = store.get();
     store.progress((p) => ({ ...p, session: buildSession(atlas, progress, settings, { ids: wrong.map((w) => w.id) }) }));
   };
+  // 句子优先: the words of this session go on to be said out loud, wrong ones and new ones first.
+  const sentenceFirst = useStore((s) => s.settings.sentenceFirst) && !practice;
+  const shadowIds = [...new Set([...wrong.map((w) => w.id), ...session.newIds, ...words.map((w) => w.id)])];
+  const toShadow = () => {
+    shadowNext(shadowIds);
+    store.progress((p) => ({ ...p, session: null }));
+    go({ page: "shadow", run: true });
+  };
   return (
     <div className="learn summary">
       <div className="summary-card">
@@ -651,10 +676,22 @@ function Summary({ session }: { session: ActiveSession }) {
           <button className="btn btn-ghost" onClick={() => shareSession(atlas, session)}>
             <Share2 size={18} /> 分享成绩卡
           </button>
-          <button className="btn btn-primary btn-xl" onClick={done} ref={(b) => b?.focus({ preventScroll: true })}>
-            完成 <ArrowRight size={20} />
-          </button>
+          {sentenceFirst && shadowIds.length > 0 ? (
+            <>
+              <button className="btn btn-ghost" onClick={done}>
+                完成
+              </button>
+              <button className="btn btn-primary btn-xl" onClick={toShadow} ref={(b) => b?.focus({ preventScroll: true })}>
+                <Mic size={20} /> 跟读这些词的句子
+              </button>
+            </>
+          ) : (
+            <button className="btn btn-primary btn-xl" onClick={done} ref={(b) => b?.focus({ preventScroll: true })}>
+              完成 <ArrowRight size={20} />
+            </button>
+          )}
         </div>
+        {sentenceFirst && shadowIds.length > 0 && <p className="summary-note">句子优先：刚学的词放进句子里开口说一遍，单词记得更牢，口语素材也攒下了。约 6 分钟。</p>}
       </div>
     </div>
   );

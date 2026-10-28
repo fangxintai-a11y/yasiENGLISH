@@ -2105,3 +2105,155 @@ input[type="date"],
   overflow-y: auto;
   overscroll-behavior: contain;
 }
+
+/* ---------- 句子优先: first meeting inside a sentence ---------- */
+
+.intro-sentence {
+  margin: 0 0 18px;
+  padding: 18px 18px 14px;
+  border-radius: var(--r-lg);
+  background: var(--card);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-sm);
+}
+.intro-sentence .eyebrow {
+  margin: 0 0 8px;
+  color: var(--terra-ink);
+}
+.intro-sentence-en {
+  margin: 0;
+  font: 500 clamp(20px, 5vw, 26px) / 1.45 var(--serif);
+}
+.intro-sentence-en mark {
+  background: linear-gradient(transparent 58%, var(--mark) 58%);
+  color: inherit;
+  font-weight: 650;
+  padding: 0 1px;
+}
+
+/* ---------- 一分钟闪测 ---------- */
+
+.flash-round {
+  max-width: 560px;
+  margin: 0 auto;
+  display: grid;
+  gap: 18px;
+}
+.flash-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.flash-time,
+.flash-score {
+  font: 600 18px var(--serif);
+  font-variant-numeric: tabular-nums;
+  min-width: 44px;
+}
+.flash-score {
+  text-align: right;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+.flash-score i {
+  font-style: normal;
+  font-size: 13px;
+  color: var(--terra);
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.flash-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow);
+  padding: 40px 20px 0;
+  text-align: center;
+  overflow: hidden;
+  transition: background-color 0.15s;
+}
+.flash-round.is-ok .flash-card {
+  background: color-mix(in oklab, var(--sage) 22%, var(--card));
+}
+.flash-round.is-bad .flash-card {
+  background: color-mix(in oklab, var(--terra) 22%, var(--card));
+}
+.flash-word {
+  margin: 0 0 36px;
+  font: 600 clamp(36px, 10vw, 56px) / 1.1 var(--serif);
+  overflow-wrap: anywhere;
+}
+.flash-item-bar {
+  height: 4px;
+  margin: 0 -20px;
+  background: var(--paper-3);
+}
+.flash-item-bar span {
+  display: block;
+  height: 100%;
+  background: var(--ochre);
+  transform-origin: left;
+}
+.flash-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.flash-option {
+  min-height: 84px;
+  padding: 14px;
+  border-radius: var(--r);
+  border: 1px solid var(--line-strong);
+  background: var(--card);
+  font-size: 17px;
+  line-height: 1.35;
+  display: grid;
+  gap: 6px;
+  place-items: center;
+  text-align: center;
+}
+.flash-option kbd {
+  font-size: 11px;
+  color: var(--ink-3);
+}
+.flash-option:active {
+  transform: scale(0.97);
+}
+.flash-option.is-answer {
+  border-color: var(--sage);
+  box-shadow: 0 0 0 2px var(--sage) inset;
+}
+.flash-quit {
+  justify-self: center;
+  color: var(--ink-3);
+  font-size: 13px;
+}
+.flash-missed {
+  list-style: none;
+  margin: 8px 0 14px;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--ink-2);
+}
+.flash-missed b {
+  font: 600 16px var(--serif);
+  color: var(--ink);
+  margin-right: 6px;
+}
+.flash-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.flash-result .para-big small {
+  font-size: 14px;
+  color: var(--ink-3);
+}
+.flash-round {
+  scroll-margin-top: calc(var(--top) + 8px);
+}

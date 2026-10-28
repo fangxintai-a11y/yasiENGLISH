@@ -5,6 +5,7 @@ import { go, openWord } from "../lib/router";
 import { cue } from "../lib/sound";
 import { hashSeed } from "../lib/text";
 import { fadingTonight, lastNightWords, parseKey, skillLevels, type ExamPlan, type Phase } from "../ielts/exam";
+import { shadowNext } from "../ielts/shadow";
 import { useTags } from "../ielts/tags";
 import { buildSession, masteredCount, todayPlan } from "../store/session";
 import { isMastered } from "../store/srs";
@@ -39,6 +40,7 @@ export function streakOf(days: Record<string, { r: number }>) {
 }
 
 export function Today() {
+  const sentenceFirst = useStore((s) => s.settings.sentenceFirst);
   const atlas = useAtlas();
   const tags = useTags();
   const progress = useStore((s) => s.progress);
@@ -137,7 +139,9 @@ export function Today() {
                   ? ` 积压了 ${plan.deferred} 个低优先级复习：今天先救最要紧的，其余平摊到之后几天，暂停新词。`
                   : evening && plan.fresh.length
                     ? " 睡前学新词，明早回测，睡眠会帮你巩固。"
-                    : " 先温故，再知新。"}
+                    : sentenceFirst
+                      ? " 先温故，再知新；学完接着把这些词放进句子里跟读。"
+                      : " 先温故，再知新。"}
               </p>
             </>
           ) : (
@@ -353,7 +357,13 @@ function ShadowPanel() {
         </span>
       </div>
       <p className="shadow-panel-lede">把刚学的词放进句子里说出来：听 → 跟 → 说 → 比，录下自己和原声对比。</p>
-      <button className="btn btn-primary" onClick={() => go({ page: "shadow", run: true })}>
+      <button
+        className="btn btn-primary"
+        onClick={() => {
+          shadowNext([]);
+          go({ page: "shadow", run: true });
+        }}
+      >
         {today ? "再跟 8 句" : "开口跟读 8 句"} <ArrowRight size={18} />
       </button>
     </section>

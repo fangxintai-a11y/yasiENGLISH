@@ -33,6 +33,14 @@ export interface ShadowStat {
 
 export const emptyShadow = (): ShadowStat => ({ days: {}, best: 0, done: {} });
 
+/** Words to shadow first in the next round, handed over by a finished word session (句子优先). Cleared when
+    a round is started any other way, so it never leaks into a later one. */
+let focus: string[] = [];
+export function shadowNext(ids: string[]) {
+  focus = ids;
+}
+export const shadowFocus = () => focus;
+
 /** Days until a sentence comes back, by how many times it went well: practice spaced out, like the words. */
 const GAPS = [1, 3, 7, 16, 35, 80];
 
@@ -59,6 +67,7 @@ export function pickSentences(
   now: number,
   n = 8,
   startOrder = 0,
+  focus: readonly string[] = [],
 ): SentenceRef[] {
   const voiced = (w: PickWord, i: 0 | 1) => !!(w.media & (i ? 16 : 8));
   const byId = new Map(words.map((w) => [w.id, w]));
@@ -76,6 +85,17 @@ export function pickSentences(
       }
     }
   };
+  // Words the learner asked for (the session just finished) come first, practised today or not.
+  for (const id of focus) {
+    if (out.length >= n) break;
+    const w = byId.get(id);
+    if (!w || used.has(id)) continue;
+    const i = ([1, 0] as const).find((k) => voiced(w, k) && !(shadow.done[sentenceKey({ id, i: k })]?.at > now - 6 * 3600e3));
+    if (i !== undefined) {
+      out.push({ id, i });
+      used.add(id);
+    }
+  }
   const learned = Object.entries(cards)
     .sort((a, b) => (b[1].last ?? 0) - (a[1].last ?? 0))
     .map(([id]) => id);

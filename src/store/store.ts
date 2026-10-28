@@ -108,6 +108,8 @@ export interface Progress {
   shadow: ShadowStat;
   /** 邪修 hooks written by AI for words that keep slipping away. */
   hacks: Record<string, SavedHack>;
+  /** 一分钟闪测: best score so far. */
+  flashBest: number;
 }
 
 export interface SavedHack {
@@ -133,6 +135,8 @@ export interface Settings {
   splash: boolean;
   /** First meeting hides the meaning until the learner has tried to guess it. */
   guessFirst: boolean;
+  /** 句子优先: new words are met in a sentence first, and a session ends by shadowing its sentences. */
+  sentenceFirst: boolean;
   /** IELTS exam day as YYYY-MM-DD; empty when not booked yet. */
   examDate: string;
   /** Daily study time the plan is built around. */
@@ -163,6 +167,7 @@ export const defaultSettings: Settings = {
   ambienceVolume: 0.45,
   splash: true,
   guessFirst: true,
+  sentenceFirst: true,
   examDate: "",
   dailyMinutes: 30,
   targetBand: 6.5,
@@ -189,6 +194,7 @@ export const emptyProgress = (datasetId: string): Progress => ({
   readings: [],
   shadow: emptyShadow(),
   hacks: {},
+  flashBest: 0,
 });
 
 export const dayKey = (d = new Date()) =>
@@ -274,6 +280,7 @@ export function sanitizeProgress(v: unknown, datasetId: string): Progress {
     for (const [k, h] of Object.entries(v.hacks).slice(-3000))
       if (k.length <= 80 && isObj(h) && str(h.homophone, 400) && str(h.split, 400) && str(h.scene, 400) && num(h.at, 0))
         out.hacks[k] = { homophone: h.homophone, split: h.split, scene: h.scene, at: h.at as number };
+  if (num(v.flashBest, 0, 1000)) out.flashBest = v.flashBest as number;
   const sh = v.shadow;
   if (isObj(sh)) {
     if (num(sh.best, 0, 1e5)) out.shadow.best = sh.best as number;
@@ -318,6 +325,7 @@ export function sanitizeSettings(v: unknown): Settings {
   if (num(v.ambienceVolume, 0, 1)) s.ambienceVolume = v.ambienceVolume as number;
   if (typeof v.splash === "boolean") s.splash = v.splash;
   if (typeof v.guessFirst === "boolean") s.guessFirst = v.guessFirst;
+  if (typeof v.sentenceFirst === "boolean") s.sentenceFirst = v.sentenceFirst;
   if (v.examDate === "" || (typeof v.examDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v.examDate))) s.examDate = v.examDate;
   if (num(v.dailyMinutes, 5, 240)) s.dailyMinutes = Math.round(v.dailyMinutes as number);
   if (num(v.targetBand, 4, 9) && Number.isInteger((v.targetBand as number) * 2)) s.targetBand = v.targetBand as number;

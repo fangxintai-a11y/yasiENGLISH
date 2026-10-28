@@ -2,7 +2,7 @@ import { ArrowRight, BookOpenText, Ear, Flame, Keyboard, Mic, Pause, Play, Rotat
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { prefetch, useAtlas } from "../atlas/context";
 import type { Entry } from "../atlas/types";
-import { firstLetters, heardScore, heardWords, pickSentences, sentenceKey, sentenceWords, wordTimes, type SentenceRef } from "../ielts/shadow";
+import { firstLetters, heardScore, heardWords, pickSentences, sentenceKey, sentenceWords, shadowFocus, shadowNext, wordTimes, type SentenceRef } from "../ielts/shadow";
 import { play, stopAudio } from "../lib/audio";
 import { canRecord, openMic, type Mic as MicT, type Take } from "../lib/recorder";
 import { go } from "../lib/router";
@@ -15,6 +15,7 @@ import { toast } from "../ui/Toast";
 import { useKeys } from "./Learn";
 
 const ROUND = 8;
+
 const SLOW = 0.75;
 
 type Phase = "listen" | "shadow" | "say" | "compare";
@@ -27,7 +28,11 @@ const STEPS: [Phase, string, string][] = [
 
 export function Shadow({ run }: { run: boolean }) {
   const [round, setRound] = useState(0);
-  return run ? <ShadowRound key={round} onAgain={() => setRound((r) => r + 1)} /> : <ShadowHome />;
+  const again = () => {
+    shadowNext([]);
+    setRound((r) => r + 1);
+  };
+  return run ? <ShadowRound key={round} onAgain={again} /> : <ShadowHome />;
 }
 
 /* ---------- home ---------- */
@@ -68,7 +73,13 @@ function ShadowHome() {
             </li>
           ))}
         </ol>
-        <button className="btn btn-primary btn-xl" onClick={() => go({ page: "shadow", run: true })}>
+        <button
+          className="btn btn-primary btn-xl"
+          onClick={() => {
+            shadowNext([]);
+            go({ page: "shadow", run: true });
+          }}
+        >
           <Mic size={20} /> 开始跟读 {ROUND} 句
         </button>
         {!canRecord() && <p className="shadow-note">这个浏览器不能录音：仍可以听和跟读，只是没法回放自己的声音。</p>}
@@ -132,6 +143,7 @@ function useRound() {
       Date.now(),
       ROUND,
       start,
+      shadowFocus(),
     );
     void prefetch(
       atlas,

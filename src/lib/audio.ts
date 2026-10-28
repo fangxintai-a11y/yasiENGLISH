@@ -40,11 +40,20 @@ async function speak(url: string | null | undefined, text: string, accent: "uk" 
     try {
       await a.play();
       if (onProgress) tick();
+      let ended = false;
       await new Promise<void>((r) => {
-        a.onended = () => r();
-        a.onpause = () => r();
+        a.onended = () => {
+          ended = true;
+          r();
+        };
+        // At the natural end browsers fire "pause" just before "ended"; a.ended tells the two apart.
+        a.onpause = () => {
+          ended = a.ended;
+          r();
+        };
       });
-      return "recorded" as const;
+      // Stopped part-way (another sound started, or the learner moved on) is not a finished play.
+      return ended ? ("recorded" as const) : ("stopped" as const);
     } catch {
       if (mine !== token) return "stopped" as const;
       current = null;
