@@ -10,3 +10,4 @@ output/
 .playwright-cli/
 *.tsbuildinfo
 __pycache__/
+*.part.mp3
