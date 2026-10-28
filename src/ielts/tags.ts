@@ -20,7 +20,8 @@ export interface Mnemonic {
   story?: string;
 }
 
-const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+// Optional chaining keeps the module importable from node tests, where Vite env is absent.
+const BASE = (import.meta.env?.BASE_URL ?? "/").replace(/\/$/, "");
 const EMPTY: IeltsTags = { listening: {}, phrases: [], awl: {}, syn: {} };
 
 let tags: IeltsTags = EMPTY;

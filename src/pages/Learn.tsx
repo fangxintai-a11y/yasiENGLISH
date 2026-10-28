@@ -82,7 +82,7 @@ function Runner({ session }: { session: ActiveSession }) {
         <AmbiencePicker />
       </header>
       <main className="learn-stage" key={`${session.id}-${session.index}`}>
-        {step.kind === "intro" ? <Intro step={step} /> : <Quiz step={step as Step & { kind: QuizKind }} session={session} />}
+        {step.kind === "intro" ? <Intro step={step} /> : <Quiz step={(step.kind === "listen" ? { ...step, kind: "meaning" } : step) as Step & { kind: QuizKind }} session={session} />}
       </main>
     </div>
   );
@@ -201,7 +201,7 @@ function Quiz({ step, session }: { step: Step & { kind: QuizKind }; session: Act
     advance(elapsed());
   }, [elapsed]);
 
-  const listenNow = step.kind === "listen" || step.kind === "dictation";
+  const listenNow = step.kind === "dictation";
   useEffect(() => {
     if (listenNow && entry && !pending) void play(atlas.audio(entry, settings.accent), entry.w, settings.accent);
   }, [listenNow, entry, atlas, settings.accent, pending]);
@@ -258,7 +258,7 @@ function Quiz({ step, session }: { step: Step & { kind: QuizKind }; session: Act
           </div>
         )}
         {step.kind === "paraphrase" && <ParaphrasePrompt entry={entry} pending={!!pending} />}
-        {(step.kind === "listen" || step.kind === "dictation") && (
+        {step.kind === "dictation" && (
           <div className="prompt-listen">
             <button className="listen-orb" onClick={() => replay()} aria-label="再听一遍">
               <Volume2 size={40} strokeWidth={1.6} />
@@ -455,7 +455,7 @@ function GradeNote({ step, session }: { step: Step & { kind: QuizKind }; session
   return (
     <p className={`grade-note g-${grade}`}>
       <Timer size={14} /> {(ms / 1000).toFixed(1)} 秒 · 记为「{GRADE_LABEL[grade]}」
-      {slow && <span>{step.kind === "meaning" || step.kind === "listen" ? ` · 超过 ${limit / 1000} 秒，考场上等于没认出` : ` · 慢于 ${limit / 1000} 秒`}</span>}
+      {slow && <span>{step.kind === "meaning" ? ` · 超过 ${limit / 1000} 秒，考场上等于没认出` : ` · 慢于 ${limit / 1000} 秒`}</span>}
       {grade === Rating.Hard && !slow && <span> · 用了提示或重播</span>}
       {isPractice(session) && <span> · 专项练习不改变记忆进度</span>}
     </p>

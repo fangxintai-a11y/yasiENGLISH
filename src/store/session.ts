@@ -34,14 +34,12 @@ export const atlasSynonyms = (atlas: Atlas, id: string) => (getTags().syn[id] ??
 function recognitionKind(ref: WordRef, c: CardState | undefined, atlas: Atlas, salt: number): QuizKind {
   const hasImg = !!(ref.media & MEDIA.img);
   const roll = hashSeed(ref.id + salt) % 100;
-  if (!c || c.s < 2) {
-    if (hasImg && roll < 45) return "picture";
-    return roll < 80 ? "meaning" : "listen";
-  }
+  // No "hear it, pick the word" questions: too easy to be worth the time. Listening is trained
+  // by the dictation track, which asks for the full spelling.
+  if (!c || c.s < 2) return hasImg && roll < 45 ? "picture" : "meaning";
   // Steady words are tested the way IELTS reading tests them: through a paraphrase.
   if (c.s >= 4 && roll < 35 && atlasSynonyms(atlas, ref.id).length) return "paraphrase";
-  if (roll < 60) return "meaning";
-  return roll < 80 ? "listen" : hasImg ? "picture" : "meaning";
+  return hasImg && roll >= 70 ? "picture" : "meaning";
 }
 
 /** Distractors that look plausible: same level, similar spelling or length, different meaning. */
@@ -57,7 +55,7 @@ export function distractors(atlas: Atlas, ref: WordRef, kind: QuizKind, seed: nu
     if (w.id === ref.id || skip.has(w.id) || normalize(w.word) === target) continue;
     if (zhCore && w.zh.includes(zhCore)) continue;
     let score = hashSeed(w.id + seed) % 100;
-    if (kind === "listen" || kind === "picture") {
+    if (kind === "picture") {
       if (w.word[0]?.toLowerCase() === target[0]) score += 120;
       score += Math.max(0, 60 - Math.abs(w.word.length - target.length) * 20);
     } else {
@@ -94,7 +92,7 @@ export function quizStep(atlas: Atlas, p: Progress, key: string, salt: number, r
   const ref = atlas.byId.get(id)!;
   if (track === "l") return { id, kind: "dictation", track, retry };
   if (track === "p") return { id, kind: "produce", track, retry };
-  const kind = retry ? (ref.media & MEDIA.img ? "picture" : "listen") : recognitionKind(ref, p.cards[id], atlas, salt);
+  const kind = retry ? (ref.media & MEDIA.img ? "picture" : "meaning") : recognitionKind(ref, p.cards[id], atlas, salt);
   if (kind === "paraphrase") {
     const st = paraphraseStep(atlas, ref, salt);
     if (st) return st;
