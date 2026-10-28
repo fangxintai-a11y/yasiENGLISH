@@ -1917,3 +1917,191 @@ input[type="date"],
 .shadow-panel .btn {
   justify-self: start;
 }
+
+/* ---------- 邪修: syllable-chunk spelling ---------- */
+
+.spell-syl {
+  margin: 6px 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--ink-3);
+}
+.spell-syl span {
+  margin-right: 4px;
+}
+.spell-syl b {
+  font: 600 17px var(--serif);
+  color: var(--ink-2);
+  padding: 0 5px;
+  border-radius: 6px;
+  background: var(--paper-2);
+}
+.spell-syl b.is-gap {
+  background: none;
+  padding: 0;
+}
+.spell-syl b.is-bad {
+  background: var(--terra-soft);
+  color: var(--terra-ink);
+}
+.spell-syl small {
+  flex-basis: 100%;
+  font-size: 12px;
+}
+
+/* ---------- 邪修记法 (AI hooks) ---------- */
+
+.hack-ask {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  color: var(--plum);
+  background: color-mix(in oklab, var(--plum) 10%, transparent);
+}
+.hack-ask.is-leech {
+  font-weight: 600;
+  background: color-mix(in oklab, var(--plum) 18%, transparent);
+}
+.hack-ask:disabled {
+  opacity: 0.7;
+}
+.hack {
+  margin-top: 14px;
+  padding: 14px 16px;
+  border-radius: var(--r);
+  background: color-mix(in oklab, var(--plum) 8%, var(--card));
+  border: 1px solid color-mix(in oklab, var(--plum) 22%, transparent);
+}
+.hack .eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--plum);
+  margin: 0 0 8px;
+}
+.hack-redo {
+  margin-left: auto;
+  color: var(--ink-3);
+  padding: 4px;
+  border-radius: 50%;
+}
+.hack-redo .spin {
+  animation: spin 1s linear infinite;
+}
+.hack dl {
+  margin: 0;
+  display: grid;
+  gap: 6px;
+}
+.hack dl div {
+  display: grid;
+  grid-template-columns: 2.6em 1fr;
+  gap: 8px;
+  font-size: 14px;
+  line-height: 1.55;
+}
+.hack dt {
+  color: var(--ink-3);
+  font-size: 12px;
+  padding-top: 2px;
+}
+.hack dd {
+  margin: 0;
+  color: var(--ink);
+}
+.feedback .hack,
+.feedback .hack-ask {
+  text-align: left;
+}
+
+/* ---------- 易混词对撞 ---------- */
+
+.why-confuse {
+  --tc: var(--plum);
+}
+.look-alikes {
+  margin: 14px 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  font-size: 14px;
+  color: var(--ink-2);
+}
+.look-alikes b {
+  font: 600 16px var(--serif);
+  color: var(--plum);
+}
+.look-alikes .link {
+  color: inherit;
+  text-align: left;
+}
+.confuse-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  gap: 10px;
+}
+.confuse-list li {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  overflow: hidden;
+}
+.confuse-word {
+  position: relative;
+  display: grid;
+  gap: 2px;
+  padding: 10px 14px;
+  text-align: left;
+  min-width: 0;
+}
+.confuse-word + .confuse-word {
+  border-left: 1px solid var(--line);
+}
+.confuse-word i {
+  position: absolute;
+  left: -9px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-style: normal;
+  font-size: 12px;
+  color: var(--plum);
+  background: var(--card);
+  border-radius: 50%;
+  padding: 1px 2px;
+}
+.confuse-word b {
+  font: 600 17px var(--serif);
+}
+.confuse-word small {
+  font-size: 12px;
+  color: var(--ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The answer panel sits over the question: in dark mode the tints are translucent, so give it an
+   opaque base, and let a long panel (spelling help, 邪修) scroll inside instead of covering the page. */
+.feedback.is-right .feedback-inner {
+  background: linear-gradient(color-mix(in oklab, var(--sage-soft) 70%, var(--card)), color-mix(in oklab, var(--sage-soft) 70%, var(--card))), var(--card);
+}
+.feedback.is-wrong .feedback-inner {
+  background: linear-gradient(color-mix(in oklab, var(--terra-soft) 70%, var(--card)), color-mix(in oklab, var(--terra-soft) 70%, var(--card))), var(--card);
+}
+.feedback-inner {
+  max-height: calc(100dvh - 120px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}

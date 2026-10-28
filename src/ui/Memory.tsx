@@ -1,11 +1,13 @@
-import { Brain, ChevronDown } from "lucide-react";
+import { Brain, ChevronDown, RefreshCw, Wand2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useAtlas } from "../atlas/context";
 import type { WordRef } from "../atlas/types";
 import { loadMnemonic, useTags, type Mnemonic } from "../ielts/tags";
 import { openWord } from "../lib/router";
+import { getKey } from "../ielts/aikey";
 import { recallAt } from "../store/srs";
-import { useStore } from "../store/store";
+import { store, useStore } from "../store/store";
+import { toast } from "./Toast";
 
 /** Why this word is in the IELTS plan: listening corpus chapter, AWL sublist, paraphrase links. */
 export function WhyTags({ id }: { id: string }) {
@@ -56,6 +58,68 @@ export function MnemonicBlock({ refw, open = false }: { refw: WordRef; open?: bo
         {m.history && <p className="mnemo-history">{m.history}</p>}
         <p className="mnemo-credit">内容来自 DictionaryByGPT4（CC BY-SA 4.0），由 AI 生成，仅供参考。</p>
       </details>
+    </section>
+  );
+}
+
+/** A word keeps slipping away: forgotten twice, or in the mistake list. */
+export function useLeech(id: string) {
+  const lapses = useStore((s) => s.progress.cards[id]?.lapses ?? 0);
+  const missed = useStore((s) => s.progress.mistakes.includes(id));
+  return lapses >= 2 || missed;
+}
+
+/**
+ * 邪修记法: a sound-alike, a spelling split and an absurd picture, written by AI on request and
+ * kept with the progress. Offered loudly for words that keep slipping away, quietly for the rest.
+ */
+export function HackBlock({ refw, quiet = false }: { refw: WordRef; quiet?: boolean }) {
+  const hack = useStore((s) => s.progress.hacks[refw.id]);
+  const model = useStore((s) => s.settings.aiModel);
+  const leech = useLeech(refw.id);
+  const [busy, setBusy] = useState(false);
+  if (!hack && quiet && !leech) return null;
+  const make = async () => {
+    if (!getKey()) return toast("邪修记法由 AI 现写：先在「我的 → AI 助教」里填入 Claude API Key", "info");
+    setBusy(true);
+    try {
+      const { generateHack } = await import("../ielts/ai");
+      const h = await generateHack(refw.word, refw.ipa, refw.zh, model);
+      store.progress((p) => ({ ...p, hacks: { ...p.hacks, [refw.id]: { ...h, at: Date.now() } } }));
+    } catch (e) {
+      toast(e instanceof Error ? e.message : String(e), "info");
+    } finally {
+      setBusy(false);
+    }
+  };
+  if (!hack)
+    return (
+      <button className={`hack-ask ${leech ? "is-leech" : ""}`} onClick={make} disabled={busy}>
+        <Wand2 size={16} /> {busy ? "正在想歪招…" : leech ? "老是忘？来个邪修记法" : "邪修一下：谐音 · 拆字 · 画面"}
+      </button>
+    );
+  return (
+    <section className="hack">
+      <h3 className="eyebrow">
+        <Wand2 size={15} /> 邪修记法
+        <button className="hack-redo" onClick={make} disabled={busy} aria-label="换一组记法" title="换一组">
+          <RefreshCw size={14} className={busy ? "spin" : ""} />
+        </button>
+      </h3>
+      <dl>
+        <div>
+          <dt>谐音</dt>
+          <dd>{hack.homophone}</dd>
+        </div>
+        <div>
+          <dt>拆字</dt>
+          <dd>{hack.split}</dd>
+        </div>
+        <div>
+          <dt>画面</dt>
+          <dd>{hack.scene}</dd>
+        </div>
+      </dl>
     </section>
   );
 }

@@ -107,3 +107,34 @@ export async function gradeSentence(word: string, zh: string, sentence: string, 
     return explain(e);
   }
 }
+
+const HackSchema = z.object({
+  homophone: z.string(),
+  split: z.string(),
+  scene: z.string(),
+});
+export type Hack = z.infer<typeof HackSchema>;
+
+const HACK_SYSTEM = `You are a memory coach for Chinese learners preparing for IELTS. The learner keeps forgetting one English word and wants "邪修" tricks: unorthodox, vivid, slightly silly hooks that make it stick. Write all three in Simplified Chinese, each at most 60 characters.
+homophone (谐音): a Chinese phrase that genuinely sounds like the word's pronunciation (use the IPA given) and points at its meaning, e.g. ambulance → "俺不能死"——救护车. If no honest sound-alike exists, give the closest one and say it is approximate.
+split (拆分): cut the spelling, in order and covering every letter, into chunks the learner already knows (short English words, pinyin, letters) and link the chunks to the meaning, e.g. "pest·i·cide：pest 害虫 + cide 杀 → 杀虫剂".
+scene (画面): one absurd, concrete picture that joins the sound or the spelling with the meaning, the stranger the better.
+Nothing crude or offensive. Do not repeat the dictionary definition as a hook.`;
+
+export async function generateHack(word: string, ipa: string, zh: string, model: string): Promise<Hack> {
+  try {
+    const res = await client().beta.messages.parse({
+      model,
+      max_tokens: 2000,
+      ...fallbackFor(model),
+      system: HACK_SYSTEM,
+      output_config: { effort: "low", format: betaZodOutputFormat(HackSchema) },
+      messages: [{ role: "user", content: `Word: ${word}\nIPA: ${ipa || "(unknown)"}\nMeaning: ${zh}` }],
+    });
+    if (res.stop_reason === "refusal") throw new AiError("Claude 拒绝了这次生成，换个词再试。");
+    if (!res.parsed_output) throw new AiError("没能解析生成的记法，再试一次。");
+    return res.parsed_output;
+  } catch (e) {
+    return explain(e);
+  }
+}

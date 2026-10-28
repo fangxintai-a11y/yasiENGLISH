@@ -4,12 +4,40 @@ import { useAtlas } from "../atlas/context";
 import { splitHighlight, splitPair } from "../lib/text";
 import { formatInterval, isMastered } from "../store/srs";
 import { toggleBookmark, useStore } from "../store/store";
+import { useConfusables } from "../ielts/confusables";
 import { Headword } from "./Headword";
 import { Illustration } from "./Illustration";
 import { Speak } from "./Speak";
 import { shareWord } from "./share";
 import { openWord } from "../lib/router";
-import { Constellation, MnemonicBlock, TrackMeters, WhyTags } from "./Memory";
+import { Constellation, HackBlock, MnemonicBlock, TrackMeters, WhyTags } from "./Memory";
+
+/** 易混词: the look-alikes this word is easily mixed up with, meaning side by side. */
+function LookAlikes({ id, detail }: { id: string; detail: boolean }) {
+  const atlas = useAtlas();
+  const ids = useConfusables(id).filter((x) => atlas.byId.has(x));
+  if (!ids.length) return null;
+  return (
+    <p className="look-alikes">
+      <span className="chip chip-why why-confuse">易混词</span>
+      {ids.map((x) => {
+        const w = atlas.byId.get(x)!;
+        const body = (
+          <>
+            别和 <b lang="en">{w.word}</b>（{w.zh.replace(/^[a-z.]+\s*/, "").split(/[；;]/)[0]}）搞混
+          </>
+        );
+        return detail ? (
+          <button key={x} className="link" onClick={() => openWord(x)}>
+            {body}
+          </button>
+        ) : (
+          <span key={x}>{body}</span>
+        );
+      })}
+    </p>
+  );
+}
 
 /** Sentences are recorded in one American voice; the device fallback should match it, not the word accent. */
 const SENTENCE_ACCENT = "us";
@@ -186,6 +214,8 @@ export function EntryView({ entry, mode = "detail", eager = true }: { entry: Ent
           </section>
         )}
 
+        <LookAlikes id={entry.id} detail={mode === "detail"} />
+
         {entry.tip && (
           <aside className="tip">
             <Lightbulb size={17} strokeWidth={1.8} />
@@ -196,6 +226,7 @@ export function EntryView({ entry, mode = "detail", eager = true }: { entry: Ent
         {entry.note && <p className="usage-note">用法提醒：{entry.note}</p>}
 
         {mode === "detail" && ref && <MnemonicBlock refw={ref} />}
+        {mode === "detail" && ref && <HackBlock refw={ref} />}
         {mode === "detail" && <Constellation id={entry.id} />}
         {mode === "detail" && <TrackMeters id={entry.id} />}
 

@@ -4,17 +4,18 @@ import { prefetch, useAtlas, useEntry } from "../atlas/context";
 import type { Entry, WordRef } from "../atlas/types";
 import { parseKey } from "../ielts/exam";
 import { diagnose, diffMarks, SPELL_LABEL, spelledRight } from "../ielts/spelling";
+import { nextSyllableEnd, parseSyllables, pieceStarts, useSyllables } from "../ielts/syllables";
 import { play, stopAudio } from "../lib/audio";
 import { burst } from "../lib/burst";
 import { cue } from "../lib/sound";
 import { go } from "../lib/router";
 import { gap, normalize } from "../lib/text";
-import { answer, advance, atlasSynonyms, buildSession, gradeFor, isPractice, markKnown, sessionStats, SPEED_LIMIT, stepKey, trackOf } from "../store/session";
+import { answer, advance, atlasSynonyms, buildSession, gradeFor, isPractice, markKnown, RELEARN_RUN, sessionStats, SPEED_LIMIT, stepKey, trackOf } from "../store/session";
 import { Rating, type Grade } from "../store/srs";
 import { store, useStore, type ActiveSession, type QuizKind, type Step, type Track } from "../store/store";
 import { EntryView, Highlight } from "../ui/EntryView";
 import { Illustration } from "../ui/Illustration";
-import { MnemonicBlock, WhyTags } from "../ui/Memory";
+import { HackBlock, MnemonicBlock, WhyTags } from "../ui/Memory";
 import { Galaxy } from "../galaxy/Galaxy";
 import { AmbiencePicker } from "../ui/Ambience";
 import { Ring } from "../ui/Ring";
@@ -174,6 +175,8 @@ function Quiz({ step, session }: { step: Step & { kind: QuizKind }; session: Act
   const pending = session.pending;
   const elapsed = useStepTimer();
   const [hints, setHints] = useState(step.kind === "produce" ? 1 : 0);
+  const syl = useSyllables(step.id);
+  const pieces = useMemo(() => (syl ? parseSyllables(syl) : null), [syl]);
   const options = useMemo(() => (step.options ?? []).map((id) => atlas.byId.get(id)!).filter(Boolean), [atlas, step.options]);
   const track = trackOf(step);
   const correctId = step.kind === "paraphrase" ? step.answer : ref.id;
@@ -227,7 +230,7 @@ function Quiz({ step, session }: { step: Step & { kind: QuizKind }; session: Act
       <p className="stage-label">
         <span className={`dot ${step.retry ? "dot-retry" : track === "r" ? "dot-review" : `dot-${track}`}`} />
         <span className={`track-chip track-${track}`}>{TRACK_LABEL[track]}</span>
-        {step.retry ? "再见一面 · " : ""}
+        {step.retry ? `当场三连击 · 已连对 ${Math.min(RELEARN_RUN, session.relearn?.[stepKey(step)] ?? 0)}/${RELEARN_RUN} · ` : ""}
         {KIND_LABEL[step.kind]}
       </p>
 
@@ -281,7 +284,9 @@ function Quiz({ step, session }: { step: Step & { kind: QuizKind }; session: Act
           entry={entry}
           pending={pending}
           hints={hints}
-          onHint={() => setHints((h) => Math.min(entry.w.length - 1, h + 1))}
+          bySyllable={!!pieces}
+          // 邪修: a hint gives a whole syllable, so the word is learned in the chunks it is spoken in.
+          onHint={() => setHints((h) => Math.min(entry.w.length - 1, pieces ? nextSyllableEnd(pieces, h) : h + 1))}
           onSubmit={(v) => submit(v, spelledRight(v, entry.w) || (!!sentence && normalize(v) === normalize(sentence.hidden)))}
         />
       ) : (
@@ -387,7 +392,21 @@ function DictationInput({ pending, onSubmit }: { pending?: { correct: boolean; v
   );
 }
 
-function SpellInput({ entry, pending, hints, onHint, onSubmit }: { entry: Entry; pending?: { correct: boolean; value: string }; hints: number; onHint: () => void; onSubmit: (v: string) => void }) {
+function SpellInput({
+  entry,
+  pending,
+  hints,
+  bySyllable,
+  onHint,
+  onSubmit,
+}: {
+  entry: Entry;
+  pending?: { correct: boolean; value: string };
+  hints: number;
+  bySyllable: boolean;
+  onHint: () => void;
+  onSubmit: (v: string) => void;
+}) {
   const [value, setValue] = useState("");
   const input = useRef<HTMLInputElement>(null);
   const target = entry.w;
@@ -433,7 +452,7 @@ function SpellInput({ entry, pending, hints, onHint, onSubmit }: { entry: Entry;
       {!pending && (
         <div className="spell-actions">
           <button type="button" className="btn btn-ghost" onClick={onHint} disabled={hints >= target.length - 1}>
-            <Lightbulb size={17} /> 提示字母
+            <Lightbulb size={17} /> {bySyllable ? "提示一个音节" : "提示字母"}
           </button>
           <button type="submit" className="btn btn-primary" disabled={!value.trim()}>
             确认 <kbd>Enter</kbd>
@@ -495,6 +514,7 @@ function Feedback({ entry, refw, step, session, correct, value, onNext }: { entr
                   </b>
                 ))}
               </p>
+              <SyllableMiss id={entry.id} word={entry.w} value={value} />
               {tags.map((t) => (
                 <p key={t} className="spell-tag">
                   <span className="chip chip-why why-spell">{SPELL_LABEL[t].name}</span> {SPELL_LABEL[t].tip}
@@ -508,6 +528,7 @@ function Feedback({ entry, refw, step, session, correct, value, onNext }: { entr
             </p>
           )}
           <GradeNote step={step} session={session} />
+          {!correct && <HackBlock refw={refw} quiet />}
           {entry.ex[0] && (
             <p className="feedback-ex" lang="en">
               <Highlight text={entry.ex[0].en} word={entry.w} />
@@ -519,6 +540,29 @@ function Feedback({ entry, refw, step, session, correct, value, onNext }: { entr
         </button>
       </div>
     </div>
+  );
+}
+
+/** 邪修: spell it in spoken chunks; the chunk that went wrong is the one to drill. */
+function SyllableMiss({ id, word, value }: { id: string; word: string; value: string }) {
+  const syl = useSyllables(id);
+  if (!syl) return null;
+  const pieces = parseSyllables(syl);
+  const starts = pieceStarts(pieces);
+  const marks = diffMarks(value, word);
+  const bad = pieces.map((p, i) => !p.gap && marks.slice(starts[i], starts[i] + p.text.length).some((m) => m.bad));
+  const n = bad.filter(Boolean).length;
+  if (!n) return null;
+  return (
+    <p className="spell-syl" lang="en">
+      <span>按音节拼</span>
+      {pieces.map((p, i) => (
+        <b key={i} className={p.gap ? "is-gap" : bad[i] ? "is-bad" : ""}>
+          {p.text}
+        </b>
+      ))}
+      <small>{n === 1 ? "只错在这一节，单独念三遍再拼" : `错在 ${n} 节，一节一节念着拼`}</small>
+    </p>
   );
 }
 

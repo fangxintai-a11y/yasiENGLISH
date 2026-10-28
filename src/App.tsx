@@ -14,6 +14,7 @@ import { Practice } from "./pages/Practice";
 import { Shadow } from "./pages/Shadow";
 import { Ielts } from "./pages/Ielts";
 import { loadTags } from "./ielts/tags";
+import { loadConfusables } from "./ielts/confusables";
 import { Today } from "./pages/Today";
 import { cue } from "./lib/sound";
 import { store, useStore } from "./store/store";
@@ -55,6 +56,7 @@ export default function App() {
 
   useEffect(() => {
     void loadTags();
+    void loadConfusables();
     loadOpenAtlas().then(
       (a) => {
         setOpen(a);

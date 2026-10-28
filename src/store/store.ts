@@ -29,6 +29,8 @@ export interface ActiveSession {
   label?: string;
   /** Drill rounds: answers never change memory or daily stats. */
   practice?: boolean;
+  /** 当场三连击: correct retries in a row since the last miss, per card key. */
+  relearn?: Record<string, number>;
   /** Answer shown but not yet continued; survives reload without double counting. */
   pending?: { correct: boolean; value: string };
   finished?: number;
@@ -104,6 +106,15 @@ export interface Progress {
   readings: Reading[];
   /** 跟读: sentences practised, per day and per sentence. */
   shadow: ShadowStat;
+  /** 邪修 hooks written by AI for words that keep slipping away. */
+  hacks: Record<string, SavedHack>;
+}
+
+export interface SavedHack {
+  homophone: string;
+  split: string;
+  scene: string;
+  at: number;
 }
 
 export interface Settings {
@@ -177,6 +188,7 @@ export const emptyProgress = (datasetId: string): Progress => ({
   queue: [],
   readings: [],
   shadow: emptyShadow(),
+  hacks: {},
 });
 
 export const dayKey = (d = new Date()) =>
@@ -258,6 +270,10 @@ export function sanitizeProgress(v: unknown, datasetId: string): Progress {
     out.placement = { at: pl.at as number, levels: pl.levels as number[], estimate: pl.estimate as number, seeded: pl.seeded as number };
   out.queue = strs(v.queue, 2000);
   if (Array.isArray(v.readings)) out.readings = v.readings.filter(validReading).slice(0, 30);
+  if (isObj(v.hacks))
+    for (const [k, h] of Object.entries(v.hacks).slice(-3000))
+      if (k.length <= 80 && isObj(h) && str(h.homophone, 400) && str(h.split, 400) && str(h.scene, 400) && num(h.at, 0))
+        out.hacks[k] = { homophone: h.homophone, split: h.split, scene: h.scene, at: h.at as number };
   const sh = v.shadow;
   if (isObj(sh)) {
     if (num(sh.best, 0, 1e5)) out.shadow.best = sh.best as number;

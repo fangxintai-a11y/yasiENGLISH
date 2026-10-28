@@ -1,6 +1,7 @@
 import type { Atlas, WordRef } from "../atlas/types";
 import { MEDIA } from "../atlas/types";
 import { cardKey, effectiveRetention, getCard, nextNew, parseKey, targetIds, todayPlan as planToday } from "../ielts/exam";
+import { confusablesOf } from "../ielts/confusables";
 import { diagnose } from "../ielts/spelling";
 import { getTags } from "../ielts/tags";
 import { hashSeed, normalize, shuffle } from "../lib/text";
@@ -65,8 +66,17 @@ export function distractors(atlas: Atlas, ref: WordRef, kind: QuizKind, seed: nu
     scored.push([score, w]);
   }
   scored.sort((a, b) => b[0] - a[0]);
-  const seen = new Set<string>();
+  const seen = new Set<string>([kind === "meaning" ? ref.zh : target]);
   const picks: string[] = [];
+  // 易混词对撞: most of the time one wrong option is the look-alike (adapt vs adopt), so the two
+  // words are told apart on purpose rather than mixed up later.
+  // A look-alike that means the same (enquiry/inquiry) would be a second right answer.
+  const look = confusablesOf(ref.id).filter((id) => atlas.byId.has(id) && !skip.has(id) && !(zhCore && atlas.byId.get(id)!.zh.includes(zhCore)));
+  if (look.length && (kind === "meaning" || kind === "picture") && hashSeed(ref.id + seed) % 100 < 70) {
+    const w = atlas.byId.get(look[seed % look.length])!;
+    seen.add(kind === "meaning" ? w.zh : normalize(w.word));
+    picks.push(w.id);
+  }
   for (const [, w] of scored) {
     const key = kind === "meaning" ? w.zh : normalize(w.word);
     if (seen.has(key)) continue;
@@ -184,6 +194,18 @@ export function gradeFor(kind: QuizKind, correct: boolean, ms: number, hinted: b
 export const isPractice = (s: ActiveSession | null | undefined) => !!s?.practice;
 
 /** Apply an answer. Only the first attempt for a card in a session updates memory and stats. */
+/** Right this many times in a row after a miss, before a word leaves the session. */
+export const RELEARN_RUN = 3;
+/** Steps until the next retry, by how many retries in a row have been right. */
+const RELEARN_GAPS = [3, 6, 10];
+/** Retries per word and track in one session, so a hopeless word cannot take the session over. */
+const RELEARN_MAX = 6;
+
+/** Steps until a missed word comes back, or null once it has been right RELEARN_RUN times in a row (or retried enough). */
+export function relearnGap(run: number, retries: number): number | null {
+  return run < RELEARN_RUN && retries < RELEARN_MAX ? RELEARN_GAPS[run] : null;
+}
+
 export function answer(atlas: Atlas, step: Step & { kind: QuizKind }, correct: boolean, grade: Grade, value: string, ms = 0) {
   const { settings } = store.get();
   const now = Date.now();
@@ -217,15 +239,15 @@ export function answer(atlas: Atlas, step: Step & { kind: QuizKind }, correct: b
         next = { ...next, spell, spellLog: [{ id: step.id, typed: value.slice(0, 60), at: now, tags }, ...next.spellLog].slice(0, 200) };
       }
     }
-    if (!correct) {
-      // Practise it again a few steps later; never re-graded.
+    // 当场三连击: a missed word comes back until it is right three times in a row, each time a
+    // little later (successive relearning). Retries are never graded.
+    if (!correct || step.retry) {
+      const run = correct ? (sess.relearn?.[key] ?? 0) + 1 : 0;
       const steps = [...next.session!.steps];
       const retries = steps.filter((x) => x.id === step.id && x.kind !== "intro" && x.retry && trackOf(x) === track).length;
-      if (retries < 2) {
-        const at = Math.min(steps.length, sess.index + 4);
-        steps.splice(at, 0, quizStep(atlas, next, key, now, true));
-        next = { ...next, session: { ...next.session!, steps } };
-      }
+      const gap = relearnGap(run, retries);
+      if (gap !== null) steps.splice(Math.min(steps.length, sess.index + 1 + gap), 0, quizStep(atlas, next, key, now + retries, true));
+      next = { ...next, session: { ...next.session!, steps, relearn: { ...(sess.relearn ?? {}), [key]: run } } };
     }
     return next;
   });

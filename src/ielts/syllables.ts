@@ -26,6 +26,28 @@ export function parseSyllables(s: string): Piece[] {
   return out;
 }
 
+/** Letter offset where each piece starts in the plain word (the pieces spell it exactly). */
+export function pieceStarts(pieces: Piece[]): number[] {
+  let at = 0;
+  return pieces.map((p) => {
+    const s = at;
+    at += p.text.length;
+    return s;
+  });
+}
+
+/** How many letters a hint should show after `shown`: up to the end of the next syllable (and any joiner after it). */
+export function nextSyllableEnd(pieces: Piece[], shown: number): number {
+  const starts = pieceStarts(pieces);
+  for (let i = 0; i < pieces.length; i++) {
+    let end = starts[i] + pieces[i].text.length;
+    if (pieces[i].gap || end <= shown) continue;
+    while (i + 1 < pieces.length && pieces[i + 1].gap) end += pieces[++i].text.length;
+    return end;
+  }
+  return shown;
+}
+
 /**
  * Where each syllable starts and ends in the recording, as fractions of its length.
  * Unknown timings are guessed from the letters: vowels and the stressed syllable take longer.
