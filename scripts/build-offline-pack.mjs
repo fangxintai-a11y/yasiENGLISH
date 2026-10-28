@@ -30,8 +30,8 @@ const BASE_DIRS = ["atlas/entries/", "ielts/mnemo/", "atlas/thumb/", "brand/", "
 function groupOf(rel) {
   if (BASE_FILES.has(rel) || BASE_DIRS.some((d) => rel.startsWith(d))) return "base";
   if (rel.startsWith("atlas/img/")) return "img";
-  if (rel.startsWith("atlas/audio/uk/")) return "uk";
-  if (rel.startsWith("atlas/audio/us/")) return "us";
+  if (rel.startsWith("atlas/audio/word-uk/")) return "uk";
+  if (rel.startsWith("atlas/audio/word-us/")) return "us";
   if (rel.startsWith("atlas/audio/say/") || rel.startsWith("atlas/audio/say2/") || rel.startsWith("ielts/phrase/")) return "ex";
   return null;
 }

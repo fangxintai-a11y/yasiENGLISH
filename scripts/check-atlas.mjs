@@ -23,8 +23,8 @@ index.words.forEach((r, i) => {
   const need = [
     [1, `img/${id}.webp`],
     [1, `thumb/${id}.webp`],
-    [2, `audio/uk/${id}.mp3`],
-    [4, `audio/us/${id}.mp3`],
+    [2, `audio/word-uk/${id}.mp3`],
+    [4, `audio/word-us/${id}.mp3`],
     [8, `audio/say/${id}.mp3`],
     [16, `audio/say2/${id}.mp3`],
   ];

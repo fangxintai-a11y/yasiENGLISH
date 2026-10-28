@@ -16,8 +16,9 @@ interface IndexFile {
   words: IndexRow[];
 }
 
-/** Example sentences live in say/ and say2/: one Kokoro voice for all of them (the old ex/ and ex2/ mixed two). */
-const AUDIO_DIR = { uk: "uk", us: "us", ex: "say", ex2: "say2" } as const;
+/** Example sentences live in say/ and say2/: one Kokoro voice for all of them (the old ex/ and ex2/ mixed two).
+    Word recordings live in word-uk/ and word-us/, brought to the same loudness as the sentences. */
+const AUDIO_DIR = { uk: "word-uk", us: "word-us", ex: "say", ex2: "say2" } as const;
 
 export async function loadOpenAtlas(): Promise<Atlas> {
   const res = await fetch(url("index.json"));
