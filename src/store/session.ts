@@ -4,7 +4,7 @@ import { cardKey, effectiveRetention, getCard, nextNew, parseKey, targetIds, tod
 import { diagnose } from "../ielts/spelling";
 import { getTags } from "../ielts/tags";
 import { hashSeed, normalize, shuffle } from "../lib/text";
-import { isMastered, review, Rating, type CardState, type Grade } from "./srs";
+import { isMastered, review, Rating, seedKnown, type CardState, type Grade } from "./srs";
 import { bumpDay, dayKey, store, type ActiveSession, type Progress, type QuizKind, type Settings, type Step, type Track } from "./store";
 
 export function newToday(p: Progress) {
@@ -230,6 +230,26 @@ export function answer(atlas: Atlas, step: Step & { kind: QuizKind }, correct: b
       }
     }
     return next;
+  });
+}
+
+/**
+ * "I already know this word" on a first meeting: no teaching and no quiz now, one spot check in
+ * 10–30 days instead (like the placement test's known words). It does not use up a new-word slot.
+ */
+export function markKnown(id: string) {
+  const now = Date.now();
+  store.progress((p) => {
+    const s = p.session;
+    if (!s) return p;
+    const steps = s.steps.filter((x, i) => i <= s.index || x.id !== id);
+    const index = s.index + 1;
+    const due = now + (10 + (hashSeed(id) % 21)) * 86400000;
+    return {
+      ...p,
+      cards: p.cards[id] ? p.cards : { ...p.cards, [id]: seedKnown(now, due, 25) },
+      session: { ...s, steps, index, newIds: s.newIds.filter((x) => x !== id), pending: undefined, finished: index >= steps.length ? now : undefined },
+    };
   });
 }
 

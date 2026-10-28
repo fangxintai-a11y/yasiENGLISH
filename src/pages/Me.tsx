@@ -184,6 +184,7 @@ export function Me({ privateAvailable }: { privateAvailable: boolean }) {
           <Toggle label="自动播放发音" on={settings.autoplay} set={(v) => set({ autoplay: v })} />
           <Toggle label="界面音效" on={settings.sfx} set={(v) => set({ sfx: v })} />
           <Toggle label="开屏动画（每天一次）" on={settings.splash} set={(v) => set({ splash: v })} />
+          <Toggle label="新词先猜后看（先遮住释义，想一想再揭晓）" on={settings.guessFirst} set={(v) => set({ guessFirst: v })} />
           <Toggle label="听力拼写卡（王陆语料库词，识别稳定后解锁听写）" on={settings.trackL} set={(v) => set({ trackL: v })} />
           <Toggle label="写作产出卡（学术词表 AWL，根据中文和语境写出单词）" on={settings.trackP} set={(v) => set({ trackP: v })} />
           {privateAvailable && (

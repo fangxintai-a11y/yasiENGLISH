@@ -117,6 +117,8 @@ export interface Settings {
   ambience: "off" | "stars" | "rain" | "sea" | "forest" | "fire" | "voyage" | "cafe";
   ambienceVolume: number;
   splash: boolean;
+  /** First meeting hides the meaning until the learner has tried to guess it. */
+  guessFirst: boolean;
   /** IELTS exam day as YYYY-MM-DD; empty when not booked yet. */
   examDate: string;
   /** Daily study time the plan is built around. */
@@ -144,6 +146,7 @@ export const defaultSettings: Settings = {
   ambience: "stars",
   ambienceVolume: 0.45,
   splash: true,
+  guessFirst: true,
   examDate: "",
   dailyMinutes: 30,
   targetBand: 6.5,
@@ -283,6 +286,7 @@ export function sanitizeSettings(v: unknown): Settings {
   if (["off", "stars", "rain", "sea", "forest", "fire", "voyage", "cafe"].includes(v.ambience as string)) s.ambience = v.ambience as Settings["ambience"];
   if (num(v.ambienceVolume, 0, 1)) s.ambienceVolume = v.ambienceVolume as number;
   if (typeof v.splash === "boolean") s.splash = v.splash;
+  if (typeof v.guessFirst === "boolean") s.guessFirst = v.guessFirst;
   if (v.examDate === "" || (typeof v.examDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v.examDate))) s.examDate = v.examDate;
   if (num(v.dailyMinutes, 5, 240)) s.dailyMinutes = Math.round(v.dailyMinutes as number);
   if (num(v.targetBand, 4, 9) && Number.isInteger((v.targetBand as number) * 2)) s.targetBand = v.targetBand as number;

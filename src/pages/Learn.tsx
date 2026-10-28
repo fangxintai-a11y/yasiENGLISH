@@ -9,7 +9,7 @@ import { burst } from "../lib/burst";
 import { cue } from "../lib/sound";
 import { go } from "../lib/router";
 import { gap, normalize } from "../lib/text";
-import { answer, advance, atlasSynonyms, buildSession, gradeFor, isPractice, sessionStats, SPEED_LIMIT, stepKey, trackOf } from "../store/session";
+import { answer, advance, atlasSynonyms, buildSession, gradeFor, isPractice, markKnown, sessionStats, SPEED_LIMIT, stepKey, trackOf } from "../store/session";
 import { Rating, type Grade } from "../store/srs";
 import { store, useStore, type ActiveSession, type QuizKind, type Step, type Track } from "../store/store";
 import { EntryView, Highlight } from "../ui/EntryView";
@@ -20,6 +20,7 @@ import { AmbiencePicker } from "../ui/Ambience";
 import { Ring } from "../ui/Ring";
 import { Speak } from "../ui/Speak";
 import { shareSession } from "../ui/shareSession";
+import { toast } from "../ui/Toast";
 
 export function Learn() {
   const atlas = useAtlas();
@@ -98,6 +99,8 @@ function Intro({ step }: { step: Step }) {
   const settings = useStore((s) => s.settings);
   const elapsed = useStepTimer();
   const ref = atlas.byId.get(step.id);
+  // Guess first: trying to recall a meaning before seeing it makes it stick better than just reading it.
+  const [revealed, setRevealed] = useState(!settings.guessFirst);
   useEffect(() => {
     if (entry && settings.autoplay) void play(atlas.audio(entry, settings.accent), entry.w, settings.accent);
   }, [entry, atlas, settings.autoplay, settings.accent]);
@@ -106,22 +109,44 @@ function Intro({ step }: { step: Step }) {
     if (store.get().settings.sfx) void cue("flip");
     advance(elapsed());
   }, [elapsed]);
-  useKeys({ Enter: next, " ": next });
+  const reveal = useCallback(() => {
+    setRevealed(true);
+    if (store.get().settings.sfx) void cue("flip");
+    // On phones the meanings sit below the illustration: bring them into view.
+    window.setTimeout(() => document.querySelector(".intro .senses")?.scrollIntoView({ block: "center", behavior: "smooth" }), 60);
+  }, []);
+  const known = useCallback(() => {
+    stopAudio();
+    markKnown(step.id);
+    toast("不教了：它会在两三周后抽查一次，答错再回到计划里", "ok");
+  }, [step.id]);
+  useKeys(revealed ? { Enter: next, " ": next } : { Enter: reveal, " ": reveal });
   if (!entry || !ref) return <span className="spinner" />;
   return (
-    <div className="intro">
+    <div className={`intro ${revealed ? "" : "is-guessing"}`}>
       <p className="stage-label">
-        <span className="dot dot-new" /> 初次见面
+        <span className="dot dot-new" /> 初次见面{revealed ? "" : " · 先猜它的意思"}
       </p>
       <WhyTags id={entry.id} />
-      <EntryView entry={entry} mode="intro" />
-      <MnemonicBlock refw={ref} />
+      <div className="guess-zone" onClick={revealed ? undefined : reveal}>
+        <EntryView entry={entry} mode="intro" />
+        <MnemonicBlock refw={ref} />
+      </div>
       <footer className="learn-actions">
-        <button className="btn btn-primary btn-xl" onClick={next} autoFocus>
-          认识了 <ArrowRight size={20} />
+        <button className="btn btn-ghost" onClick={known}>
+          我早就会了
         </button>
+        {revealed ? (
+          <button className="btn btn-primary btn-xl" onClick={next} autoFocus>
+            看完了，下一个 <ArrowRight size={20} />
+          </button>
+        ) : (
+          <button className="btn btn-primary btn-xl" onClick={reveal} autoFocus>
+            想好了，看答案 <ArrowRight size={20} />
+          </button>
+        )}
         <span className="hint-keys">
-          <kbd>Enter</kbd> 继续
+          <kbd>Enter</kbd> {revealed ? "继续" : "揭晓"}
         </span>
       </footer>
     </div>

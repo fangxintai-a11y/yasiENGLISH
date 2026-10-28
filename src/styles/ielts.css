@@ -1482,3 +1482,29 @@ input[type="date"],
     grid-column: 3;
   }
 }
+
+/* ---------- first meeting: guess before reveal ---------- */
+
+.intro.is-guessing .guess-zone {
+  cursor: pointer;
+}
+.intro.is-guessing .senses,
+.intro.is-guessing .ex-zh,
+.intro.is-guessing .collocations small,
+.intro.is-guessing .relations,
+.intro.is-guessing .tip,
+.intro.is-guessing .usage-note,
+.intro.is-guessing .mnemo {
+  filter: blur(9px);
+  opacity: 0.55;
+  user-select: none;
+  transition: filter 0.35s var(--ease), opacity 0.35s var(--ease);
+}
+.intro .senses,
+.intro .ex-zh,
+.intro .mnemo {
+  transition: filter 0.35s var(--ease), opacity 0.35s var(--ease);
+}
+.intro .learn-actions .btn-ghost {
+  flex: 0 0 auto;
+}
