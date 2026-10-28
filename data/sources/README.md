@@ -10,3 +10,5 @@
 | `gptwords.jsonl` | 8,714 个词的词义分析、词根词缀、记忆辅助、小故事 | [Ceelog/DictionaryByGPT4](https://github.com/Ceelog/DictionaryByGPT4)（commit `8c9b050`） | CC BY-SA 4.0，见 `gptwords.LICENSE` | 生成 `public/ielts/mnemo/*.json`（记忆钩子），同样按 CC BY-SA 4.0 提供 |
 
 同义替换网络来自词光词条自带的 `syn` 字段（CC BY 4.0），只保留同在图鉴中的词。
+
+例句和听力短语的录音（`public/atlas/audio/say*`、`public/ielts/phrase`）由开源语音模型 [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M)（Apache-2.0，ONNX 版本来自 [thewh1teagle/kokoro-onnx](https://github.com/thewh1teagle/kokoro-onnx) 的 model-files-v1.0 发布）生成，声音 af_heart。
