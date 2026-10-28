@@ -24,7 +24,7 @@ const GROUPS = [
   { key: "ex", label: "例句朗读" },
 ];
 
-const BASE_FILES = new Set(["atlas/index.json", "ielts/tags.json", "favicon.svg", "icon-512.png", "manifest.webmanifest"]);
+const BASE_FILES = new Set(["atlas/index.json", "ielts/tags.json", "ielts/syl.json", "favicon.svg", "icon-512.png", "manifest.webmanifest"]);
 const BASE_DIRS = ["atlas/entries/", "ielts/mnemo/", "atlas/thumb/", "brand/", "sfx/"];
 
 function groupOf(rel) {

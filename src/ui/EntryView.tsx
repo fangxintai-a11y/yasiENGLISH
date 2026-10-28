@@ -4,6 +4,7 @@ import { useAtlas } from "../atlas/context";
 import { splitHighlight, splitPair } from "../lib/text";
 import { formatInterval, isMastered } from "../store/srs";
 import { toggleBookmark, useStore } from "../store/store";
+import { Headword } from "./Headword";
 import { Illustration } from "./Illustration";
 import { Speak } from "./Speak";
 import { shareWord } from "./share";
@@ -98,9 +99,7 @@ export function EntryView({ entry, mode = "detail", eager = true }: { entry: Ent
             Band Galaxy
           </p>
         )}
-        <h2 className="headword" lang="en">
-          {entry.w}
-        </h2>
+        <Headword entry={entry} refw={ref ?? entry} />
         <Pronounce entry={entry} refw={ref ?? entry} />
 
         <ol className="senses">

@@ -6,6 +6,7 @@
 |---|---|---|---|---|
 | `wanglu-listening.csv` | 雅思王听力语料库（王陆）各章节词表 | [daddywolf/IELTS-Listening-Vocabulary-and-Collocation](https://github.com/daddywolf/IELTS-Listening-Vocabulary-and-Collocation)（commit `a66bbf1`） | 版权归原作者 / 出版方；仓库作者注明「搬运」 | 标注听力高频词（解锁听写卡），以及短语听写练习 |
 | `awl-sublists.txt` | Academic Word List 十个子表（570 个词族） | Coxhead, A. (2000). *A New Academic Word List*. TESOL Quarterly；文本取自 [FirmS26/WordBridge](https://github.com/FirmS26/WordBridge) | 学术研究成果，版权归原作者 | 标注写作产出词（解锁产出卡），以及选择 AI 造句的词 |
+| `cmudict-atlas.txt` | CMU 发音词典中图鉴词条用到的部分（含美式变体、复合词拆分所需的词） | [cmusphinx/cmudict](https://github.com/cmusphinx/cmudict) | BSD 2-Clause，见 `cmudict.LICENSE` | `scripts/ielts/build_syllables.py` 生成 `public/ielts/syl.json`：点单词时按发音拆音节、标重音 |
 | `gptwords.jsonl` | 8,714 个词的词义分析、词根词缀、记忆辅助、小故事 | [Ceelog/DictionaryByGPT4](https://github.com/Ceelog/DictionaryByGPT4)（commit `8c9b050`） | CC BY-SA 4.0，见 `gptwords.LICENSE` | 生成 `public/ielts/mnemo/*.json`（记忆钩子），同样按 CC BY-SA 4.0 提供 |
 
 同义替换网络来自词光词条自带的 `syn` 字段（CC BY 4.0），只保留同在图鉴中的词。

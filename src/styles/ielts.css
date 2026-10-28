@@ -1508,3 +1508,83 @@ input[type="date"],
 .intro .learn-actions .btn-ghost {
   flex: 0 0 auto;
 }
+
+/* ---------- headword: tap to split into syllables ---------- */
+
+.headword-wrap {
+  margin: 8px 0 12px;
+}
+.headword-wrap .headword {
+  margin: 0;
+}
+.hw-btn {
+  font: inherit;
+  letter-spacing: inherit;
+  color: inherit;
+  text-align: left;
+  padding: 0;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.25s var(--spring);
+}
+.hw-btn:active {
+  transform: scale(0.98);
+}
+.hw-btn.is-playing:not(.is-split) {
+  animation: hw-pulse 0.9s var(--ease) infinite alternate;
+}
+@keyframes hw-pulse {
+  to {
+    opacity: 0.55;
+  }
+}
+.syl-wrap {
+  white-space: nowrap;
+}
+.syl {
+  display: inline-block;
+  border-radius: 0.18em;
+  padding: 0 0.04em;
+  animation: syl-in 0.4s var(--spring) both;
+  transition: background-color 0.12s, color 0.12s, transform 0.12s;
+}
+.syl.is-stress {
+  text-decoration: underline;
+  text-decoration-color: var(--terra);
+  text-decoration-thickness: 0.07em;
+  text-underline-offset: 0.12em;
+}
+.syl.is-on {
+  background: var(--mark);
+  color: var(--terra-ink);
+  transform: translateY(-0.04em);
+}
+.syl-dot {
+  display: inline-block;
+  color: var(--ink-4);
+  font-weight: 400;
+  margin: 0 0.06em;
+  animation: syl-in 0.4s var(--spring) both;
+}
+.syl-gap {
+  white-space: pre;
+}
+@keyframes syl-in {
+  from {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+}
+.hw-hint {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+@media (prefers-reduced-motion: reduce) {
+  .syl,
+  .syl-dot,
+  .hw-btn.is-playing:not(.is-split) {
+    animation: none;
+  }
+}
