@@ -60,6 +60,16 @@ export function useTags() {
   );
 }
 
+/** Recording of a corpus phrase; the file name rule matches phrase_key() in gen_sentence_audio_kokoro.py. */
+export function phraseAudio(text: string) {
+  const slug = text
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+  return slug ? `${BASE}/ielts/phrase/${slug}.mp3` : null;
+}
+
 const mnemoChunks = new Map<number, Promise<Record<string, Mnemonic>>>();
 
 /** Roots, memory tips and a short story for a word, if DictionaryByGPT4 covers it. */

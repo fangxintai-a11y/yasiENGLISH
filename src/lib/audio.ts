@@ -52,7 +52,8 @@ async function speak(url: string | null | undefined, text: string, accent: "uk" 
       cancelAnimationFrame(frame);
     }
   }
-  if (!("speechSynthesis" in window)) return "unsupported" as const;
+  // No text means a recording only (the learner's own take): never fall back to the device voice.
+  if (!text || !("speechSynthesis" in window)) return "unsupported" as const;
   const u = new SpeechSynthesisUtterance(text);
   u.lang = accent === "uk" ? "en-GB" : "en-US";
   u.rate = rate * 0.95;

@@ -7,6 +7,7 @@ import {
   runDownload,
   shellUrls,
   speedOf,
+  staleUrls,
   type GroupKey,
   type PackManifest,
   type Progress,
@@ -232,6 +233,10 @@ export async function startPack(keys: GroupKey[], force = false) {
   } catch {
     return commit({ phase: "error", message: "无法打开离线存储（隐私模式下通常不可用）。" });
   }
+
+  // Recordings that moved or were dropped by a new deploy would otherwise sit in storage forever.
+  const before = await cachedUrls(cache).catch(() => new Set<string>());
+  await Promise.all(staleUrls(before, m, BASE, location.origin).map((u) => cache.delete(u).catch(() => false)));
 
   if (!force) {
     const have = await cachedUrls(cache).catch(() => new Set<string>());

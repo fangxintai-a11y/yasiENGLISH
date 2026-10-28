@@ -1,4 +1,4 @@
-import { ArrowRight, CalendarClock, Flame, Keyboard, Sparkles, Sunrise } from "lucide-react";
+import { ArrowRight, CalendarClock, Flame, Keyboard, Mic, Sparkles, Sunrise } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { prefetch, useAtlas, useEntry } from "../atlas/context";
 import { go, openWord } from "../lib/router";
@@ -180,6 +180,7 @@ export function Today() {
       </section>
 
       <div className="today-grid">
+        <ShadowPanel />
         <MorningCheck onStart={(ids) => start({ ids, label: "晨间回测" })} disabled={!!active} />
         <FadingStars onStart={(ids) => start({ ids, label: "救星行动" })} disabled={!!active} />
         <SkillPanel />
@@ -339,6 +340,26 @@ function FadingStars({ onStart, disabled }: { onStart: (ids: string[]) => void; 
 }
 
 /** Three memories per word: reading, listening, writing. */
+/** 跟读 on the home page: today's count and the way in. */
+function ShadowPanel() {
+  const shadow = useStore((s) => s.progress.shadow);
+  const today = shadow.days[dayKey()] ?? 0;
+  return (
+    <section className="panel shadow-panel">
+      <div className="panel-head">
+        <h3 className="eyebrow">今日跟读</h3>
+        <span className={`streak ${today ? "is-on" : ""}`}>
+          <Mic size={15} /> 今天 {today} 句
+        </span>
+      </div>
+      <p className="shadow-panel-lede">把刚学的词放进句子里说出来：听 → 跟 → 说 → 比，录下自己和原声对比。</p>
+      <button className="btn btn-primary" onClick={() => go({ page: "shadow", run: true })}>
+        {today ? "再跟 8 句" : "开口跟读 8 句"} <ArrowRight size={18} />
+      </button>
+    </section>
+  );
+}
+
 function SkillPanel() {
   const atlas = useAtlas();
   const tags = useTags();

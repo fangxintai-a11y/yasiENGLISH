@@ -2,7 +2,7 @@ import { Check, Headphones, Play, X } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { useAtlas } from "../../atlas/context";
 import { hasPattern, SPELL_LABEL, spelledRight, type SpellTag } from "../../ielts/spelling";
-import { useTags } from "../../ielts/tags";
+import { phraseAudio, useTags } from "../../ielts/tags";
 import { play, stopAudio } from "../../lib/audio";
 import { hashSeed, normalize, shuffle } from "../../lib/text";
 import { recallAt } from "../../store/srs";
@@ -114,10 +114,9 @@ export function SpellTab() {
   );
 }
 
-/** Corpus items that are not atlas headwords: phrases, names, plurals. Spoken by the device voice. */
+/** Corpus items that are not atlas headwords: phrases, names, plurals. Recorded in the sentence voice. */
 function PhraseDictation() {
   const tags = useTags();
-  const accent = useStore((s) => s.settings.accent);
   const chapters = useMemo(() => [...new Set(tags.phrases.map(([, c]) => c))], [tags]);
   const [chapter, setChapter] = useState<string>("");
   const [round, setRound] = useState<{ items: string[]; i: number; answers: { typed: string; ok: boolean }[] } | null>(null);
@@ -135,7 +134,7 @@ function PhraseDictation() {
       if (items[0]) say(items[0]);
     }, 80);
   };
-  const say = (text: string, rate = 1) => void play(null, text, accent, rate);
+  const say = (text: string, rate = 1) => void play(phraseAudio(text), text, "us", rate);
   const submit = () => {
     if (!round) return;
     const target = round.items[round.i];

@@ -12,10 +12,10 @@ Writes public/atlas/audio/{say,say2}/<id>.mp3 and public/ielts/phrase/<key>.mp3;
 skipped, so the run can be stopped and resumed at any time.
 """
 import argparse
-import hashlib
 import json
 import multiprocessing as mp
 import os
+import re
 import subprocess
 import sys
 import time
@@ -28,8 +28,8 @@ DIRS = {"ex": ROOT / "public/atlas/audio/say", "ex2": ROOT / "public/atlas/audio
 
 
 def phrase_key(text: str) -> str:
-    """Stable file name for a phrase; mirrored by phraseAudio() in src/ielts/tags.ts."""
-    return hashlib.sha1(text.strip().lower().encode()).hexdigest()[:12]
+    """File name for a phrase ("a piece of cake" -> a-piece-of-cake); mirrored by phraseAudio() in src/ielts/tags.ts."""
+    return re.sub(r"^-|-$", "", re.sub(r"[^a-z0-9]+", "-", text.strip().lower()))
 
 
 def jobs(kinds, limit):

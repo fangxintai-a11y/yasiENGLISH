@@ -16,6 +16,9 @@ interface IndexFile {
   words: IndexRow[];
 }
 
+/** Example sentences live in say/ and say2/: one Kokoro voice for all of them (the old ex/ and ex2/ mixed two). */
+const AUDIO_DIR = { uk: "uk", us: "us", ex: "say", ex2: "say2" } as const;
+
 export async function loadOpenAtlas(): Promise<Atlas> {
   const res = await fetch(url("index.json"));
   if (!res.ok) throw new Error(`词库索引加载失败（${res.status}）`);
@@ -81,7 +84,7 @@ export async function loadOpenAtlas(): Promise<Atlas> {
     audio(ref, kind) {
       const m = "media" in ref && typeof ref.media === "number" ? ref.media : (ref as Entry).m;
       const bit = MEDIA[kind];
-      return m & bit ? url(`audio/${kind}/${ref.id}.mp3`) : null;
+      return m & bit ? url(`audio/${AUDIO_DIR[kind]}/${ref.id}.mp3`) : null;
     },
   };
 }

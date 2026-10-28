@@ -14,6 +14,7 @@ import {
   selectionSize,
   shellUrls,
   speedOf,
+  staleUrls,
   type CacheLike,
   type PackManifest,
 } from "./offlinePack";
@@ -264,4 +265,17 @@ test("formatting and speed helpers", () => {
   assert.equal(speedOf([[0, 0], [1000, 2000], [2000, 6000]]), 3000);
   // Samples older than the window are ignored.
   assert.equal(speedOf([[0, 0], [10000, 1000], [11000, 3000]], 5000), 2000);
+});
+
+test("staleUrls finds media the manifest dropped and leaves everything else", () => {
+  const o = "https://x.test";
+  const have = [
+    `${o}/app/atlas/audio/ex/w000.mp3`, // moved away: stale
+    `${o}/app/atlas/audio/uk/w000.mp3`, // still listed
+    `${o}/app/ielts/phrase/old-one.mp3`, // dropped: stale
+    `${o}/app/assets/index-abc.js`, // app shell: not the pack's business
+    `${o}/other/atlas/audio/ex/w000.mp3`, // another base
+  ];
+  const m: PackManifest = { ...manifest, groups: manifest.groups.map((g) => (g.key === "ex" ? { ...g, sets: [{ p: "atlas/audio/say/{id}.mp3", ids: ids(10) }] } : g)) };
+  assert.deepEqual(staleUrls(have, m, "/app/", o), [`${o}/app/atlas/audio/ex/w000.mp3`, `${o}/app/ielts/phrase/old-one.mp3`]);
 });

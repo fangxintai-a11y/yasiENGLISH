@@ -75,6 +75,20 @@ export function buildJobs(m: PackManifest, keys: readonly string[], base: string
   return jobs;
 }
 
+/** Media folders the pack owns: a cached file there that the manifest no longer lists is left over. */
+const OWNED = ["atlas/", "ielts/"];
+
+/**
+ * Cached URLs a new manifest no longer lists, such as recordings that moved to a new folder.
+ * Only the pack's media folders are considered; app files and anything else are left alone.
+ */
+export function staleUrls(have: Iterable<string>, m: PackManifest, base: string, origin: string): string[] {
+  const keep = new Set<string>();
+  for (const g of m.groups) for (const p of groupPaths(g)) keep.add(new URL(base + p, origin).href);
+  const roots = OWNED.map((d) => new URL(base + d, origin).href);
+  return [...have].filter((u) => !keep.has(u) && roots.some((r) => u.startsWith(r)));
+}
+
 /** The minimal Cache surface the downloader needs (real Cache satisfies it). */
 export interface CacheLike {
   keys(): Promise<readonly { url: string }[]>;

@@ -11,6 +11,9 @@ import { shareWord } from "./share";
 import { openWord } from "../lib/router";
 import { Constellation, MnemonicBlock, TrackMeters, WhyTags } from "./Memory";
 
+/** Sentences are recorded in one American voice; the device fallback should match it, not the word accent. */
+const SENTENCE_ACCENT = "us";
+
 export function Highlight({ text, word }: { text: string; word: string }) {
   const parts = splitHighlight(text, word);
   if (!parts) return <>{text}</>;
@@ -57,7 +60,6 @@ export function EntryView({ entry, mode = "detail", eager = true }: { entry: Ent
   const ref = atlas.byId.get(entry.id);
   const card = useStore((s) => s.progress.cards[entry.id]);
   const saved = useStore((s) => s.progress.bookmarks.includes(entry.id));
-  const accent = useStore((s) => s.settings.accent);
   const topicIdx = atlas.topics.findIndex((t) => t[0] === entry.topic);
   const topic = atlas.topics[topicIdx];
   const exUrls = [atlas.audio(entry, "ex"), atlas.audio(entry, "ex2")];
@@ -125,7 +127,7 @@ export function EntryView({ entry, mode = "detail", eager = true }: { entry: Ent
                   {entry.ex.length > 1 && <span className={`ex-tag ${i ? "is-ielts" : ""}`}>{i ? "雅思语境" : "日常"}</span>}
                   <p className="ex-en" lang="en">
                     <Highlight text={x.en} word={entry.w} />
-                    <Speak url={exUrls[i] ?? null} text={x.en} accent={i === 1 && exUrls[1] ? "us" : accent} size="sm" className="ex-speak" />
+                    <Speak url={exUrls[i] ?? null} text={x.en} accent={SENTENCE_ACCENT} size="sm" className="ex-speak" />
                   </p>
                   <p className="ex-zh">{x.zh}</p>
                 </li>

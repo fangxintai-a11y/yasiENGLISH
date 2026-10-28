@@ -187,6 +187,21 @@ export function Me({ privateAvailable }: { privateAvailable: boolean }) {
           <Toggle label="新词先猜后看（先遮住释义，想一想再揭晓）" on={settings.guessFirst} set={(v) => set({ guessFirst: v })} />
           <Toggle label="听力拼写卡（王陆语料库词，识别稳定后解锁听写）" on={settings.trackL} set={(v) => set({ trackL: v })} />
           <Toggle label="写作产出卡（学术词表 AWL，根据中文和语境写出单词）" on={settings.trackP} set={(v) => set({ trackP: v })} />
+          <Field label="跟读时语音识别打分" hint="用浏览器的语音识别逐词核对你说的句子。iPhone / iPad 上它可能和录音抢麦克风，「自动」在那里只录音、不打分。">
+            <div className="segmented">
+              {(
+                [
+                  ["auto", "自动"],
+                  ["on", "开"],
+                  ["off", "关"],
+                ] as const
+              ).map(([k, l]) => (
+                <button key={k} className={settings.shadowAsr === k ? "is-on" : ""} onClick={() => set({ shadowAsr: k })}>
+                  {l}
+                </button>
+              ))}
+            </div>
+          </Field>
           {privateAvailable && (
             <Field label="词库" hint="私人词库只在本机开发服务器中可用，不会被打包发布。">
               <div className="segmented">

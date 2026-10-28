@@ -21,7 +21,7 @@ const GROUPS = [
   { key: "img", label: "插画" },
   { key: "uk", label: "英音发音" },
   { key: "us", label: "美音发音" },
-  { key: "ex", label: "例句朗读" },
+  { key: "ex", label: "例句与短语朗读" },
 ];
 
 const BASE_FILES = new Set(["atlas/index.json", "ielts/tags.json", "ielts/syl.json", "favicon.svg", "icon-512.png", "manifest.webmanifest"]);
@@ -32,7 +32,7 @@ function groupOf(rel) {
   if (rel.startsWith("atlas/img/")) return "img";
   if (rel.startsWith("atlas/audio/uk/")) return "uk";
   if (rel.startsWith("atlas/audio/us/")) return "us";
-  if (rel.startsWith("atlas/audio/ex/") || rel.startsWith("atlas/audio/ex2/")) return "ex";
+  if (rel.startsWith("atlas/audio/say/") || rel.startsWith("atlas/audio/say2/") || rel.startsWith("ielts/phrase/")) return "ex";
   return null;
 }
 

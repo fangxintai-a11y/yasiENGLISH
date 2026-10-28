@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
 import type { Accent } from "../atlas/types";
+import { emptyShadow, type ShadowStat } from "../ielts/shadow";
 import type { CardState, Grade } from "./srs";
 
 export type QuizKind = "meaning" | "picture" | "listen" | "spell" | "paraphrase" | "dictation" | "produce";
@@ -101,6 +102,8 @@ export interface Progress {
   /** Words to learn before the regular path (from pasted texts). */
   queue: string[];
   readings: Reading[];
+  /** 跟读: sentences practised, per day and per sentence. */
+  shadow: ShadowStat;
 }
 
 export interface Settings {
@@ -128,6 +131,8 @@ export interface Settings {
   trackL: boolean;
   trackP: boolean;
   aiModel: string;
+  /** Speech recognition while shadowing: "auto" leaves it off on iPhone/iPad, where it can fight the recorder for the mic. */
+  shadowAsr: "auto" | "on" | "off";
 }
 
 export const AI_MODELS = ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"] as const;
@@ -153,6 +158,7 @@ export const defaultSettings: Settings = {
   trackL: true,
   trackP: true,
   aiModel: AI_MODELS[0],
+  shadowAsr: "auto",
 };
 
 export const emptyProgress = (datasetId: string): Progress => ({
@@ -170,6 +176,7 @@ export const emptyProgress = (datasetId: string): Progress => ({
   placement: null,
   queue: [],
   readings: [],
+  shadow: emptyShadow(),
 });
 
 export const dayKey = (d = new Date()) =>
@@ -251,6 +258,14 @@ export function sanitizeProgress(v: unknown, datasetId: string): Progress {
     out.placement = { at: pl.at as number, levels: pl.levels as number[], estimate: pl.estimate as number, seeded: pl.seeded as number };
   out.queue = strs(v.queue, 2000);
   if (Array.isArray(v.readings)) out.readings = v.readings.filter(validReading).slice(0, 30);
+  const sh = v.shadow;
+  if (isObj(sh)) {
+    if (num(sh.best, 0, 1e5)) out.shadow.best = sh.best as number;
+    if (isObj(sh.days)) for (const [k, n] of Object.entries(sh.days)) if (/^\d{4}-\d{2}-\d{2}$/.test(k) && num(n, 0, 1e5)) out.shadow.days[k] = n as number;
+    if (isObj(sh.done))
+      for (const [k, d] of Object.entries(sh.done).slice(-20000))
+        if (/^.{1,80}:[01]$/.test(k) && isObj(d) && num(d.n, 0) && num(d.at, 0) && num(d.good, 0)) out.shadow.done[k] = { n: d.n as number, at: d.at as number, good: d.good as number };
+  }
   if (Array.isArray(v.bookmarks)) out.bookmarks = v.bookmarks.filter((x): x is string => typeof x === "string").slice(0, 20000);
   if (Array.isArray(v.mistakes)) out.mistakes = v.mistakes.filter((x): x is string => typeof x === "string").slice(0, 300);
   if (isObj(v.days))
@@ -293,6 +308,7 @@ export function sanitizeSettings(v: unknown): Settings {
   if (typeof v.trackL === "boolean") s.trackL = v.trackL;
   if (typeof v.trackP === "boolean") s.trackP = v.trackP;
   if ((AI_MODELS as readonly string[]).includes(v.aiModel as string)) s.aiModel = v.aiModel as string;
+  if (v.shadowAsr === "auto" || v.shadowAsr === "on" || v.shadowAsr === "off") s.shadowAsr = v.shadowAsr;
   return s;
 }
 
@@ -401,6 +417,22 @@ export function toggleBookmark(id: string) {
     ...p,
     bookmarks: p.bookmarks.includes(id) ? p.bookmarks.filter((x) => x !== id) : [id, ...p.bookmarks],
   }));
+}
+
+/** One sentence shadowed: counts toward today, spaces it out by how it went, and keeps the best run. */
+export function recordShadow(key: string, good: boolean, combo: number, now = Date.now()) {
+  store.progress((p) => {
+    const d = p.shadow.done[key];
+    const k = dayKey(new Date(now));
+    return {
+      ...p,
+      shadow: {
+        days: { ...p.shadow.days, [k]: (p.shadow.days[k] ?? 0) + 1 },
+        best: Math.max(p.shadow.best, combo),
+        done: { ...p.shadow.done, [key]: { n: (d?.n ?? 0) + 1, at: now, good: (d?.good ?? 0) + (good ? 1 : 0) } },
+      },
+    };
+  });
 }
 
 /* ---------- backup ---------- */

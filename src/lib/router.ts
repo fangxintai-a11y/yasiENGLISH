@@ -6,6 +6,8 @@ export type Route =
   | { page: "atlas"; topic?: string; level?: string; q?: string; view?: string }
   | { page: "learn" }
   | { page: "practice" }
+  /** 跟读; run is the immersive round itself. */
+  | { page: "shadow"; run?: boolean }
   | { page: "ielts"; tab?: string }
   | { page: "me" }
   | { page: "about" };
@@ -26,6 +28,7 @@ function parse(hash: string): Location {
     route = { page: "atlas", topic: params.get("topic") || undefined, level: params.get("level") || undefined, q: params.get("q") || undefined, view: params.get("view") || undefined };
   else if (seg[0] === "learn") route = { page: "learn" };
   else if (seg[0] === "practice") route = { page: "practice" };
+  else if (seg[0] === "shadow") route = { page: "shadow", run: params.get("go") === "1" };
   else if (seg[0] === "ielts") route = { page: "ielts", tab: params.get("tab") || undefined };
   else if (seg[0] === "me") route = { page: "me" };
   else if (seg[0] === "about") route = { page: "about" };
@@ -42,6 +45,7 @@ export function href(route: Route, word?: string | null) {
     if (route.view) params.set("view", route.view);
   }
   if (route.page === "ielts" && route.tab) params.set("tab", route.tab);
+  if (route.page === "shadow" && route.run) params.set("go", "1");
   if (word) params.set("w", word);
   const q = params.toString();
   return `#/${route.page === "today" ? "" : route.page}${q ? `?${q}` : ""}`;

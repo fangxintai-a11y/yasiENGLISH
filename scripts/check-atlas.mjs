@@ -25,8 +25,8 @@ index.words.forEach((r, i) => {
     [1, `thumb/${id}.webp`],
     [2, `audio/uk/${id}.mp3`],
     [4, `audio/us/${id}.mp3`],
-    [8, `audio/ex/${id}.mp3`],
-    [16, `audio/ex2/${id}.mp3`],
+    [8, `audio/say/${id}.mp3`],
+    [16, `audio/say2/${id}.mp3`],
   ];
   for (const [bit, file] of need) if (media & bit && !fs.existsSync(path.join(pub, file))) fail(`missing ${file}`);
 });
