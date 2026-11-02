@@ -1,0 +1,135 @@
+.account-panel {
+  min-width: 0;
+  padding-top: 16px;
+}
+
+.account-panel h4 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.account-username {
+  margin: 0 0 20px;
+  color: var(--ink-2);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.account-username b {
+  color: var(--ink);
+}
+
+.account-password-form {
+  display: grid;
+  gap: 14px;
+  max-width: 440px;
+}
+
+.account-password-form > .btn {
+  justify-self: start;
+}
+
+.account-devices {
+  margin-top: 26px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+
+.account-device-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.account-refresh {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 40px;
+  white-space: nowrap;
+}
+
+.account-device-list {
+  margin: 8px 0 16px;
+  padding: 0;
+  list-style: none;
+}
+
+.account-device-list > li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 13px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.account-device-info {
+  min-width: 0;
+}
+
+.account-device-name {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 0;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.account-device-name b {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.account-current-device {
+  flex: none;
+  border-radius: 999px;
+  padding: 2px 7px;
+  background: var(--sage-soft);
+  color: var(--sage-ink);
+  font-size: 11px;
+}
+
+.account-device-time {
+  margin: 5px 0 0;
+  color: var(--ink-3);
+  font-size: 12px;
+}
+
+.account-revoke {
+  flex: none;
+  min-height: 40px;
+  padding: 8px 12px;
+  font-size: 12px;
+}
+
+.account-panel .account-device-note {
+  margin-bottom: 0;
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.account-message {
+  margin: 18px 0 0;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.account-message:not(.warn-text) {
+  color: var(--sage-ink);
+}
+
+@media (max-width: 480px) {
+  .account-password-form {
+    max-width: none;
+  }
+
+  .account-password-form > .btn,
+  .account-revoke-others {
+    width: 100%;
+    justify-content: center;
+  }
+}

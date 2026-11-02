@@ -5,6 +5,9 @@
   "description": "雅思星图 Band Galaxy: an IELTS vocabulary app built on Word Atlas — three memory tracks per word, an exam-date plan, objective grading and exam-day recall forecasts.",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
+    "dev:server": "python3 server/app.py --db .sync-data/progress.sqlite3",
+    "test:server": "python3 -m unittest discover -s server -p 'test_*.py'",
+    "test:sync": "node scripts/test-sync-e2e.mjs",
     "prebuild": "node scripts/build-offline-pack.mjs",
     "build": "tsc -b && vite build",
     "build:pack": "node scripts/build-offline-pack.mjs",

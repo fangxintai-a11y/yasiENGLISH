@@ -16,7 +16,7 @@ export function About() {
           <p className="lede">
             雅思星图在开源项目「词光 Word Atlas」的 {atlas.count.toLocaleString()} 个插画词条之上，加了一层雅思专用的学习引擎：一个词三条记忆曲线、从考试日倒推的计划、客观评分和考试当天的记忆预测。
           </p>
-          <p className="lede">免费、开源、无需注册，进度只存在你的浏览器里。</p>
+          <p className="lede">免费、开源，可以直接在本机学习，也可以登录个人账号同步手机和电脑的进度。</p>
           <div className="about-actions">
             <a className="btn btn-primary" href={REPO_URL} target="_blank" rel="noreferrer">
               <Github size={18} /> 本项目源码

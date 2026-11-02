@@ -9,8 +9,9 @@ import { cue } from "../lib/sound";
 import { distractors } from "../store/session";
 import { store, useStore } from "../store/store";
 import { ExamFields } from "../ui/ExamSetup";
+import { SyncPanel } from "../ui/SyncPanel";
 
-type Stage = "plan" | "test" | "result";
+type Stage = "plan" | "test" | "result" | "account";
 
 export function Onboarding() {
   const atlas = useAtlas();
@@ -36,7 +37,8 @@ export function Onboarding() {
               <button className="btn btn-ghost" onClick={() => finish(atlas, null)}>
                 跳过摸底，从 B1 开始
               </button>
-              <p className="muted">不用注册。进度只留在这台设备上，随时可以在「我的」里修改。</p>
+              <button className="btn btn-ghost" onClick={() => setStage("account")}>已有账号，登录恢复进度</button>
+              <p className="muted">可以直接在本机学习；登录同一个账号后，手机和电脑自动同步。</p>
             </>
           )}
           {stage === "test" && (
@@ -48,6 +50,7 @@ export function Onboarding() {
             />
           )}
           {stage === "result" && result && <PlacementResult st={result} />}
+          {stage === "account" && <><SyncPanel /><button className="btn btn-ghost" onClick={() => setStage("plan")}>返回学习设置</button></>}
         </div>
       </div>
     </div>

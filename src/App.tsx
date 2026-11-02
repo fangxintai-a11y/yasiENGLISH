@@ -57,13 +57,29 @@ export default function App() {
   useEffect(() => {
     void loadTags();
     void loadConfusables();
-    loadOpenAtlas().then(
-      (a) => {
-        setOpen(a);
-        if (import.meta.env.DEV) loadPrivateAtlas(a).then(setPriv, () => null);
-      },
-      (e: Error) => setError(e.message),
-    );
+    let active = true;
+    let loading = false;
+    let loaded = false;
+    const load = () => {
+      if (loading || loaded) return;
+      void loadTags();
+      void loadConfusables();
+      loading = true;
+      setError(null);
+      loadOpenAtlas().then(
+        (a) => {
+          loading = false;
+          if (!active) return;
+          loaded = true;
+          setOpen(a);
+          if (import.meta.env.DEV) loadPrivateAtlas(a).then((value) => active && setPriv(value), () => null);
+        },
+        (e: Error) => { loading = false; if (active) setError(e.message); },
+      );
+    };
+    load();
+    window.addEventListener("online", load);
+    return () => { active = false; window.removeEventListener("online", load); };
   }, []);
 
   useEffect(() => {

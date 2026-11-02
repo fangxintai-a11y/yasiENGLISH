@@ -36,12 +36,14 @@
 
 ## 手机上使用
 
-网页地址：**https://fangxintai-a11y.github.io/yasiENGLISH/**
+支持个人账号同步的服务器入口：**https://www.i2023.com/**。
+
+GitHub Pages 纯静态入口：**https://fangxintai-a11y.github.io/yasiENGLISH/**（仅本机进度，不提供账号服务）。
 
 - iPhone：用 Safari 打开 → 分享 → 「添加到主屏幕」
 - 安卓：用 Chrome 打开 → 菜单 → 「添加到主屏幕 / 安装应用」
 
-添加后像 App 一样全屏打开。想完全离线使用，在「我的 → 离线包」里连 Wi-Fi 下载（默认约 710 MB，可按插画、英音、美音、例句与短语朗读分别勾选）；下载完成后，没网也能学习，只有 AI 功能需要联网。进度只存在这台手机的浏览器里；换设备时，在「我的」里导出备份，再到新设备导入。
+添加后像 App 一样全屏打开。想完全离线使用，在「我的 → 离线包」里连 Wi-Fi 下载（默认约 710 MB，可按插画、英音、美音、例句与短语朗读分别勾选）；下载完成后，没网也能学习。AI 功能和进度同步需要联网。在部署了同步后端的服务器网站上，可在「我的 → 学习进度同步」设置个人账号，手机和电脑登录同一账号后自动同步；GitHub Pages 仍为仅本机模式。也可以手动导出、导入备份。
 
 `main` 分支每次更新都会由 `.github/workflows/pages.yml` 自动构建并发布。首次使用前需要在仓库 Settings → Pages 里把 Source 设为 **GitHub Actions**。
 
@@ -55,6 +57,8 @@ cd yasiENGLISH
 npm ci
 npm run dev        # http://localhost:5188
 ```
+
+开发账号与同步功能时，另开一个终端执行 `npm run dev:server`（Python 3.12+）。开发服务器会将 `/api/` 转发给本机 `5189` 端口，SQLite 数据保存在忽略 Git 跟踪的 `.sync-data/` 中。生产安装和数据目录见 [账号与同步说明](docs/account-sync.md)。
 
 ```bash
 npm test             # 单元测试：引擎、摸底、拼写诊断、文章取词、FSRS
@@ -95,7 +99,7 @@ scripts/ielts/build_ielts.py  生成 public/ielts/*（另有 build_syllables.py�
 data/sources/          第三方原始数据
 ```
 
-学习进度只存在浏览器的 localStorage 里，可以在「我的」里导出和导入备份。
+学习进度先自动保存在浏览器 localStorage；登录个人账号后，学习进度和设置同步到服务器 SQLite。同步日志保存在 IndexedDB，录音另存 IndexedDB，离线媒体存 Cache Storage。录音、离线包、API Key 不进入云端学习快照。账号支持修改密码、查看登录设备和撤销其他设备的登录。
 
 ## 许可
 

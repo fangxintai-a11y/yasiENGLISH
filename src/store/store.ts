@@ -2,6 +2,7 @@ import { useSyncExternalStore } from "react";
 import type { Accent } from "../atlas/types";
 import { emptyShadow, type ShadowStat } from "../ielts/shadow";
 import type { CardState, Grade } from "./srs";
+import { mergeSnapshots, type SyncSnapshot } from "./syncMerge";
 
 export type QuizKind = "meaning" | "picture" | "listen" | "spell" | "paraphrase" | "dictation" | "produce";
 /**
@@ -342,12 +343,14 @@ interface State {
   progress: Progress;
   settings: Settings;
   saveError: boolean;
+  cloudStamp: string | null;
 }
 
 let state: State = {
   progress: emptyProgress("word-atlas-open"),
   settings: sanitizeSettings(read(SETTINGS_KEY)),
   saveError: false,
+  cloudStamp: null,
 };
 const listeners = new Set<() => void>();
 let saveTimer: number | undefined;
@@ -355,6 +358,7 @@ let saveTimer: number | undefined;
 let dirty = false;
 /** Progress is written only after it has been read from storage for this dataset. */
 let loadedId: string | null = null;
+let persistedSnapshot: SyncSnapshot | null = null;
 
 function emit() {
   listeners.forEach((l) => l());
@@ -370,8 +374,10 @@ export function flush() {
   window.clearTimeout(saveTimer);
   if (!dirty) return;
   dirty = false;
-  const progressOk = loadedId !== state.progress.datasetId || write(progressKey(state.progress.datasetId), state.progress);
+  const progressOk = loadedId !== state.progress.datasetId || write(progressKey(state.progress.datasetId), { ...state.progress, _cloudStamp: state.cloudStamp, _cloudSettings: state.settings });
   const ok = progressOk && write(SETTINGS_KEY, state.settings);
+  if (progressOk && loadedId === state.progress.datasetId)
+    persistedSnapshot = { progress: { ...state.progress, session: null }, settings: { ...state.settings } };
   if (ok === state.saveError) {
     state = { ...state, saveError: !ok };
     emit();
@@ -385,9 +391,27 @@ if (typeof window !== "undefined") {
   window.addEventListener("storage", (e) => {
     if (!e.newValue) return;
     try {
-      if (e.key === SETTINGS_KEY) state = { ...state, settings: sanitizeSettings(JSON.parse(e.newValue)) };
-      else if (e.key === progressKey(state.progress.datasetId))
-        state = { ...state, progress: sanitizeProgress(JSON.parse(e.newValue), state.progress.datasetId) };
+      if (e.key === SETTINGS_KEY) {
+        const settings = sanitizeSettings(JSON.parse(e.newValue));
+        state = {
+          ...state,
+          settings: dirty && persistedSnapshot
+            ? mergeSnapshots(persistedSnapshot, { progress: state.progress, settings: state.settings }, { progress: persistedSnapshot.progress, settings }).settings
+            : settings,
+        };
+      }
+      else if (e.key === progressKey(state.progress.datasetId)) {
+        const stored = JSON.parse(e.newValue);
+        const incoming = {
+          progress: { ...sanitizeProgress(stored, state.progress.datasetId), session: null },
+          settings: stored._cloudSettings ? { ...sanitizeSettings(stored._cloudSettings), dataset: state.settings.dataset } : state.settings,
+        };
+        const next = dirty && persistedSnapshot ? mergeSnapshots(persistedSnapshot, { progress: state.progress, settings: state.settings }, incoming) : incoming;
+        state = {
+          ...state, progress: { ...next.progress, session: state.progress.session }, cloudStamp: stored._cloudStamp ?? null, settings: next.settings,
+        };
+        persistedSnapshot = incoming;
+      }
       else return;
       emit();
     } catch {
@@ -404,8 +428,13 @@ export const store = {
   },
   useDataset(datasetId: string) {
     flush();
-    state = { ...state, progress: sanitizeProgress(read(progressKey(datasetId)), datasetId) };
+    const stored = read<Progress & { _cloudStamp?: string; _cloudSettings?: Settings }>(progressKey(datasetId));
+    state = {
+      ...state, progress: sanitizeProgress(stored, datasetId), cloudStamp: stored?._cloudStamp ?? null,
+      settings: stored?._cloudSettings ? { ...sanitizeSettings(stored._cloudSettings), dataset: state.settings.dataset } : state.settings,
+    };
     loadedId = datasetId;
+    persistedSnapshot = { progress: { ...state.progress, session: null }, settings: { ...state.settings } };
     emit();
   },
   progress(fn: (p: Progress) => Progress) {
@@ -417,6 +446,29 @@ export const store = {
     state = { ...state, settings: { ...state.settings, ...patch } };
     emit();
     scheduleSave();
+  },
+  cloudSnapshot(): { progress: Progress; settings: Settings } | null {
+    if (loadedId !== state.progress.datasetId) return null;
+    return { progress: { ...state.progress, session: null }, settings: { ...state.settings } };
+  },
+  appliedCloudStamp: () => state.cloudStamp,
+  applyCloud(snapshot: { progress: Progress; settings: Settings }, stamp?: string) {
+    if (loadedId !== snapshot.progress.datasetId) return;
+    const progress = { ...sanitizeProgress(snapshot.progress, loadedId), session: state.progress.session };
+    const settings = { ...sanitizeSettings(snapshot.settings), dataset: state.settings.dataset };
+    const cloudStamp = stamp ?? state.cloudStamp;
+    // Stamp and progress share one atomic localStorage write, making redo journals idempotent.
+    if (!write(progressKey(loadedId), { ...progress, _cloudStamp: cloudStamp, _cloudSettings: settings }))
+      throw new Error("浏览器无法保存同步进度，请先导出备份并释放存储空间。");
+    const settingsOk = write(SETTINGS_KEY, settings);
+    window.clearTimeout(saveTimer);
+    dirty = false;
+    state = {
+      ...state,
+      progress, settings, cloudStamp, saveError: !settingsOk,
+    };
+    persistedSnapshot = { progress: { ...progress, session: null }, settings: { ...settings } };
+    emit();
   },
 };
 

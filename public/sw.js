@@ -1,6 +1,6 @@
 /* Band Galaxy offline cache: app shell network-first, everything else cache-first.
    The 「离线包」 downloader (src/lib/offline.ts) fills its own `band-pack-*` cache; caches.match() searches it too. */
-const VERSION = "band-v3";
+const VERSION = "band-v4";
 const SHELL = `${VERSION}-shell`;
 const MEDIA = `${VERSION}-media`;
 
@@ -63,7 +63,9 @@ async function sliceResponse(full, header) {
 /** Prefer the shell cache so a fresh index.html wins over an older copy in the pack cache. */
 async function lookup(req) {
   const shell = await caches.open(SHELL);
-  return (await shell.match(req)) || (await caches.match(req));
+  // These are public static files with identical content across request headers.
+  // Vite/CDN Vary headers (e.g. Origin) must not hide downloaded files offline.
+  return (await shell.match(req, { ignoreVary: true })) || (await caches.match(req, { ignoreVary: true }));
 }
 
 /** Offline: the cached copy, or for a page that was never cached, the app shell at the scope URL (works under any sub-path). */
@@ -77,10 +79,12 @@ self.addEventListener("fetch", (event) => {
   if (req.method !== "GET" || req.headers.has("x-band-pack")) return;
   const url = new URL(req.url);
   if (url.origin !== location.origin) return;
+  // Private, changing account data must never be served from an offline cache.
+  if (url.pathname.startsWith("/api/")) return;
   // Safari and Chrome stream <audio> with Range requests: serve them from a cached full copy, else go to the network.
   if (req.headers.has("range")) {
     event.respondWith(
-      caches.match(req.url).then((hit) => (hit && hit.status === 200 ? sliceResponse(hit, req.headers.get("range")) : fetch(req))),
+      caches.match(req.url, { ignoreVary: true }).then((hit) => (hit && hit.status === 200 ? sliceResponse(hit, req.headers.get("range")) : fetch(req))),
     );
     return;
   }
@@ -90,32 +94,34 @@ self.addEventListener("fetch", (event) => {
     url.pathname.endsWith("/ielts/tags.json") ||
     url.pathname.endsWith("/offline/pack.json");
   if (isShell) {
-    event.respondWith(
-      fetch(req)
+    let saved = Promise.resolve();
+    const response = fetch(req)
         .then((res) => {
           // Clone now: cloning inside the then() runs after the page has consumed the body and throws.
           if (res.ok) {
             const copy = res.clone();
-            caches.open(SHELL).then((c) => c.put(req, copy));
+            saved = caches.open(SHELL).then((c) => c.put(req, copy));
           }
           return res;
         })
-        .catch(() => offlineShell(req)),
-    );
+        .catch(() => offlineShell(req));
+    event.respondWith(response);
+    event.waitUntil(response.then(() => saved).catch(() => undefined));
     return;
   }
-  event.respondWith(
-    caches.match(req).then(
+  let saved = Promise.resolve();
+  const response = caches.match(req, { ignoreVary: true }).then(
       (hit) =>
         hit ||
         fetch(req).then((res) => {
           if (res.ok && res.type === "basic") {
             const copy = res.clone();
             const name = /\/(atlas\/(img|thumb|audio)|ielts\/phrase)\//.test(url.pathname) ? MEDIA : SHELL;
-            caches.open(name).then((c) => c.put(req, copy)).then(() => name === MEDIA && trim(MEDIA, 1500));
+            saved = caches.open(name).then((c) => c.put(req, copy)).then(() => name === MEDIA ? trim(MEDIA, 1500) : undefined);
           }
           return res;
         }),
-    ),
-  );
+    );
+  event.respondWith(response);
+  event.waitUntil(response.then(() => saved).catch(() => undefined));
 });

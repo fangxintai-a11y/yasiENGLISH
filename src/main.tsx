@@ -5,6 +5,9 @@ import { createRoot } from "react-dom/client";
 import App from "./App";
 import "./styles/app.css";
 import "./styles/ielts.css";
+import { startCloudSync } from "./store/cloudSync";
+
+startCloudSync();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

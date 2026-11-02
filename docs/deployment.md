@@ -2,6 +2,8 @@
 
 `npm run build` 生成纯静态站点 `dist/`，可以放到任何静态托管（Nginx、Cloudflare Pages、Vercel、GitHub Pages）。
 
+个人账号和自动同步另外依赖 `server/app.py`、SQLite 与同源 `/api/` 服务；单独发布 `dist/` 只提供本机学习。服务器部署与数据库保护见 [账号与同步说明](account-sync.md)。
+
 ## 子路径
 
 ```bash

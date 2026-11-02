@@ -31,8 +31,8 @@ const subs = new Set<() => void>();
 export function loadTags() {
   if (!loading)
     loading = fetch(`${BASE}/ielts/tags.json`)
-      .then((r) => (r.ok ? (r.json() as Promise<IeltsTags>) : EMPTY))
-      .catch(() => EMPTY)
+      .then((r) => { if (!r.ok) throw new Error("雅思标签暂时无法加载"); return r.json() as Promise<IeltsTags>; })
+      .catch(() => { loading = null; return EMPTY; })
       .then((t) => {
         tags = { ...EMPTY, ...t };
         subs.forEach((f) => f());

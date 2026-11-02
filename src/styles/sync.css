@@ -1,0 +1,173 @@
+.sync-panel {
+  min-width: 0;
+}
+
+.sync-panel-head {
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.sync-panel-head .eyebrow {
+  margin: 0;
+}
+
+.sync-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 9px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  color: var(--ink-2);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.sync-status.is-synced {
+  background: var(--sage-soft);
+  border-color: transparent;
+  color: var(--sage-ink);
+}
+
+.sync-status.is-checking,
+.sync-status.is-syncing {
+  background: var(--sky-soft);
+  color: var(--ink);
+}
+
+.sync-status.is-error,
+.sync-status.is-auth {
+  background: var(--terra-soft);
+  border-color: transparent;
+  color: var(--terra-ink);
+}
+
+.sync-account {
+  margin-top: 18px;
+}
+
+.sync-account p {
+  margin: 0;
+}
+
+.sync-account b {
+  overflow-wrap: anywhere;
+}
+
+.sync-account-management {
+  margin-top: 20px;
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+}
+
+.sync-account-management > summary {
+  cursor: pointer;
+  font-weight: 600;
+  min-height: 32px;
+}
+
+.sync-account .sync-last-time {
+  margin-top: 4px;
+  font-size: 13px;
+}
+
+.sync-mode {
+  margin: 18px 0;
+}
+
+.sync-form {
+  display: grid;
+  gap: 16px;
+  max-width: 440px;
+}
+
+.sync-field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.sync-field > span {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.sync-field input {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  font-size: 16px;
+}
+
+.sync-field input:focus-visible {
+  outline: 2px solid var(--sky);
+  outline-offset: 2px;
+}
+
+.sync-field input:disabled {
+  opacity: 0.65;
+}
+
+.sync-field small {
+  color: var(--ink-3);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.sync-form .sync-merge-note {
+  margin: 0;
+  font-size: 13px;
+}
+
+.sync-form > .btn {
+  justify-self: start;
+}
+
+.sync-pending {
+  color: var(--terra-ink);
+  font-size: 13px;
+}
+
+.sync-message {
+  overflow-wrap: anywhere;
+}
+
+.sync-panel .sync-scope {
+  margin: 20px 0 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.sync-spinning {
+  animation: sync-rotate 1.25s linear infinite;
+}
+
+@keyframes sync-rotate {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 480px) {
+  .sync-form {
+    max-width: none;
+  }
+
+  .sync-actions .btn,
+  .sync-form > .btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sync-spinning {
+    animation: none;
+  }
+}
