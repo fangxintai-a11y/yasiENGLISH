@@ -1485,6 +1485,65 @@ input[type="date"],
 
 /* ---------- first meeting: guess before reveal ---------- */
 
+.intro-art {
+  position: relative;
+  width: 100%;
+  max-width: 440px;
+  aspect-ratio: 1;
+  margin: 0 auto;
+  border-radius: var(--r-lg);
+  background: var(--paper-2);
+  box-shadow: var(--shadow);
+}
+.intro-art-toggle {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  color: var(--ink-2);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.intro-art:not(.is-revealed) .intro-art-toggle {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  flex-direction: column;
+  gap: 12px;
+  padding: 24px;
+  border: 1px dashed var(--line-strong);
+  border-radius: inherit;
+  background: transparent;
+}
+.intro-art-toggle strong {
+  color: var(--ink);
+  font-size: 16px;
+}
+.intro-art-toggle small {
+  font-size: 13px;
+  line-height: 1.5;
+}
+.intro-art-toggle:hover {
+  color: var(--terra-ink);
+}
+.intro-art.is-revealed .intro-art-toggle {
+  right: 12px;
+  bottom: 12px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper);
+  box-shadow: var(--shadow-sm);
+  font-size: 13px;
+}
+@media (max-width: 559px) {
+  .intro-art {
+    aspect-ratio: 4 / 3;
+  }
+}
+
 .intro.is-guessing .guess-zone {
   cursor: pointer;
 }

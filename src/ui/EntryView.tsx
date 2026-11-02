@@ -1,4 +1,5 @@
-import { Bookmark, BookmarkCheck, Lightbulb, Share2 } from "lucide-react";
+import { Bookmark, BookmarkCheck, Eye, EyeOff, Lightbulb, Share2 } from "lucide-react";
+import { useState } from "react";
 import type { Entry, WordRef } from "../atlas/types";
 import { useAtlas } from "../atlas/context";
 import { splitHighlight, splitPair } from "../lib/text";
@@ -83,6 +84,35 @@ export function Pronounce({ entry, refw }: { entry: Entry; refw: WordRef | Entry
   );
 }
 
+/** An optional picture hint, independent of revealing the word's meaning. */
+function IntroArt({ entry, topic, eager }: { entry: Entry; topic: number; eager: boolean }) {
+  const atlas = useAtlas();
+  const [shown, setShown] = useState(false);
+  return (
+    // Keep all picture interactions out of the surrounding meaning-reveal click handler.
+    <div className={`intro-art ${shown ? "is-revealed" : ""}`} onClick={(event) => event.stopPropagation()}>
+      {shown && <Illustration src={atlas.img(entry)} word={entry.w} topic={topic} eager={eager} alt={`${entry.w} 插画`} />}
+      <button
+        type="button"
+        className="intro-art-toggle"
+        aria-label={shown ? "收起图片" : "查看图片提示"}
+        aria-expanded={shown}
+        onClick={() => setShown((value) => !value)}
+      >
+        {shown ? (
+          <><EyeOff size={18} aria-hidden="true" /> 收起图片</>
+        ) : (
+          <>
+            <Eye size={28} aria-hidden="true" />
+            <strong>图片已收起</strong>
+            <small>先想一想，点击查看图片提示</small>
+          </>
+        )}
+      </button>
+    </div>
+  );
+}
+
 export function EntryView({ entry, mode = "detail", eager = true }: { entry: Entry; mode?: "detail" | "intro" | "reveal"; eager?: boolean }) {
   const atlas = useAtlas();
   const ref = atlas.byId.get(entry.id);
@@ -101,7 +131,11 @@ export function EntryView({ entry, mode = "detail", eager = true }: { entry: Ent
   return (
     <article className={`entry entry-${mode}`}>
       <div className="entry-art">
-        <Illustration src={atlas.img(entry)} word={entry.w} topic={topicIdx} eager={eager} alt={`${entry.w} 插画`} />
+        {mode === "intro" ? (
+          <IntroArt key={entry.id} entry={entry} topic={topicIdx} eager={eager} />
+        ) : (
+          <Illustration src={atlas.img(entry)} word={entry.w} topic={topicIdx} eager={eager} alt={`${entry.w} 插画`} />
+        )}
       </div>
       <div className="entry-body">
         <header className="entry-head">
