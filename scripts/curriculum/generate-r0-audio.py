@@ -3,7 +3,10 @@
 
 Run in an environment that already provides kokoro-onnx, onnxruntime, soundfile,
 numpy, phonemizer and espeakng-loader. Versions used for the checked-in WAV are
-recorded in public/curriculum365/v1/audio/provenance.json. This script does not
+recorded in public/curriculum365/v1/audio/provenance.json. PCM is written only
+to a temporary directory outside the repository; then encoded with:
+    ffmpeg -i source.wav -ac 1 -ar 24000 -c:a libmp3lame -b:a 48k -write_xing 1 output.mp3
+This script does not
 install dependencies or download models, and is not an application dependency.
 
 Example:
@@ -12,7 +15,7 @@ Example:
       --voices /path/to/voices-v1.0.bin
 
 Inputs must match the official model-files-v1.1 int8/voice digests below. Only
-public/curriculum365/v1/audio/listening-sample-01.wav, provenance.json and the
+public/curriculum365/v1/audio/listening-sample-01.mp3, provenance.json and the
 sample's duration/evidence timestamps in samples.json are written. Runtime
 and platform differences can affect generated samples; the provenance records
 the exact output hash rather than promising bit-identical cross-platform TTS.
@@ -27,6 +30,8 @@ import hashlib
 import json
 from pathlib import Path
 import platform
+import subprocess
+import tempfile
 from zoneinfo import ZoneInfo
 
 
@@ -140,9 +145,16 @@ def main() -> None:
     audio *= gain
 
     OUTPUT_DIRECTORY.mkdir(parents=True, exist_ok=True)
-    audio_path = OUTPUT_DIRECTORY / f"{SAMPLE_ID}.wav"
-    sf.write(audio_path, audio, SAMPLE_RATE, subtype="PCM_16", format="WAV")
-    written, written_rate = sf.read(audio_path, dtype="float32")
+    audio_path = OUTPUT_DIRECTORY / f"{SAMPLE_ID}.mp3"
+    with tempfile.TemporaryDirectory(prefix="band-sample-pcm-") as scratch:
+        source_path = Path(scratch) / "source.wav"
+        sf.write(source_path, audio, SAMPLE_RATE, subtype="PCM_16", format="WAV")
+        written, written_rate = sf.read(source_path, dtype="float32")
+        source_hash = sha256_file(source_path)
+        subprocess.run(["ffmpeg", "-y", "-i", str(source_path), "-ac", "1", "-ar", "24000",
+                        "-c:a", "libmp3lame", "-b:a", "48k", "-write_xing", "1", str(audio_path)],
+                       check=True, capture_output=True)
+    encoder = subprocess.check_output(["ffmpeg", "-version"], text=True).splitlines()[0]
     if (
         written_rate != SAMPLE_RATE
         or written.ndim != 1
@@ -159,7 +171,9 @@ def main() -> None:
         "durationSeconds": round(len(written) / SAMPLE_RATE, 6),
         "sampleRate": SAMPLE_RATE,
         "channels": 1,
-        "format": "PCM_16",
+        "format": "MP3",
+        "sourceWav": {"sha256": source_hash, "durationSeconds": round(len(written) / SAMPLE_RATE, 6), "format": "PCM_16", "sampleRate": SAMPLE_RATE},
+        "encoding": {"codec": "mp3", "bitrateKbps": 48, "channels": 1, "sampleRate": SAMPLE_RATE, "encoder": encoder + " libmp3lame"},
         "engine": "kokoro-onnx",
         "voice": VOICE,
         "language": LANGUAGE,
@@ -193,6 +207,7 @@ def main() -> None:
     # Prevent using this generator to hide an intervening transcript change.
     if material["segments"] != segments:
         raise ValueError("Sample text changed while audio was being generated; do not publish this output.")
+    material["audio"]["path"] = "audio/" + audio_path.name
     material["audio"]["durationSeconds"] = provenance["durationSeconds"]
     for question in material["questions"]:
         segment = next(segment for segment in timed_segments if segment["text"] == question["evidence"]["quote"])

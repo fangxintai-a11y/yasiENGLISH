@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "audioPath": "listening-sample-01.wav",
-  "sha256": "9f7310f6060009886f87f953c6afc721d951d48c496c6abea24de99ac5eec921",
+  "audioPath": "listening-sample-01.mp3",
+  "sha256": "ff327cb37161f77894fb4f9d8d9a2b8a8c24e42f0caa0119c11869c4e990e2c1",
   "durationSeconds": 270.857875,
   "sampleRate": 24000,
   "channels": 1,
-  "format": "PCM_16",
+  "format": "MP3",
   "engine": "kokoro-onnx",
   "voice": "af_heart",
   "language": "en-us",
@@ -40,7 +40,7 @@
     "soundfile": "https://pypi.org/project/soundfile/0.14.0/"
   },
   "generatorPath": "scripts/curriculum/generate-r0-audio.py",
-  "generatorSha256": "5f3b14d7e1a1c90a5687df100be98d1bf0051b6502d0080e32b8ca8bba580371",
+  "generatorSha256": "afba8c9c5db166e1387d8295b00fa768fac785b75fdd09b26328d11d77930cf4",
   "sources": [
     {
       "component": "kokoro-onnx",
@@ -165,5 +165,18 @@
       "exact frame-based segment timing"
     ],
     "humanListeningReview": "pending"
+  },
+  "sourceWav": {
+    "sha256": "9f7310f6060009886f87f953c6afc721d951d48c496c6abea24de99ac5eec921",
+    "durationSeconds": 270.857875,
+    "format": "PCM_16",
+    "sampleRate": 24000
+  },
+  "encoding": {
+    "codec": "mp3",
+    "bitrateKbps": 48,
+    "channels": 1,
+    "sampleRate": 24000,
+    "encoder": "ffmpeg version 8.1 Copyright (c) 2000-2026 the FFmpeg developers libmp3lame"
   }
 }

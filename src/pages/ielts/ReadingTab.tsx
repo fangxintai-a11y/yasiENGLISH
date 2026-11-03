@@ -1,13 +1,16 @@
 import { Languages, Pause, Sparkles, Trash2, Volume2 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAtlas } from "../../atlas/context";
-import { getKey } from "../../ielts/aikey";
+import { buildReading, needsManualFallback } from "../../ielts/scoring";
+import { SECTION_TARGETS } from "../../study365/protocol";
 import { play, stopAudio } from "../../lib/audio";
-import { go, openWord } from "../../lib/router";
+import { openWord } from "../../lib/router";
 import { headwordPattern } from "../../lib/text";
 import { recallAt } from "../../store/srs";
 import { store, useStore, type Reading } from "../../store/store";
+import { getCloudState, useCloudSync } from "../../store/cloudSync";
 import { toast } from "../../ui/Toast";
+import { ManualPrompt } from "../../ui/ManualPrompt";
 
 const LABELS = ["TRUE", "FALSE", "NOT GIVEN"] as const;
 
@@ -30,34 +33,44 @@ export function ReadingTab() {
   const atlas = useAtlas();
   const progress = useStore((s) => s.progress);
   const settings = useStore((s) => s.settings);
+  const accountId = useCloudSync().user?.id;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(progress.readings[0]?.id ?? null);
+  const [manualInput, setManualInput] = useState<Parameters<typeof buildReading>[0] | null>(null);
+  const request = useRef(0);
+  useEffect(() => {
+    setBusy(false); setManualInput(null);
+    return () => { request.current++; };
+  }, [atlas.id, accountId, progress.datasetId]);
   const words = useMemo(() => pickWords(progress, (id) => atlas.byId.has(id)), [progress, atlas]);
   const reading = progress.readings.find((r) => r.id === openId) ?? null;
 
+  const keepReading = (value: Reading) => {
+    // Endpoint failures are transient UI metadata and never join the snapshot.
+    const r: Reading = { id: value.id, at: value.at, title: value.title, passage: value.passage, zh: value.zh, words: value.words,
+      questions: value.questions, answers: value.answers, ...(value.src ? { src: value.src } : {}) };
+    store.progress((p) => ({ ...p, readings: [r, ...p.readings.filter((old) => old.id !== r.id)].slice(0, 30) }));
+    setOpenId(r.id);
+  };
   const generate = async () => {
-    if (!getKey()) {
-      setError("先在「我的 → AI 助教」里填入你的 Claude API Key。");
-      return;
-    }
+    const token = ++request.current;
+    const accountId = getCloudState().user?.id, datasetId = store.get().progress.datasetId;
+    const isCurrent = () => token === request.current && getCloudState().user?.id === accountId && store.get().progress.datasetId === datasetId;
     setBusy(true);
     setError(null);
+    setManualInput(null);
     try {
       const list = words.map((id) => atlas.byId.get(id)!);
-      const { generateReading } = await import("../../ielts/ai");
-      const g = await generateReading(
-        list.map((w) => ({ word: w.word, zh: w.zh })),
-        settings.targetBand,
-        settings.aiModel,
-      );
-      const r: Reading = { id: `r${Date.now()}`, at: Date.now(), title: g.title, passage: g.passage, zh: g.zh, words, questions: g.questions, answers: g.questions.map(() => null) };
-      store.progress((p) => ({ ...p, readings: [r, ...p.readings].slice(0, 30) }));
-      setOpenId(r.id);
+      const input = { words: await Promise.all(list.map(async (w) => ({ id: w.id, word: w.word, zh: w.zh, entry: await atlas.entry(w.id).catch(() => null) }))) };
+      const g = await buildReading(input, { mode: settings.feedbackMode });
+      if (!isCurrent()) return;
+      keepReading(g);
+      if (settings.feedbackMode === "manual" || needsManualFallback(g)) setManualInput(input);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      if (isCurrent()) setError(e instanceof Error ? e.message : String(e));
     } finally {
-      setBusy(false);
+      if (token === request.current) setBusy(false);
     }
   };
 
@@ -67,7 +80,7 @@ export function ReadingTab() {
         <div>
           <h3 className="eyebrow">用你的错词，写一篇专属雅思阅读</h3>
           <p className="muted">
-            Claude 会围绕这 {words.length} 个词写一篇 300 词左右的学术短文，再出 5 道 True / False / Not Given：错词在真实题型里再见一次，也顺便练了阅读。
+            用这 {words.length} 个词组成一篇雅思阅读短文，配判断题：错词在真实题型里再见一次。阅读训练目标为 {SECTION_TARGETS.reading}。
           </p>
           <ul className="chip-cloud">
             {words.map((id) => (
@@ -82,16 +95,12 @@ export function ReadingTab() {
         </div>
         <div className="reading-gen-actions">
           <button className="btn btn-primary" onClick={generate} disabled={busy || words.length < 5}>
-            <Sparkles size={18} /> {busy ? "Claude 正在写…" : "生成一篇"}
+            <Sparkles size={18} /> {busy ? "正在出题…" : "生成一篇"}
           </button>
-          {!getKey() && (
-            <button className="link" onClick={() => go({ page: "me" })}>
-              去填 API Key
-            </button>
-          )}
-          <small className="muted">模型：{settings.aiModel}</small>
         </div>
       </section>
+
+      {manualInput && <ManualPrompt task="reading" input={manualInput} onAccept={(value) => { keepReading(value as Reading); setManualInput(null); }} onCancel={() => setManualInput(null)} />}
 
       {progress.readings.length > 0 && (
         <section className="panel reading-list">
@@ -181,7 +190,7 @@ function ReadingView({ r }: { r: Reading }) {
           ))}
         </div>
       )}
-      <h3 className="eyebrow">Questions · Do the following statements agree with the information given?</h3>
+      <h3 className="eyebrow">判断题 · 以下陈述是否符合原文？</h3>
       <ol className="tfng">
         {r.questions.map((q, i) => {
           const a = r.answers[i];
@@ -204,7 +213,7 @@ function ReadingView({ r }: { r: Reading }) {
           );
         })}
       </ol>
-      <p className="muted small">内容由 Claude 生成，可能有不准确之处；高亮的是你的目标词，点一下看词条。</p>
+      <p className="muted small">{r.src === "rules" ? "由你的错词和词库例句组成" : "由外部接口生成，可能有不准确之处"}；高亮的是你的目标词，点一下看词条。</p>
     </section>
   );
 }

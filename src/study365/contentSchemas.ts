@@ -26,7 +26,7 @@ const question = { id, prompt: text.max(1000), answer,
 const evidence = z.strictObject({ quote: text.max(1800), rationale: text.max(1000).optional() });
 const listening = z.strictObject({
   ...common, skill: z.literal("listening"), type: z.literal("ielts-listening-section"), section: z.number().int().min(1).max(4),
-  audio: z.strictObject({ path: z.string().regex(/^audio\/[a-z0-9-]+\.wav$/), durationSeconds: z.number().positive().max(900) }),
+  audio: z.strictObject({ path: z.string().regex(/^audio\/[a-z0-9-]+\.mp3$/), durationSeconds: z.number().positive().max(900) }),
   transcript: text.max(16000), segments: z.array(z.strictObject({ id, text })).min(1).max(40),
   questions: z.array(z.strictObject({ ...question, type: z.enum(LISTENING_QUESTION_TYPES),
     evidence: evidence.extend({ startSeconds: z.number().nonnegative(), endSeconds: z.number().positive() }) })).length(10),

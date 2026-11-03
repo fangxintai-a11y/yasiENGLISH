@@ -106,7 +106,7 @@ export function About() {
               <b>Academic Word List</b>（Coxhead, 2000）：用于标注写作产出词。
             </li>
             <li>
-              <b>FSRS / ts-fsrs</b>：开源间隔重复算法（MIT）。<b>Claude API</b>：AI 阅读与批改，使用你自己的 Key。
+              <b>FSRS / ts-fsrs</b>：开源间隔重复算法（MIT）。
             </li>
           </ul>
           <p className="muted">这不是官方雅思词表，也不承诺提分；考试当天的记忆预测是模型估算，会随你的复习数据越来越准。</p>

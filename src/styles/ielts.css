@@ -639,7 +639,6 @@
   gap: 10px;
 }
 input[type="date"],
-.key-row input,
 .phrase-start select {
   height: 38px;
   padding: 0 12px;
@@ -650,21 +649,6 @@ input[type="date"],
   font: 500 15px var(--sans);
   color-scheme: inherit;
 }
-.key-row {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--ink-3);
-  flex: 1;
-  max-width: 360px;
-}
-.key-row input {
-  flex: 1;
-  min-width: 0;
-  font-family: var(--mono);
-  font-size: 13px;
-}
-
 /* ---------- onboarding placement ---------- */
 
 .placement {
@@ -919,16 +903,6 @@ input[type="date"],
   font-size: 14.5px;
   line-height: 1.65;
 }
-.lab-ai-hint {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
-.lab-ai-hint svg {
-  color: var(--plum);
-  flex: none;
-}
-
 .spell-stats {
   list-style: none;
   margin: 0;
@@ -2011,7 +1985,7 @@ input[type="date"],
   font-size: 12px;
 }
 
-/* ---------- 邪修记法 (AI hooks) ---------- */
+/* ---------- 邪修记法 (memory hooks) ---------- */
 
 .hack-ask {
   display: inline-flex;

@@ -13,6 +13,12 @@ const at = (path) => (error) => error.path === path && error.message.startsWith(
 test("inventory distinguishes external baselines, partial samples and planned gaps", () => {
   assert.doesNotThrow(() => checkInventory(structuredClone(inventory), catalog));
 });
+test("day seven contains the Sunday writing and speaking skills", () => {
+  assert.deepEqual(inventory.days[6].plannedSkills, ["writing", "speaking"]);
+});
+test("day six contains the Saturday listening and reading skills", () => {
+  assert.deepEqual(inventory.days[5].plannedSkills, ["listening", "reading"]);
+});
 test("a partially supplied day cannot claim all artifacts are ready", () => {
   const value = structuredClone(inventory);
   value.days[3].artifactStatus = "sample_ready";

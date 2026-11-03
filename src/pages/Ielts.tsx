@@ -1,4 +1,4 @@
-import { ArrowRight, BookOpenText, CalendarClock, Headphones, PenLine, Sparkles, Swords, Waypoints, Wand2, Zap } from "lucide-react";
+import { ArrowRight, BookOpenText, CalendarClock, Headphones, PenLine, Sparkles, Swords, Waypoints, Zap } from "lucide-react";
 import { useMemo } from "react";
 import { useAtlas } from "../atlas/context";
 import { allCards, examPlan, parseKey, SPRINT_DAYS } from "../ielts/exam";
@@ -22,8 +22,8 @@ const TABS = [
   ["confuse", "易混词", Swords],
   ["flash", "一分钟闪测", Zap],
   ["import", "文章取词", BookOpenText],
-  ["reading", "AI 错词阅读", Sparkles],
-  ["writing", "AI 造句批改", PenLine],
+  ["reading", "错词阅读", Sparkles],
+  ["writing", "造句批改", PenLine],
 ] as const;
 
 export function Ielts({ route }: { route: Extract<Route, { page: "ielts" }> }) {
@@ -188,11 +188,6 @@ function PlanTab() {
         <button className="btn btn-ghost" onClick={() => go({ page: "today" })}>
           回到今日 <ArrowRight size={18} />
         </button>
-      </section>
-
-      <section className="panel span-2 lab-ai-hint">
-        <Wand2 size={22} strokeWidth={1.6} />
-        <p className="muted">AI 错词阅读和造句批改需要你自己的 Claude API Key，在「我的 → AI 助教」里填写；Key 只保存在这台设备的浏览器里。</p>
       </section>
     </div>
   );

@@ -1,14 +1,14 @@
-import { Download, KeyRound, RotateCcw, Upload } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { Download, RotateCcw, Upload } from "lucide-react";
+import { useMemo, useRef } from "react";
 import { useAtlas } from "../atlas/context";
-import { getKey, setKey } from "../ielts/aikey";
 import { allCards } from "../ielts/exam";
 import { isMastered } from "../store/srs";
-import { AI_MODELS, dayKey, exportBackup, importBackup, resetProgress, store, useStore, type Settings } from "../store/store";
+import { dayKey, exportBackup, importBackup, OutboundPrivacyError, resetProgress, store, useStore, type Settings } from "../store/store";
 import { ExamFields } from "../ui/ExamSetup";
 import { OfflinePanel } from "../ui/OfflinePanel";
 import { SyncPanel } from "../ui/SyncPanel";
 import { toast } from "../ui/Toast";
+import { FeedbackPanel } from "./me/FeedbackPanel";
 import { SyncIssues } from "../study365/ui/SyncIssues";
 import { RecordingsBackup } from "../study365/ui/RecordingsBackup";
 import { CalibrationStatus } from "../study365/ui/CalibrationStatus";
@@ -43,12 +43,16 @@ export function Me({ privateAvailable }: { privateAvailable: boolean }) {
 
   const set = (patch: Partial<Settings>) => store.settings(patch);
   const download = () => {
-    const blob = new Blob([exportBackup()], { type: "application/json" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `band-galaxy-backup-${dayKey()}.json`;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    try {
+      const blob = new Blob([exportBackup()], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `band-galaxy-backup-${dayKey()}.json`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    } catch (error) {
+      toast(error instanceof OutboundPrivacyError ? error.message : "备份未能导出，请稍后重试。", "warn");
+    }
   };
   const restore = async (f: File) => {
     if (f.size > 30 * 1024 * 1024) return toast("文件太大，不像是学习备份。", "warn");
@@ -137,7 +141,7 @@ export function Me({ privateAvailable }: { privateAvailable: boolean }) {
 
         <CalibrationStatus />
 
-        <AiPanel />
+        <FeedbackPanel />
 
         <section className="panel settings">
           <h3 className="eyebrow">学习设置</h3>
@@ -233,7 +237,7 @@ export function Me({ privateAvailable }: { privateAvailable: boolean }) {
 
         <section className="panel">
           <h3 className="eyebrow">数据</h3>
-          <p className="muted">本机自动保存学习记录。登录同步账号后会同步进度与设置；导出备份不含跟读录音和 API Key。导入会替换当前进度，并在登录后同步到其他设备。</p>
+          <p className="muted">本机自动保存学习记录。登录同步账号后会同步进度与设置；导出备份不含跟读录音、外部接口设置和密钥。导入会替换当前进度，并在登录后同步到其他设备。</p>
           {saveError && <p className="warn-text">浏览器拒绝保存（可能是隐私模式或空间已满）。请尽快导出备份。</p>}
           <div className="data-actions">
             <button className="btn btn-ghost" onClick={download}>
@@ -258,65 +262,6 @@ export function Me({ privateAvailable }: { privateAvailable: boolean }) {
         </section>
       </div>
     </div>
-  );
-}
-
-/** The learner's own Claude API key, kept in this browser only. */
-function AiPanel() {
-  const model = useStore((s) => s.settings.aiModel);
-  const [key, setKeyState] = useState(getKey);
-  const [show, setShow] = useState(false);
-  const saved = !!getKey();
-  return (
-    <section className="panel settings">
-      <h3 className="eyebrow">AI 助教 · Claude</h3>
-      <p className="muted">错词阅读和造句批改会用你自己的 Claude API Key，从浏览器直接请求 api.anthropic.com，费用记在你的账户上。Key 只保存在这台设备的浏览器里，不会进入导出的备份。</p>
-      <label className="field">
-        <div>
-          <b>API Key</b>
-          <small>{saved ? "已保存在本机" : "在 console.anthropic.com 创建"}</small>
-        </div>
-        <span className="key-row">
-          <KeyRound size={16} />
-          <input type={show ? "text" : "password"} value={key} onChange={(e) => setKeyState(e.target.value)} placeholder="sk-ant-…" autoComplete="off" spellCheck={false} aria-label="Claude API Key" />
-          <button type="button" className="link" onClick={() => setShow(!show)}>
-            {show ? "隐藏" : "显示"}
-          </button>
-        </span>
-      </label>
-      <div className="data-actions">
-        <button
-          className="btn btn-primary"
-          onClick={() => {
-            setKey(key);
-            toast(key.trim() ? "API Key 已保存在本机" : "已清除 API Key", "ok");
-          }}
-        >
-          保存
-        </button>
-        {saved && (
-          <button
-            className="btn btn-ghost"
-            onClick={() => {
-              setKey("");
-              setKeyState("");
-              toast("已清除 API Key");
-            }}
-          >
-            清除
-          </button>
-        )}
-      </div>
-      <Field label="模型" hint="Opus 质量最好；Sonnet / Haiku 更快更便宜。">
-        <div className="segmented">
-          {AI_MODELS.map((m) => (
-            <button key={m} className={model === m ? "is-on" : ""} onClick={() => store.settings({ aiModel: m })}>
-              {m.replace("claude-", "").replace(/-(\d)-(\d)$/, " $1.$2")}
-            </button>
-          ))}
-        </div>
-      </Field>
-    </section>
   );
 }
 

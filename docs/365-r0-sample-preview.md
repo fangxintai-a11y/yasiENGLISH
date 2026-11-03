@@ -30,7 +30,7 @@ British Council与IELTS.org的官方公开练习入口另列于库存中，用�
 - 先看题，听一次并保留首答；完成后再打开文本和证据。
 - 录音是单一合成音色，不包含真实考试的多口音或真人交互，也未经过人工审听。
 
-[播放或下载合成音频](../public/curriculum365/v1/audio/listening-sample-01.wav)。单一合成音色的学术讲座独白，与Section 4形式对应；没有模拟多人对话。音频与逐段时码、生成环境、模型来源和SHA256见[provenance.json](../public/curriculum365/v1/audio/provenance.json)。
+[播放或下载合成音频](../public/curriculum365/v1/audio/listening-sample-01.mp3)。单一合成音色的学术讲座独白，与Section 4形式对应；没有模拟多人对话。音频与逐段时码、生成环境、模型来源和SHA256见[provenance.json](../public/curriculum365/v1/audio/provenance.json)。
 
 | 题号 | 填空题 | 词数上限 |
 | --- | --- | --- |
@@ -292,10 +292,12 @@ Practical experience and formal education serve different purposes. Experience s
 
 ## 复现与校验边界
 
-音频构建使用已有本地Kokoro ONNX环境和已校验的模型资产，不属于App运行依赖。生成器读取原始10段文本，生成单声道24000Hz PCM16 WAV，同时写入样本时长、逐题对应段落时码与来源清单；不改写原文或题目答案。复现命令：
+音频构建使用已有本地Kokoro ONNX环境和已校验的模型资产，不属于App运行依赖。生成器读取原始10段文本，先在仓库外临时目录生成单声道24000Hz PCM16源音频，再编码为48 kbps CBR MP3，同时写入样本时长、逐题对应段落时码与来源清单；不改写原文或题目答案。复现命令：
 
 ```sh
 python scripts/curriculum/generate-r0-audio.py --model /path/to/kokoro-v1.0.int8.onnx --voices /path/to/voices-v1.0.bin
 ```
 
-模型与音色来源、依赖版本、生成日期、原文和音频摘要、帧时码都在来源清单中。自动校验可验证结构、词数、题号、证据引用、WAV非静音与摘要、库存缺口；它不能替代人工审听、教研审核或真实考生的难度校准。
+模型与音色来源、依赖版本、生成日期、原文和音频摘要、帧时码都在来源清单中。自动校验可验证结构、词数、题号、证据引用、MP3帧、信号数据与摘要、库存缺口；它不能替代人工审听、教研审核或真实考生的难度校准。
+
+编码命令：`ffmpeg -i source.wav -ac 1 -ar 24000 -c:a libmp3lame -b:a 48k -write_xing 1 output.mp3`。public只保存压缩结果；源时长270.857875秒与全部证据时码保持不变，MP3帧时长约270.912秒、1,625,709字节。

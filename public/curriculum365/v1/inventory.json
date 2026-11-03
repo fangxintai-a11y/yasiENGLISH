@@ -236,16 +236,14 @@
     },
     {
       "day": 6,
-      "title": "待编写的日常四科技能任务",
+      "title": "周六听读计时与复盘（材料待补）",
       "pool": "practice",
       "artifactStatus": "planned",
       "materialIds": [],
       "externalReferenceIds": [],
       "plannedSkills": [
         "listening",
-        "reading",
-        "writing",
-        "speaking"
+        "reading"
       ],
       "missingRequirements": [
         "该日独立听读材料",
@@ -261,8 +259,6 @@
       "materialIds": [],
       "externalReferenceIds": [],
       "plannedSkills": [
-        "listening",
-        "reading",
         "writing",
         "speaking"
       ],
@@ -370,16 +366,14 @@
     },
     {
       "day": 13,
-      "title": "待编写的日常四科技能任务",
+      "title": "周六听读计时与复盘（材料待补）",
       "pool": "practice",
       "artifactStatus": "planned",
       "materialIds": [],
       "externalReferenceIds": [],
       "plannedSkills": [
         "listening",
-        "reading",
-        "writing",
-        "speaking"
+        "reading"
       ],
       "missingRequirements": [
         "该日独立听读材料",
@@ -395,8 +389,6 @@
       "materialIds": [],
       "externalReferenceIds": [],
       "plannedSkills": [
-        "listening",
-        "reading",
         "writing",
         "speaking"
       ],

@@ -1,19 +1,20 @@
 import { PenLine, Shuffle } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAtlas, useEntry } from "../../atlas/context";
-import type { SentenceGrade } from "../../ielts/ai";
-import { getKey } from "../../ielts/aikey";
+import { scoreSentence, needsManualFallback, type SentenceResult } from "../../ielts/scoring";
 import { effectiveRetention } from "../../ielts/exam";
 import { useTags } from "../../ielts/tags";
-import { go, openWord } from "../../lib/router";
+import { openWord } from "../../lib/router";
 import { splitPair } from "../../lib/text";
 import { recallAt, review, Rating, type Grade } from "../../store/srs";
 import { store, useStore } from "../../store/store";
+import { getCloudState, useCloudSync } from "../../store/cloudSync";
+import { ManualPrompt } from "../../ui/ManualPrompt";
 
 const GRADE_OF: Grade[] = [Rating.Again, Rating.Again, Rating.Hard, Rating.Good];
 
 /**
- * Write one sentence with a word, get it marked like an IELTS examiner would. The mark is also a
+ * Write one sentence with a word and receive practice feedback. The mark is also a
  * review of the word's production card: writing it well is the strongest evidence of knowing it.
  */
 export function WritingTab() {
@@ -21,6 +22,7 @@ export function WritingTab() {
   const tags = useTags();
   const progress = useStore((s) => s.progress);
   const settings = useStore((s) => s.settings);
+  const accountId = useCloudSync().user?.id;
   const now = Date.now();
   const candidates = useMemo(() => {
     const learned = Object.keys(progress.cards).filter((id) => atlas.byId.has(id) && !progress.cards[id].src);
@@ -40,9 +42,15 @@ export function WritingTab() {
   }, [current, candidates]);
   const [sentence, setSentence] = useState("");
   const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState<SentenceGrade | null>(null);
+  const [result, setResult] = useState<SentenceResult | null>(null);
+  const [manualInput, setManualInput] = useState<Parameters<typeof scoreSentence>[0] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const { entry } = useEntry(id ?? null);
+  const request = useRef(0);
+  useEffect(() => {
+    setBusy(false); setResult(null); setManualInput(null);
+    return () => { request.current++; };
+  }, [id, atlas.id, accountId, progress.datasetId]);
 
   if (!id)
     return (
@@ -53,6 +61,8 @@ export function WritingTab() {
   const ref = atlas.byId.get(id)!;
 
   const next = () => {
+    request.current++;
+    setBusy(false);
     const today = new Date().toDateString();
     const fresh = (c: string) => {
       const last = progress.skills[`p:${c}`]?.last;
@@ -62,30 +72,35 @@ export function WritingTab() {
     setSentence("");
     setResult(null);
     setError(null);
+    setManualInput(null);
+  };
+  const applyResult = (g: SentenceResult) => {
+    setResult(g);
+    // Only the first mark of the day reviews this word's production card.
+    const key = `p:${id}`, t = Date.now();
+    store.progress((p) => {
+      const c = p.skills[key];
+      if (c?.last && new Date(c.last).toDateString() === new Date(t).toDateString()) return p;
+      return { ...p, skills: { ...p.skills, [key]: review(c, GRADE_OF[g.score], t, effectiveRetention(store.get().settings, t)) } };
+    });
   };
   const grade = async () => {
-    if (!getKey()) {
-      setError("先在「我的 → AI 助教」里填入你的 Claude API Key。");
-      return;
-    }
+    const token = ++request.current;
+    const accountId = getCloudState().user?.id, datasetId = store.get().progress.datasetId;
+    const isCurrent = () => token === request.current && getCloudState().user?.id === accountId && store.get().progress.datasetId === datasetId;
+    const input = { word: ref.word, zh: ref.zh, sentence: sentence.trim(), entry: entry ?? null };
     setBusy(true);
     setError(null);
+    setManualInput(null);
     try {
-      const { gradeSentence } = await import("../../ielts/ai");
-      const g = await gradeSentence(ref.word, ref.zh, sentence.trim(), settings.aiModel);
-      setResult(g);
-      // The first mark of the day counts as a review of the production card.
-      const key = `p:${id}`;
-      const t = Date.now();
-      store.progress((p) => {
-        const c = p.skills[key];
-        if (c?.last && new Date(c.last).toDateString() === new Date(t).toDateString()) return p;
-        return { ...p, skills: { ...p.skills, [key]: review(c, GRADE_OF[g.score], t, effectiveRetention(store.get().settings, t)) } };
-      });
+      const g = await scoreSentence(input, { mode: settings.feedbackMode });
+      if (!isCurrent()) return;
+      applyResult(g);
+      if (settings.feedbackMode === "manual" || needsManualFallback(g)) setManualInput(input);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      if (isCurrent()) setError(e instanceof Error ? e.message : String(e));
     } finally {
-      setBusy(false);
+      if (token === request.current) setBusy(false);
     }
   };
 
@@ -111,18 +126,14 @@ export function WritingTab() {
               .join(" · ")}
           </p>
         )}
-        <textarea className="import-text" rows={3} value={sentence} onChange={(e) => setSentence(e.target.value)} placeholder={`Write a sentence with “${ref.word}”, e.g. about education, technology or the environment…`} lang="en" />
+        <textarea className="import-text" rows={3} value={sentence} onChange={(e) => setSentence(e.target.value)} placeholder={`用“${ref.word}”写一句英语，例如教育、科技或环境话题。`} lang="en" />
         <div className="data-actions">
           <button className="btn btn-primary" onClick={grade} disabled={busy || sentence.trim().split(/\s+/).length < 4}>
-            <PenLine size={18} /> {busy ? "批改中…" : "请考官批改"}
+            <PenLine size={18} /> {busy ? "批改中…" : "批改句子"}
           </button>
-          {!getKey() && (
-            <button className="link" onClick={() => go({ page: "me" })}>
-              去填 API Key
-            </button>
-          )}
         </div>
         {error && <p className="warn-text">{error}</p>}
+        {manualInput && <ManualPrompt task="sentence" input={manualInput} onAccept={(value) => { applyResult(value as SentenceResult); setManualInput(null); }} onCancel={() => setManualInput(null)} />}
         {result && (
           <div className={`grade-card s-${result.score}`}>
             <p className="grade-score">
@@ -135,7 +146,7 @@ export function WritingTab() {
               </p>
             )}
             <p>
-              <small>7 分版本</small>
+              <small>{result.source === "rules" ? "词库例句" : "8 分参考句"}</small>
               <span lang="en">{result.better}</span>
             </p>
             {result.notes.length > 0 && (

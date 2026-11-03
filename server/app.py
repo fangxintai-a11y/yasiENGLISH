@@ -52,13 +52,13 @@ SETTINGS_FIELDS = frozenset((
     "accent", "autoplay", "dailyNew", "retention", "theme", "sfx", "spell",
     "startLevel", "onboarded", "dataset", "ambience", "ambienceVolume", "splash",
     "guessFirst", "sentenceFirst", "examDate", "dailyMinutes", "targetBand",
-    "trackL", "trackP", "aiModel", "shadowAsr",
+    "trackL", "trackP", "aiModel", "feedbackMode", "shadowAsr",
 ))
 SENSITIVE_NAMES = frozenset((
     "apikey", "key", "password", "secret", "token", "authorization", "cookie",
     "accesstoken", "refreshtoken", "aikey",
 ))
-SECRET_VALUE = re.compile(r"\bsk-ant-[A-Za-z0-9_-]{10,}")
+SECRET_VALUE = re.compile(r"\b(?:sk-(?:ant-|proj-)[A-Za-z0-9_-]{10,}|sk-[A-Za-z0-9]{20,}|xai-[A-Za-z0-9_-]{10,}|AIza[0-9A-Za-z_-]{30,}|gh[po]_[A-Za-z0-9_-]{10,})")
 
 
 class ApiError(Exception):
@@ -128,6 +128,8 @@ def validate_snapshot(snapshot, dataset_id: str):
         raise ApiError(400, "进度和设置必须是对象。")
     if set(progress) - PROGRESS_FIELDS or set(settings) - SETTINGS_FIELDS:
         raise ApiError(400, "同步数据包含不支持的字段。")
+    if "feedbackMode" in settings and (not isinstance(settings["feedbackMode"], str) or settings["feedbackMode"] not in {"rules", "manual", "auto"}):
+        raise ApiError(400, "评分方式只能是本地评分、复制提示词或自动接口。")
     if progress.get("version") != 2 or progress.get("datasetId") != dataset_id:
         raise ApiError(400, "同步词库或数据版本不匹配。")
     if progress.get("session") is not None:
@@ -178,7 +180,8 @@ def validate_snapshot(snapshot, dataset_id: str):
             raise ApiError(400, "同步数据包含不支持的类型。")
 
     visit(snapshot)
-    return snapshot
+    # One transition release accepts the old field; never persist or echo it.
+    return {"progress": progress, "settings": {key: value for key, value in settings.items() if key != "aiModel"}}
 
 
 class Database:

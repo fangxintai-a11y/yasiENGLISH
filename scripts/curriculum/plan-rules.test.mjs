@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { checkRules, evaluateRuleScore } from "./validate-content.mjs";
 import { evaluateFinalGoal } from "../../src/study365/goals.ts";
+import { templateFor } from "../../src/study365/calendar.ts";
 
 const standard = JSON.parse(await readFile(new URL("../../public/curriculum365/v1/plan-rules.json", import.meta.url), "utf8"));
 
@@ -14,6 +15,15 @@ function rejectedAt(change, expectedPath) {
 
 test("standard Band 8 rules use 120 minutes and all four required section targets", () => {
   assert.doesNotThrow(() => checkRules(structuredClone(standard)));
+});
+test("calendar day six is the Saturday listening-reading template", () => {
+  assert.equal(templateFor(standard, 6), "saturday-listening-reading");
+});
+test("calendar day seven is Sunday calibration", () => {
+  assert.equal(templateFor(standard, 7), "sunday-writing-speaking-calibration");
+});
+test("a Monday calendar declaration is mandatory", () => {
+  rejectedAt((rules) => { delete rules.calendar; }, "calendar");
 });
 test("adding the obsolete minimumSection is rejected at goal.minimumSection", () => {
   rejectedAt((rules) => { rules.goal.minimumSection = 6.5; }, "goal.minimumSection");

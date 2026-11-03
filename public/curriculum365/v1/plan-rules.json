@@ -118,9 +118,7 @@
     ],
     "trialDays": [
       4,
-      5,
-      6,
-      7
+      5
     ],
     "trialTemplate": "phase1-weekday",
     "requiredSkills": [
@@ -644,5 +642,10 @@
       "title": "IELTS Academic官方考试结构",
       "url": "https://ielts.org/take-a-test/test-types/ielts-academic-test"
     }
-  ]
+  ],
+  "calendar": {
+    "dayOneWeekday": "monday",
+    "dayIndexing": "plan-timezone-calendar-days",
+    "requireMondayStart": true
+  }
 }

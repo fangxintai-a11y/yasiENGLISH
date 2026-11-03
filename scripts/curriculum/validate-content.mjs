@@ -91,7 +91,7 @@ export function checkBaseline(rules) {
     equal(Object.keys(minutes).sort(), Object.keys(dayMinutes[index]).sort(), `${at}.minutes`);
     equal(Object.values(minutes).reduce((a, b) => a + b, 0), 120, `${at}.minutes`);
   });
-  equal(baseline.trialDays, [4, 5, 6, 7], "baseline.trialDays");
+  equal(baseline.trialDays, [4, 5], "baseline.trialDays");
   equal(baseline.trialTemplate, "phase1-weekday", "baseline.trialTemplate");
   equal(baseline.requiredSkills, skillNames, "baseline.requiredSkills");
   equal(baseline.writingSpeakingScoreSources, ["human", "official"], "baseline.writingSpeakingScoreSources");
@@ -174,6 +174,8 @@ export function evaluateRuleScore(goal, source, sections) {
 
 export function checkRules(rules) {
   object(rules, "rules"); equal(rules.schemaVersion, 1, "schemaVersion");
+  object(rules.calendar, "calendar");
+  equal(rules.calendar, { dayOneWeekday: "monday", dayIndexing: "plan-timezone-calendar-days", requireMondayStart: true }, "calendar");
   checkGoal(rules); checkGates(rules); checkBaseline(rules); checkBudgetTemplates(rules);
   const boundaries = [["baseline", 1, 7], ["phase1", 8, 90], ["phase2", 91, 210], ["phase3", 211, 300], ["phase4", 301, 365]];
   if (!Array.isArray(rules.phases)) fail("phases", "365-day phases required");
@@ -322,7 +324,11 @@ export function checkInventory(inventory, catalog) {
       const expected = [["listening", "reading"], ["writing"], ["speaking"]][index];
       equal(day.plannedSkills, expected, `${at}.plannedSkills`);
       equal([...new Set(day.externalReferenceIds.flatMap((id) => references.get(id).skills))].sort(), [...expected].sort(), `${at}.externalReferenceIds`);
-    } else equal(day.plannedSkills, skillNames, `${at}.plannedSkills`);
+    } else {
+      const weekday = day.day % 7;
+      equal(day.plannedSkills, weekday === 6 ? ["listening", "reading"] : weekday === 0 ? ["writing", "speaking"] : skillNames, `${at}.plannedSkills`);
+      if (day.pool === "checkpoint" && weekday !== 0) fail(`${at}.pool`, "checkpoint must be on Sunday");
+    }
   });
   for (const [index, day] of inventory.days.entries()) if (day.pool === "checkpoint")
     for (const id of day.materialIds) if (practice.has(id)) fail(`inventory.days[${index}].materialIds`, "checkpoint material cannot be reused from practice");
@@ -350,28 +356,42 @@ export function checkMaterialCoverage(catalog) {
   return true;
 }
 
-export function wavInfo(bytes) {
-  assert.equal(bytes.toString("ascii", 0, 4), "RIFF");
-  assert.equal(bytes.toString("ascii", 8, 12), "WAVE");
-  assert.equal(bytes.readUInt32LE(4) + 8, bytes.length);
-  let format, data;
-  for (let offset = 12; offset + 8 <= bytes.length;) {
-    const kind = bytes.toString("ascii", offset, offset + 4);
-    const size = bytes.readUInt32LE(offset + 4);
-    assert.ok(offset + 8 + size <= bytes.length, "truncated WAV chunk");
-    if (kind === "fmt ") {
-      assert.ok(size >= 16);
-      format = { codec: bytes.readUInt16LE(offset + 8), channels: bytes.readUInt16LE(offset + 10),
-        rate: bytes.readUInt32LE(offset + 12), byteRate: bytes.readUInt32LE(offset + 16), bits: bytes.readUInt16LE(offset + 22) };
-    }
-    if (kind === "data") data = bytes.subarray(offset + 8, offset + 8 + size);
-    offset += 8 + size + size % 2;
+export function mp3Info(bytes, sourceDuration) {
+  assert.ok(bytes.length > 0 && bytes.length <= 3 * 1024 * 1024, "MP3必须小于等于3 MB。");
+  let offset = 0;
+  if (bytes.toString('ascii', 0, 3) === 'ID3') {
+    assert.ok(bytes.length >= 10, 'ID3头不完整。');
+    const sizeBytes = [...bytes.subarray(6, 10)];
+    assert.ok(sizeBytes.every((value) => value < 128), 'ID3大小无效。');
+    offset = 10 + sizeBytes.reduce((n, value) => n * 128 + value, 0) + (bytes[5] & 16 ? 10 : 0);
+    assert.ok(offset < bytes.length, 'ID3超出文件。');
   }
-  assert.ok(format && data?.length, "missing WAV format or samples");
-  assert.deepEqual([format.codec, format.channels, format.rate, format.bits], [1, 1, 24000, 16]);
-  assert.equal(format.byteRate, format.rate * format.channels * format.bits / 8);
-  assert.ok(data.some((byte) => byte !== 0), "silent placeholder audio");
-  return { durationSeconds: data.length / format.byteRate, ...format };
+  let frames = 0, metadataFrames = 0, signalFrames = 0;
+  while (offset < bytes.length) {
+    if (bytes.length - offset === 128 && bytes.toString('ascii', offset, offset + 3) === 'TAG') { offset += 128; break; }
+    assert.ok(offset + 4 <= bytes.length, 'MP3帧头不完整。');
+    const a = bytes[offset], b = bytes[offset + 1], c = bytes[offset + 2], d = bytes[offset + 3];
+    assert.ok(a === 255 && (b & 224) === 224 && ((b >> 3) & 3) === 2 && ((b >> 1) & 3) === 1, '必须为MPEG-2 Layer III帧。');
+    assert.equal((c >> 2) & 3, 1, 'MP3必须为24 kHz。');
+    assert.equal(d >> 6, 3, 'MP3必须为单声道。');
+    const side = offset + 4 + (b & 1 ? 0 : 2);
+    const bitrate = [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160][(c >> 4) & 15];
+    const metadataFrame = frames + metadataFrames === 0 && ['Info', 'Xing'].includes(bytes.toString('ascii', side + 9, side + 13));
+    // The seek metadata needs a larger first frame; speech frames remain 48k CBR.
+    assert.ok(bitrate && (metadataFrame || bitrate === 48), 'MP3必须为48 kbps CBR。');
+    const length = Math.floor(72 * bitrate * 1000 / 24000) + ((c >> 1) & 1);
+    assert.ok(offset + length <= bytes.length, 'MP3帧不完整。');
+    // MPEG-2 mono side-info: 8 reservoir bits, 1 private bit, then
+    // 12 part2_3_length bits. Zero allocation throughout is a silent placeholder.
+    const allocated = ((bytes[side + 1] & 127) << 5) | (bytes[side + 2] >> 3);
+    if (!metadataFrame && allocated > 0) signalFrames++;
+    if (metadataFrame) metadataFrames++; else frames++;
+    offset += length;
+  }
+  assert.ok(frames > 0 && signalFrames > 0, 'MP3不能是静音占位。');
+  const durationSeconds = frames * 576 / 24000;
+  if (sourceDuration !== undefined) assert.ok(Number.isFinite(sourceDuration) && Math.abs(durationSeconds - sourceDuration) < 0.1, 'MP3与源时长相差必须小于0.1秒。');
+  return { durationSeconds, rate: 24000, channels: 1, bitrateKbps: 48, frames, metadataFrames, signalFrames };
 }
 
 export async function checkAudio(catalog) {
@@ -379,11 +399,14 @@ export async function checkAudio(catalog) {
   const material = catalog.materials.find((item) => item.skill === "listening");
   assert.ok(material);
   const bytes = await readFile(path.join(contentRoot, material.audio.path));
-  const info = wavInfo(bytes);
+  const info = mp3Info(bytes, provenance.durationSeconds);
   assert.equal(provenance.sha256, digest(bytes));
   assert.equal(provenance.audioPath, path.basename(material.audio.path));
-  assert.ok(Math.abs(info.durationSeconds - material.audio.durationSeconds) < 0.00001);
-  assert.ok(Math.abs(info.durationSeconds - provenance.durationSeconds) < 0.00001);
+  assert.equal(material.audio.durationSeconds, provenance.durationSeconds);
+  assert.equal(provenance.sourceWav.durationSeconds, provenance.durationSeconds);
+  equal(provenance.encoding.bitrateKbps, 48, 'audio.encoding.bitrateKbps');
+  equal(provenance.encoding.channels, 1, 'audio.encoding.channels');
+  equal(provenance.encoding.sampleRate, 24000, 'audio.encoding.sampleRate');
   assert.equal(provenance.transcriptSha256, digest(material.transcript));
   assert.equal(provenance.verification.humanListeningReview, "pending");
   assert.equal(provenance.generatorPath, "scripts/curriculum/generate-r0-audio.py");
@@ -393,7 +416,7 @@ export async function checkAudio(catalog) {
   provenance.segments.forEach((segment, index) => {
     assert.equal(segment.id, material.segments[index].id);
     assert.equal(segment.text, material.segments[index].text);
-    assert.ok(segment.startSeconds >= previousEnd && segment.endSeconds > segment.startSeconds && segment.endSeconds <= info.durationSeconds);
+    assert.ok(segment.startSeconds >= previousEnd && segment.endSeconds > segment.startSeconds && segment.endSeconds <= provenance.durationSeconds);
     assert.ok(Math.abs(segment.startSeconds - segment.startFrame / info.rate) < 0.00001);
     assert.ok(Math.abs(segment.endSeconds - segment.endFrame / info.rate) < 0.00001);
     previousEnd = segment.endSeconds;
