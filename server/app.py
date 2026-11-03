@@ -25,6 +25,15 @@ import time
 from urllib.parse import parse_qs, unquote, urlsplit
 import uuid
 
+try:
+    from . import learning as learning_module
+except ImportError:
+    # The release receiver also imports app.py directly from an isolated artifact.
+    import importlib.util
+    _learning_spec = importlib.util.spec_from_file_location("band_learning", Path(__file__).with_name("learning.py"))
+    learning_module = importlib.util.module_from_spec(_learning_spec)
+    _learning_spec.loader.exec_module(learning_module)
+
 
 MAX_BODY = 8 * 1024 * 1024
 SESSION_SECONDS = 30 * 24 * 60 * 60
@@ -373,7 +382,9 @@ class ApiServer(ThreadingHTTPServer):
     daemon_threads = True
     block_on_close = True
 
-    def __init__(self, address, database, public_origin, secure_cookie, allow_register, trust_proxy, auth_limit, max_accounts, setup_token_hash):
+    def __init__(self, address, database, public_origin, secure_cookie, allow_register, trust_proxy, auth_limit, max_accounts, setup_token_hash, learning_write_enabled=True):
+        self.learning = learning_module.LearningStore(database)
+        self.learning_write_enabled = learning_write_enabled
         super().__init__(address, Handler)
         self.database = database
         self.public_origin = public_origin.rstrip("/")
@@ -448,7 +459,7 @@ class Handler(BaseHTTPRequestHandler):
         if self.headers.get("Sec-Fetch-Site", "") == "cross-site":
             raise ApiError(403, "不允许跨站请求。")
 
-    def body(self):
+    def body(self, maximum=MAX_BODY):
         if self.headers.get("Transfer-Encoding"):
             raise ApiError(400, "不支持分块请求体。")
         if self.headers.get("Content-Type", "").split(";", 1)[0].strip() != "application/json":
@@ -459,8 +470,8 @@ class Handler(BaseHTTPRequestHandler):
             raise ApiError(400, "请求长度不正确。") from None
         if length < 1:
             raise ApiError(400, "请求内容为空。")
-        if length > MAX_BODY:
-            raise ApiError(413, "同步数据超过 8 MB。")
+        if length > maximum:
+            raise ApiError(413, "请求内容超过允许的大小。")
         try:
             raw = self.rfile.read(length)
             if len(raw) != length:
@@ -601,6 +612,8 @@ class Handler(BaseHTTPRequestHandler):
             with self.server.database.connect() as db:
                 db.execute("SELECT id FROM users LIMIT 1").fetchone()
             return self.send_json(200, {"ok": True})
+        if learning_module.dispatch(self, method, path, request_url.query):
+            return
         if method == "GET" and path == "/api/auth/session":
             return self.send_json(200, {"user": self.server.database.user_for_token(self.token())})
         if method == "POST" and path in ("/api/auth/register", "/api/auth/login"):
@@ -651,6 +664,8 @@ class Handler(BaseHTTPRequestHandler):
             self.dispatch(method)
         except ApiError as error:
             self.send_json(error.status, {"error": error.message})
+        except learning_module.LearningError as error:
+            self.send_json(error.status, error.body)
         except (BrokenPipeError, ConnectionResetError, TimeoutError):
             self.close_connection = True
         except Exception:
@@ -669,7 +684,7 @@ class Handler(BaseHTTPRequestHandler):
 
 def create_server(host="127.0.0.1", port=5189, db_path=None, public_origin=None,
                   secure_cookie=None, allow_register=True, trust_proxy=False, auth_limit=20,
-                  max_accounts=1, setup_token_hash=None):
+                  max_accounts=1, setup_token_hash=None, learning_write_enabled=None):
     db_path = db_path or os.environ.get("BAND_DB_PATH", "./var/band-galaxy.sqlite3")
     public_origin = public_origin or os.environ.get("BAND_PUBLIC_ORIGIN", "http://localhost:5188")
     parsed = urlsplit(public_origin)
@@ -687,7 +702,11 @@ def create_server(host="127.0.0.1", port=5189, db_path=None, public_origin=None,
         raise ValueError("BAND_SETUP_TOKEN_HASH must be a lowercase SHA-256 hash")
     if not isinstance(max_accounts, int) or not 1 <= max_accounts <= 1000:
         raise ValueError("BAND_MAX_ACCOUNTS must be between 1 and 1000")
-    return ApiServer((host, port), Database(db_path), public_origin, secure_cookie, allow_register, trust_proxy, auth_limit, max_accounts, setup_token_hash)
+    if learning_write_enabled is None:
+        learning_write_enabled = os.environ.get("BAND_LEARNING_WRITES_ENABLED", "1") == "1"
+    if not isinstance(learning_write_enabled, bool):
+        raise ValueError("Learning write availability must be a boolean")
+    return ApiServer((host, port), Database(db_path), public_origin, secure_cookie, allow_register, trust_proxy, auth_limit, max_accounts, setup_token_hash, learning_write_enabled)
 
 
 def main():

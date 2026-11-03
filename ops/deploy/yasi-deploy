@@ -1,0 +1,230 @@
+#!/usr/bin/env bash
+# Receive a Git archive made on the local computer. No server-side GitHub access.
+set -Eeuo pipefail
+umask 022
+export PATH=/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+unset ATLAS_BASE
+[[ $EUID -eq 0 ]] || { echo 'Run with sudo.' >&2; exit 1; }
+[[ $# -eq 4 ]] || { echo 'Usage: yasi-deploy ARCHIVE SHA256 COMMIT RELEASE_ID' >&2; exit 2; }
+archive=$1
+digest=$2
+revision=$3
+release_id=$4
+[[ $digest =~ ^[0-9a-f]{64}$ && $revision =~ ^[0-9a-f]{40}$ ]] || { echo 'Invalid archive digest or revision.' >&2; exit 2; }
+[[ $release_id =~ ^[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8}$ && $release_id == *-${revision:0:8} ]] || { echo 'Invalid release ID.' >&2; exit 2; }
+[[ $archive == "/opt/yasi/incoming/$release_id.tar.gz" && -f $archive && ! -L $archive ]] || { echo 'Invalid upload path.' >&2; exit 2; }
+exec 9>/run/lock/yasi-deploy.lock
+flock -n 9 || { echo 'Another deployment is running.' >&2; exit 1; }
+current=/var/www/yasi/current
+previous=$(readlink -f "$current")
+[[ -L $current && -d $previous ]] || { echo 'Current release link is invalid.' >&2; exit 1; }
+temporary_link="/var/www/yasi/.current.$$.new"
+release="/opt/yasi/releases/$release_id"
+build="/opt/yasi/builds/$release_id"
+api_current=/opt/yasi/api-current
+api_previous=''
+api_release="/opt/yasi/api-releases/$release_id"
+api_link="/opt/yasi/.api.$$.new"
+api_was_active=0
+if [[ -L $api_current ]]; then
+    api_previous=$(readlink -f "$api_current")
+    [[ $api_previous =~ ^/opt/yasi/api-releases/[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8}$ && -f $api_previous/app.py ]] || { echo 'Current API link is invalid.' >&2; exit 1; }
+    if systemctl is-active --quiet band-galaxy.service; then api_was_active=1; fi
+else
+    [[ ! -e $api_current ]] || { echo 'Current API path must be a managed symlink.' >&2; exit 1; }
+fi
+switched=0
+api_switched=0
+rollback_on_failure() {
+    status=${1:-$?}
+    trap - ERR INT TERM
+    if (( switched )); then
+        echo 'Deployment failed; restoring the previous live release.' >&2
+        ln -s "$previous" "$temporary_link"
+        mv -Tf "$temporary_link" "$current"
+    fi
+    if (( api_switched )); then
+        [[ ! -L $api_link ]] || unlink "$api_link"
+        if [[ -n $api_previous ]]; then
+            ln -s "$api_previous" "$api_link"
+            mv -Tf "$api_link" "$api_current"
+        else
+            [[ ! -L $api_current ]] || unlink "$api_current"
+        fi
+        if (( api_was_active )); then systemctl restart band-galaxy.service || true
+        else systemctl stop band-galaxy.service || true; fi
+    fi
+    if (( switched )); then systemctl reload nginx || true; fi
+    [[ ! -L $temporary_link ]] || unlink "$temporary_link"
+    [[ ! -L $api_link ]] || unlink "$api_link"
+    exit "$status"
+}
+trap rollback_on_failure ERR
+trap 'rollback_on_failure 130' INT
+trap 'rollback_on_failure 143' TERM
+available_kib=$(df --output=avail -k /opt/yasi | tail -1)
+if [[ ! $available_kib =~ ^[[:space:]]*[0-9]+[[:space:]]*$ ]] || (( available_kib < 4194304 )); then
+    echo 'Need at least 4 GiB available for a safe build.' >&2
+    rollback_on_failure 1
+fi
+[[ ! -e $release && ! -e $build && ! -e $api_release && ! -L $temporary_link && ! -L $api_link ]] || { echo 'Release or staging path already exists.' >&2; rollback_on_failure 1; }
+printf '%s  %s\n' "$digest" "$archive" | sha256sum -c -
+install -d -m 755 /opt/yasi/builds /opt/yasi/deployments
+mkdir -p "$build/source"
+python3 - "$archive" "$build/source" "$revision" <<'PY'
+import sys, tarfile
+from pathlib import PurePosixPath
+with tarfile.open(sys.argv[1], 'r:gz') as source:
+    if source.pax_headers.get('comment', '').strip() != sys.argv[3]:
+        raise ValueError('Archive commit does not match the requested Git commit')
+    for member in source.getmembers():
+        path = PurePosixPath(member.name)
+        if path.is_absolute() or '..' in path.parts or '.git' in path.parts:
+            raise ValueError('Unexpected archive path: ' + member.name)
+    source.extractall(sys.argv[2], filter='data')
+PY
+cd "$build/source"
+[[ -s package.json && -s package-lock.json ]] || { echo 'Package manifest is missing.' >&2; rollback_on_failure 1; }
+npm ci --registry=https://registry.npmmirror.com --no-audit --no-fund
+npm run build
+python3 - "$build/check.json" <<'PY'
+import json, sys
+from pathlib import Path
+root = Path('dist')
+for name in ['index.html', 'sw.js', 'manifest.webmanifest', 'atlas/index.json', 'offline/pack.json']:
+    p = root / name
+    if not p.is_file() or not p.stat().st_size:
+        raise ValueError('Missing build output: ' + name)
+for name in ['manifest.webmanifest', 'atlas/index.json', 'offline/pack.json']:
+    json.loads((root / name).read_text())
+audio = next(iter(sorted((root / 'atlas/audio').rglob('*.mp3'))), None)
+image = next(iter(sorted((root / 'atlas/img').glob('*.webp'))), None)
+if not audio or not image:
+    raise ValueError('Build has no word audio or illustrations')
+data = {'audio': audio.relative_to(root).as_posix(), 'image': image.relative_to(root).as_posix()}
+Path(sys.argv[1]).write_text(json.dumps(data))
+PY
+audio_path=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["audio"])' "$build/check.json")
+nginx -t
+has_api=0
+if [[ -f server/app.py && ! -L server/app.py ]]; then
+    has_api=1
+    # The installer provisions a private state directory and non-root service.
+    [[ -r /etc/band-galaxy.env && -r /usr/local/lib/band-galaxy/backup.py ]] || { echo 'Install the sync infrastructure before deploying the API.' >&2; rollback_on_failure 1; }
+    systemctl cat band-galaxy.service >/dev/null
+    python3 -m unittest discover -s server -p 'test_*.py'
+    # Install exactly the files the live API will run. Smoke-check this artifact,
+    # not the larger source checkout, so missing runtime modules stop the release.
+    install -d -m 755 "$api_release"
+    python3 - "$api_release" <<'PY'
+import json, pathlib, re, shutil, sys
+source, destination = pathlib.Path('server'), pathlib.Path(sys.argv[1])
+manifest = source / 'runtime-files.json'
+files = json.loads(manifest.read_text()) if manifest.is_file() else ['app.py']
+if not isinstance(files, list) or 'app.py' not in files or len(files) != len(set(files)):
+    raise ValueError('Invalid API runtime file manifest')
+for name in files:
+    if not isinstance(name, str) or not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*\.py', name):
+        raise ValueError('Unexpected API runtime file')
+    path = source / name
+    if not path.is_file() or path.is_symlink():
+        raise ValueError('Missing API runtime file: ' + name)
+    shutil.copyfile(path, destination / name)
+    (destination / name).chmod(0o644)
+PY
+    # Smoke-check candidate code with a temporary database and ephemeral port.
+    # This never creates a production user, session or learning snapshot.
+    python3 -I - "$api_release" <<'PY'
+import importlib.util, json, pathlib, sys, tempfile, threading, urllib.request, urllib.error
+artifact = pathlib.Path(sys.argv[1])
+spec = importlib.util.spec_from_file_location('band_candidate', artifact / 'app.py')
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+with tempfile.TemporaryDirectory(prefix='band-candidate-') as scratch:
+    server = module.create_server('127.0.0.1', 0, pathlib.Path(scratch) / 'check.sqlite3', public_origin='http://localhost:5188', secure_cookie=False)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        base = 'http://127.0.0.1:' + str(server.server_address[1])
+        with urllib.request.urlopen(base + '/api/health', timeout=10) as response:
+            assert json.load(response) == {'ok': True}
+        with urllib.request.urlopen(base + '/api/auth/session', timeout=10) as response:
+            assert json.load(response) == {'user': None}
+        if (artifact / 'learning.py').is_file():
+            with urllib.request.urlopen(base + '/api/capabilities', timeout=10) as response:
+                assert json.load(response)['learningRecords'] == 1
+            try:
+                urllib.request.urlopen(base + '/api/learning/v1/changes', timeout=10)
+            except urllib.error.HTTPError as error:
+                assert error.code == 401
+            else:
+                raise AssertionError('Learning records must require authentication')
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+PY
+    # Use SQLite's backup API before candidate code can initialize/migrate the live DB.
+    python3 /usr/local/lib/band-galaxy/backup.py --prefix predeploy
+    ln -s "$api_release" "$api_link"
+    api_switched=1
+    mv -Tf "$api_link" "$api_current"
+    systemctl restart band-galaxy.service
+    curl --fail --silent --show-error --retry 5 --retry-connrefused --retry-delay 1 --max-time 10 http://127.0.0.1:5189/api/health -o "$build/api-health.json"
+    python3 - "$build/api-health.json" <<'PY'
+import json, sys
+assert json.load(open(sys.argv[1])) == {'ok': True}
+PY
+fi
+mv dist "$release"
+chmod -R a+rX "$release"
+ln -s "$release" "$temporary_link"
+switched=1
+mv -Tf "$temporary_link" "$current"
+systemctl reload nginx
+curl --fail --silent --show-error --retry 5 --retry-connrefused --retry-delay 1 --max-time 30 --resolve www.i2023.com:443:127.0.0.1 https://www.i2023.com/ -o /dev/null
+if (( has_api )); then
+    curl --fail --silent --show-error --retry 3 --retry-connrefused --retry-delay 1 --max-time 10 --resolve www.i2023.com:443:127.0.0.1 https://www.i2023.com/api/health -o "$build/api-proxy-health.json"
+    python3 - "$build/api-proxy-health.json" <<'PY'
+import json, sys
+assert json.load(open(sys.argv[1])) == {'ok': True}
+PY
+fi
+# Explicit guards also work in macOS Bash 3.2, where failed standalone [[ ]]
+# compound commands do not reliably trigger errexit/ERR.
+range_status=$(curl --silent --show-error --max-time 30 --resolve www.i2023.com:443:127.0.0.1 -H 'Range: bytes=0-99' -o "$build/range.bin" -w '%{http_code}' "https://www.i2023.com/$audio_path")
+[[ $range_status == 206 ]] || { echo "Audio Range check returned HTTP $range_status, expected 206." >&2; rollback_on_failure 1; }
+range_size=$(stat -c %s "$build/range.bin")
+[[ $range_size == 100 ]] || { echo 'Audio Range check did not return exactly 100 bytes.' >&2; rollback_on_failure 1; }
+while IFS= read -r old_release; do
+    [[ $old_release == "$release" || $old_release == "$previous" ]] && continue
+    [[ $old_release =~ ^/opt/yasi/releases/[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8}$ && ! -L $old_release ]] || continue
+    rm -rf --one-file-system -- "$old_release"
+done < <(find /opt/yasi/releases -mindepth 1 -maxdepth 1 -type d | sort)
+if (( has_api )); then
+    while IFS= read -r old_api; do
+        [[ $old_api == "$api_release" || $old_api == "$api_previous" ]] && continue
+        [[ $old_api =~ ^/opt/yasi/api-releases/[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8}$ && ! -L $old_api ]] || continue
+        rm -rf --one-file-system -- "$old_api"
+    done < <(find /opt/yasi/api-releases -mindepth 1 -maxdepth 1 -type d | sort)
+fi
+python3 - "$revision" "$digest" "$release" "$previous" "$build/check.json" "$has_api" "$api_release" "$api_previous" <<'PY'
+import json, sys
+from pathlib import Path
+data = {'commit': sys.argv[1], 'archive_sha256': sys.argv[2], 'release': sys.argv[3], 'previous': sys.argv[4], 'workflow': 'github-local-upload-server-build'}
+data.update(json.loads(Path(sys.argv[5]).read_text()))
+data.update({'api_release': sys.argv[7] if sys.argv[6] == '1' else None, 'previous_api': sys.argv[8] or None, 'database': '/var/lib/band-galaxy/progress.sqlite3' if sys.argv[6] == '1' else None})
+data['files'] = sum(p.is_file() for p in Path(sys.argv[3]).rglob('*'))
+target = Path('/opt/yasi/deployments') / (Path(sys.argv[3]).name + '.json')
+target.write_text(json.dumps(data, ensure_ascii=False, indent=2) + '\n')
+PY
+# These are the temporary build directory and upload created for this run only.
+rm -rf --one-file-system -- "$build"
+rm -- "$archive"
+switched=0
+api_switched=0
+trap - ERR INT TERM
+printf 'YASI_RESULT_JSON='
+python3 -c 'import json,sys; print(json.dumps(json.load(open(sys.argv[1]))))' "/opt/yasi/deployments/$release_id.json"
+du -sh "$release"

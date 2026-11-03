@@ -104,6 +104,12 @@ export function startCloudSync() {
 export const loginCloud = (username: string, password: string, setupToken?: string, create?: boolean) => engine.login(username, password, setupToken, create);
 export const logoutCloud = () => engine.logout();
 export const syncNow = () => engine.sync();
+/** Account identity notifications for independent learning-record storage. */
+export const getCloudState = () => state;
+export function subscribeCloudState(listener: () => void) {
+  listeners.add(listener);
+  return () => { listeners.delete(listener); };
+}
 export function useCloudSync(): CloudState {
   return useSyncExternalStore((fn) => { listeners.add(fn); return () => listeners.delete(fn); }, () => state, () => state);
 }
