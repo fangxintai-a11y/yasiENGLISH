@@ -14,6 +14,7 @@ import os
 import re
 import time
 import uuid
+from pathlib import Path
 from urllib.parse import parse_qs, unquote
 
 MAX_WRITE = 128 * 1024
@@ -23,14 +24,24 @@ IDENTIFIER = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,159}\Z")
 SECRET = re.compile(r"\b(?:sk-ant-|sk-proj-|ghp_|gho_)[A-Za-z0-9_-]{10,}")
 SENSITIVE = frozenset(("apikey", "aikey", "token", "accesstoken", "refreshtoken", "password", "secret", "authorization", "cookie"))
 COMMON = {"datasetId", "planId"}
+PROTOCOL_VERSION = 2
+SECTION_TARGETS = {"listening": 8.5, "reading": 8.5, "writing": 7.5, "speaking": 7.5}
+GATE_TARGETS = {
+    "G1": {"overall": 6.5, "listening": 7, "reading": 7, "writing": 6, "speaking": 6},
+    "G2": {"overall": 7, "listening": 7.5, "reading": 7.5, "writing": 6.5, "speaking": 6.5},
+    "G3": {"overall": 7.5, "listening": 8, "reading": 8, "writing": 7, "speaking": 7},
+    "G4": {"overall": 8, "listening": 8.5, "reading": 8.5, "writing": 7.5, "speaking": 7.5},
+}
+SCORE_SOURCES = frozenset(("self", "rules", "ai", "human", "official"))
+ERROR_CAUSES = frozenset(("synonym-miss", "locating-error", "spelling", "time-pressure", "word-limit", "vocab-unknown", "misread-question", "tfng-inference", "grammar", "lexical-misuse", "coherence", "task-response", "task-achievement", "fluency-pause", "pronunciation", "other"))
 FIELDS = {
-    "plan": {"startDate", "timeZone", "curriculumVersion", "studyBudgetMinutes", "targetBand", "sectionMinimum", "enabled", "syllabusUnit", "materialLevel", "title", "pauseIntervals"},
+    "plan": {"startDate", "timeZone", "curriculumVersion", "studyBudgetMinutes", "targetBand", "sectionTargets", "enabled", "syllabusUnit", "materialLevel", "title", "pauseIntervals"},
     "mission": {"date", "day", "taskId", "missionId", "skill", "status", "plannedMinutes", "actualMinutes", "timeSource"},
-    "attempt": {"date", "day", "taskId", "contentId", "contentVersion", "skill", "answers", "correct", "score", "total", "actualMinutes", "elapsedSeconds", "conditions", "replayed", "viewedTranscript", "firstAttempt", "isCheckpoint", "note"},
-    "essay": {"date", "day", "taskId", "contentId", "contentVersion", "prompt", "text", "wordCount", "parentRevisionId"},
+    "attempt": {"date", "day", "taskId", "contentId", "contentVersion", "skill", "answers", "correct", "score", "total", "actualMinutes", "elapsedSeconds", "conditions", "replayed", "viewedTranscript", "firstAttempt", "isCheckpoint", "note", "questionResults"},
+    "essay": {"date", "day", "taskId", "contentId", "contentVersion", "prompt", "text", "wordCount", "parentRevisionId", "taskType"},
     "speaking": {"date", "day", "taskId", "contentId", "contentVersion", "prompt", "transcript", "durationSeconds", "recordingId", "recordingDevice", "parentRevisionId"},
-    "feedback": {"workId", "workRevisionId", "inputHash", "rubricVersion", "source", "sourceText", "assessedAt", "text", "bands"},
-    "assessment": {"date", "day", "kind", "source", "materialId", "score", "total", "bands", "scores", "conditions", "note", "notes"},
+    "feedback": {"workId", "workRevisionId", "inputHash", "rubricVersion", "source", "sourceText", "assessedAt", "text", "bands", "taskType"},
+    "assessment": {"date", "day", "kind", "source", "materialId", "score", "total", "bands", "scores", "conditions", "note", "notes", "gateId", "targets", "consecutiveIndex", "scoreSources", "weekIndex", "workId", "workRevisionId", "inputHash", "taskType", "selfBands", "machineBands", "machineSource"},
 }
 STRING_LIMITS = {
     "text": 20000, "transcript": 20000, "prompt": 8000, "note": 4000, "notes": 4000,
@@ -38,13 +49,14 @@ STRING_LIMITS = {
     "recordingDevice": 200, "contentVersion": 120, "materialLevel": 80,
     "timeZone": 80, "curriculumVersion": 120, "conditions": 2000,
     "kind": 80, "timeSource": 40, "status": 40, "skill": 40,
+    "taskType": 20, "gateId": 20, "machineSource": 20,
 }
 
 
 class LearningError(Exception):
-    def __init__(self, status, message, code="invalid_learning_record"):
+    def __init__(self, status, message, code="invalid_learning_record", **details):
         self.status = status
-        self.body = {"error": message, "code": code}
+        self.body = {"error": message, "code": code, **details}
         super().__init__(message)
 
 
@@ -94,7 +106,7 @@ def safe_structure(value, depth=0):
             if not isinstance(key, str) or len(key) > 160:
                 reject()
             normalized = re.sub(r"[^a-z]", "", key.lower())
-            if normalized in SENSITIVE or "apikey" in normalized:
+            if normalized in SENSITIVE or "apikey" in normalized or key in {"__proto__", "constructor", "prototype"}:
                 reject("学习记录不能包含密码或 API Key。")
             safe_structure(item, depth + 1)
     elif isinstance(value, list):
@@ -120,7 +132,7 @@ def validate_payload(kind, payload, record_id, deleted=False):
             reject("删除记录时请使用空内容。")
         return payload
     for key, value in payload.items():
-        if value is None and key in {"sectionMinimum", "parentRevisionId", "recordingId", "recordingDevice", "assessedAt"}:
+        if value is None and key in {"datasetId", "parentRevisionId", "recordingId", "recordingDevice", "assessedAt"}:
             continue
         if key in STRING_LIMITS:
             if key == "conditions" and isinstance(value, dict):
@@ -159,17 +171,11 @@ def validate_payload(kind, payload, record_id, deleted=False):
         elif key in {"wordCount", "correct", "score", "total"}:
             if not number(value, 0, 100000):
                 reject()
-        elif key in {"targetBand", "sectionMinimum"}:
+        elif key == "targetBand":
             if not number(value, 0, 9):
                 reject()
-        elif key == "studyBudgetMinutes":
-            if value not in (120, 150, 180) or isinstance(value, bool):
-                reject("请选择120、150或180分钟。")
-        elif key in {"scores", "bands"}:
-            if not isinstance(value, dict) or set(value) - {"listening", "reading", "writing", "speaking", "taskResponse", "coherence", "lexical", "grammar", "fluency", "pronunciation"}:
-                reject("测评分数字段不正确。")
-            if any(v is not None and not number(v, 0, 9) for v in value.values()):
-                reject("测评分数必须在0至9之间。")
+        elif key in {"scores", "bands", "selfBands", "machineBands"}:
+            validate_bands(value)
         elif key == "answers":
             if not isinstance(value, list) or any(v is not None and (isinstance(v, bool) or not isinstance(v, (str, int, float))) for v in value):
                 reject("作答记录格式不正确。")
@@ -177,8 +183,14 @@ def validate_payload(kind, payload, record_id, deleted=False):
             if not isinstance(value, list) or any(not isinstance(v, dict) or set(v) != {"start", "end"} or not valid_date(v["start"]) or not valid_date(v["end"]) or v["end"] < v["start"] for v in value):
                 reject("暂停日期格式不正确。")
     if kind == "plan":
-        if not {"startDate", "studyBudgetMinutes"}.issubset(payload):
-            reject("计划缺少开始日期或时间预算。")
+        if "startDate" not in payload:
+            reject("计划缺少开始日期。")
+        if not same_numbers(payload.get("sectionTargets"), SECTION_TARGETS):
+            reject("四科目标必须为听8.5、读8.5、写7.5、说7.5。")
+        if payload.get("targetBand") != 8:
+            reject("项目目标固定为雅思总分8.0。")
+        if payload.get("studyBudgetMinutes") != 120 or isinstance(payload.get("studyBudgetMinutes"), bool):
+            reject("每日学习时长固定为 120 分钟。")
         if payload.get("planId", record_id) != record_id:
             reject("计划标识不匹配。")
         if "timeZone" in payload:
@@ -198,13 +210,111 @@ def validate_payload(kind, payload, record_id, deleted=False):
         reject("练习缺少材料或作答。")
     if kind == "essay" and not isinstance(payload.get("text"), str):
         reject("作文缺少正文。")
+    if kind == "essay" and payload.get("taskType") not in {"task1", "task2"}:
+        reject("作文必须明确 task1 或 task2。")
     if kind == "speaking" and not isinstance(payload.get("transcript"), str):
         reject("口语记录缺少转写字段。")
     if kind == "feedback" and not {"workRevisionId", "inputHash", "source", "text"}.issubset(payload):
         reject("反馈缺少原稿引用或来源。")
     if "correct" in payload and "total" in payload and payload["correct"] > payload["total"]:
         reject("正确数不能超过总题数。")
+    if kind in {"feedback", "assessment"}:
+        if payload.get("source") not in SCORE_SOURCES:
+            reject("评分来源必须为 self、rules、ai、human 或 official。")
+        for field in ("bands", "selfBands", "machineBands"):
+            if field in payload:
+                validate_task_bands(payload.get("taskType"), payload[field])
+    if "taskType" in payload and payload["taskType"] not in {"task1", "task2"}:
+        reject("作文任务类型无效。")
+    if kind == "attempt" and "questionResults" in payload:
+        if not isinstance(payload["questionResults"], list):
+            reject("逐题错因格式无效。")
+        ids = set()
+        for result in payload["questionResults"]:
+            if not isinstance(result, dict) or set(result) - {"questionId", "correct", "confidence", "errorCause", "note"} or "errorCause" not in result or not isinstance(result.get("correct"), bool) or not isinstance(result.get("confidence"), str) or result["confidence"] not in {"sure", "unsure"}:
+                reject("逐题错因格式无效。")
+            question_id = identifier(result.get("questionId"))
+            if question_id in ids:
+                reject("逐题错因题号不能重复。")
+            ids.add(question_id)
+            cause = result["errorCause"]
+            if (result["correct"] and cause is not None) or (not result["correct"] and (not isinstance(cause, str) or cause not in ERROR_CAUSES)):
+                reject("错因必须使用枚举编码，正确答案的错因为空。")
+            if "note" in result and (not isinstance(result["note"], str) or len(result["note"]) > 4000):
+                reject("错因说明格式无效。")
+            if result.get("errorCause") == "other" and not str(result.get("note", payload.get("note", ""))).strip():
+                reject("其他错因必须填写说明。")
+    if kind == "assessment":
+        validate_assessment(payload)
     return payload
+
+
+def same_numbers(value, expected):
+    return isinstance(value, dict) and set(value) == set(expected) and all(number(value[key], 0, 9) and value[key] == expected[key] for key in expected)
+
+
+def validate_bands(value):
+    if not isinstance(value, dict) or set(value) - {"listening", "reading", "writing", "speaking", "taskAchievement", "taskResponse", "coherence", "lexical", "grammar", "fluency", "pronunciation"}:
+        reject("测评分数字段不正确。")
+    if any(v is not None and (not number(v, 0, 9) or int(v * 2) != v * 2) for v in value.values()):
+        reject("测评分数必须为0至9的半分或空值。")
+
+
+def validate_task_bands(task_type, bands):
+    if {"taskAchievement", "taskResponse"} & set(bands) and task_type not in {"task1", "task2"}:
+        reject("作文评分必须明确任务类型。")
+    if task_type == "task1" and "taskResponse" in bands:
+        reject("Task 1只能使用 taskAchievement。")
+    if task_type == "task2" and "taskAchievement" in bands:
+        reject("Task 2只能使用 taskResponse。")
+
+
+def validate_assessment(payload):
+    if payload.get("kind") not in {"baseline", "weekly-mock", "gate", "weekly-calibration", "official"}:
+        reject("测评类型无效。")
+    if payload["kind"] == "gate":
+        if not valid_date(payload.get("date")):
+            reject("门槛记录必须包含有效日期。")
+        target = GATE_TARGETS.get(payload.get("gateId"))
+        if target is None or not same_numbers(payload.get("targets"), target):
+            reject("门槛目标与G1–G4定义不一致。")
+        index = payload.get("consecutiveIndex")
+        if (not number(index, 1, 2) or int(index) != index) if payload["gateId"] == "G3" else (index is not None and not number(index, 1, 1)):
+            reject("门槛连续测评序号无效。")
+        scores, sources = payload.get("scores"), payload.get("scoreSources")
+        if not isinstance(scores, dict) or set(scores) != set(SECTION_TARGETS):
+            reject("门槛必须保存四科实际分，未评估填空值。")
+        if not isinstance(sources, dict) or set(sources) != set(SECTION_TARGETS):
+            reject("门槛必须保存四科评分来源。")
+        for key in SECTION_TARGETS:
+            source = sources[key]
+            if (scores[key] is None and source is not None) or (scores[key] is not None and (not isinstance(source, str) or source not in SCORE_SOURCES)):
+                reject("门槛分数与来源不一致。")
+            if key in {"writing", "speaking"} and scores[key] is not None and source not in {"human", "official"}:
+                reject("写作和口语门槛分必须来自真人或正式成绩。")
+            if payload["gateId"] == "G4" and scores[key] is not None and source != "official":
+                reject("G4必须保存正式考试来源。")
+        if payload["gateId"] == "G4" and payload.get("source") != "official":
+            reject("G4必须保存正式考试来源。")
+    if payload["kind"] == "weekly-calibration":
+        week = payload.get("weekIndex")
+        if not number(week, 1, 52) or int(week) != week:
+            reject("真人校准周序必须在1至52之间。")
+        revision_id(payload.get("workRevisionId"))
+        bands = payload.get("bands")
+        expected = {"taskAchievement", "coherence", "lexical", "grammar"} if payload.get("taskType") == "task1" else {"taskResponse", "coherence", "lexical", "grammar"} if payload.get("taskType") == "task2" else {"fluency", "lexical", "grammar", "pronunciation"}
+        if not isinstance(bands, dict) or set(bands) != expected:
+            reject("每周校准必须保存对应作品的四项分数。")
+        if payload.get("source") in {"human", "official"} and any(value is None for value in bands.values()):
+            reject("真人校准必须保存四项有效分数。")
+        if "machineSource" in payload and payload["machineSource"] not in {"ai", "rules"}:
+            reject("机器估分来源无效。")
+        if "machineBands" in payload and payload.get("machineSource") not in {"ai", "rules"}:
+            reject("机器估分必须明确来源。")
+    if payload["kind"] == "official":
+        scores = payload.get("scores")
+        if payload.get("source") != "official" or not valid_date(payload.get("date")) or not isinstance(scores, dict) or set(scores) != set(SECTION_TARGETS) or any(value is None for value in scores.values()):
+            reject("正式成绩必须包含日期、正式来源和完整四科分数。")
 
 
 def content_hash(kind, payload):
@@ -215,13 +325,25 @@ def content_hash(kind, payload):
 class LearningStore:
     def __init__(self, database):
         self.database = database
+        self.migration_backup_path = None
         with database.connect() as db:
+            existing = db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='learning_records'").fetchone() is not None
+            migrations = db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='learning_schema_migrations'").fetchone() is not None
+            version = db.execute("SELECT COALESCE(MAX(version),0) FROM learning_schema_migrations").fetchone()[0] if migrations else 0
+        # SQLite backup captures committed WAL data before any schema/data change.
+        if existing and version < 2:
+            destination = Path(database.path).with_name(Path(database.path).name + ".learning-v1-backup-" + uuid.uuid4().hex + ".sqlite3")
+            database.backup(destination)
+            self.migration_backup_path = str(destination)
+        with database.connect() as db:
+            if existing and version < 2:
+                db.execute("PRAGMA foreign_keys=OFF")
             db.execute("BEGIN IMMEDIATE")
             for statement in (
                 """CREATE TABLE IF NOT EXISTS learning_schema_migrations(version INTEGER PRIMARY KEY, applied_at INTEGER NOT NULL)""",
                 """CREATE TABLE IF NOT EXISTS learning_records(
                     user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                    id TEXT NOT NULL, kind TEXT NOT NULL, dataset_id TEXT NOT NULL, plan_id TEXT,
+                    id TEXT NOT NULL, kind TEXT NOT NULL, dataset_id TEXT, plan_id TEXT,
                     current_revision_id TEXT, deleted_at INTEGER, PRIMARY KEY(user_id,id))""",
                 """CREATE TABLE IF NOT EXISTS learning_revisions(
                     seq INTEGER PRIMARY KEY AUTOINCREMENT, revision_id TEXT NOT NULL,
@@ -229,24 +351,77 @@ class LearningStore:
                     record_id TEXT NOT NULL, base_revision_id TEXT, payload TEXT NOT NULL,
                     content_hash TEXT NOT NULL, created_at INTEGER NOT NULL,
                     conflict INTEGER NOT NULL DEFAULT 0, deleted INTEGER NOT NULL DEFAULT 0,
+                    dataset_id TEXT, payload_version INTEGER NOT NULL DEFAULT 1,
                     UNIQUE(user_id,revision_id),
                     FOREIGN KEY(user_id,record_id) REFERENCES learning_records(user_id,id) ON DELETE CASCADE)""",
                 """CREATE TABLE IF NOT EXISTS learning_mutation_receipts(
                     user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
                     mutation_id TEXT NOT NULL, fingerprint TEXT NOT NULL,
-                    status INTEGER NOT NULL, response TEXT NOT NULL, PRIMARY KEY(user_id,mutation_id))""",
+                    status INTEGER NOT NULL, revision_id TEXT, conflict_revision_id TEXT,
+                    PRIMARY KEY(user_id,mutation_id))""",
+            ):
+                db.execute(statement)
+            current = db.execute("SELECT COALESCE(MAX(version),0) FROM learning_schema_migrations").fetchone()[0]
+            if existing and current < 2:
+                self._migrate_v2(db)
+            for statement in (
                 "CREATE INDEX IF NOT EXISTS learning_records_plan ON learning_records(user_id,plan_id,kind)",
                 "CREATE INDEX IF NOT EXISTS learning_revisions_user_seq ON learning_revisions(user_id,seq)",
                 "CREATE INDEX IF NOT EXISTS learning_revisions_record ON learning_revisions(user_id,record_id,seq)",
             ):
                 db.execute(statement)
-            db.execute("INSERT OR IGNORE INTO learning_schema_migrations VALUES(1,?)", (int(time.time() * 1000),))
+            now = int(time.time() * 1000)
+            db.execute("INSERT OR IGNORE INTO learning_schema_migrations VALUES(1,?)", (now,))
+            db.execute("INSERT OR IGNORE INTO learning_schema_migrations VALUES(2,?)", (now,))
+            if db.execute("PRAGMA foreign_key_check").fetchone() is not None:
+                raise RuntimeError("Learning migration failed its foreign-key verification; original backup retained")
+            db.commit()
+            db.execute("PRAGMA foreign_keys=ON")
+
+    @staticmethod
+    def _migrate_v2(db):
+        # Rebuild only mutable record metadata. Raw revision JSON/hash/IDs never change.
+        associated_schema = [row["sql"] for row in db.execute("SELECT sql FROM sqlite_master WHERE tbl_name='learning_records' AND type IN ('index','trigger') AND sql IS NOT NULL")]
+        db.execute("""CREATE TABLE learning_records_v2(
+            user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            id TEXT NOT NULL, kind TEXT NOT NULL, dataset_id TEXT, plan_id TEXT,
+            current_revision_id TEXT, deleted_at INTEGER, PRIMARY KEY(user_id,id))""")
+        db.execute("INSERT INTO learning_records_v2 SELECT * FROM learning_records")
+        db.execute("DROP TABLE learning_records")
+        db.execute("ALTER TABLE learning_records_v2 RENAME TO learning_records")
+        for statement in associated_schema:
+            db.execute(statement)
+        columns = {row["name"] for row in db.execute("PRAGMA table_info(learning_revisions)")}
+        if "dataset_id" not in columns:
+            db.execute("ALTER TABLE learning_revisions ADD COLUMN dataset_id TEXT")
+        if "payload_version" not in columns:
+            db.execute("ALTER TABLE learning_revisions ADD COLUMN payload_version INTEGER NOT NULL DEFAULT 1")
+        rows = db.execute("SELECT v.seq,v.payload,r.dataset_id FROM learning_revisions v JOIN learning_records r ON r.user_id=v.user_id AND r.id=v.record_id").fetchall()
+        for row in rows:
+            payload = json.loads(row["payload"])
+            db.execute("UPDATE learning_revisions SET dataset_id=? WHERE seq=?", (payload.get("datasetId", row["dataset_id"]), row["seq"]))
+        receipt_columns = {row["name"] for row in db.execute("PRAGMA table_info(learning_mutation_receipts)")}
+        if "response" in receipt_columns:
+            db.execute("""CREATE TABLE learning_mutation_receipts_v2(
+                user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                mutation_id TEXT NOT NULL, fingerprint TEXT NOT NULL,
+                status INTEGER NOT NULL, revision_id TEXT, conflict_revision_id TEXT,
+                PRIMARY KEY(user_id,mutation_id))""")
+            for row in db.execute("SELECT * FROM learning_mutation_receipts").fetchall():
+                response = json.loads(row["response"])
+                revision = (response.get("record") or {}).get("revisionId")
+                conflict = (response.get("conflict") or {}).get("revisionId")
+                if row["status"] not in (200, 409) or not revision and not conflict:
+                    raise RuntimeError("Cannot safely migrate an invalid learning receipt")
+                db.execute("INSERT INTO learning_mutation_receipts_v2 VALUES(?,?,?,?,?,?)", (row["user_id"], row["mutation_id"], row["fingerprint"], row["status"], revision, conflict))
+            db.execute("DROP TABLE learning_mutation_receipts")
+            db.execute("ALTER TABLE learning_mutation_receipts_v2 RENAME TO learning_mutation_receipts")
 
     @staticmethod
     def item(db, user_id, revision):
         if revision is None:
             return None
-        row = db.execute("""SELECT v.*,r.kind,r.dataset_id,r.plan_id FROM learning_revisions v
+        row = db.execute("""SELECT v.*,r.kind,r.plan_id FROM learning_revisions v
                             JOIN learning_records r ON r.user_id=v.user_id AND r.id=v.record_id
                             WHERE v.user_id=? AND v.revision_id=?""", (user_id, revision)).fetchone()
         if row is None:
@@ -254,50 +429,67 @@ class LearningStore:
         return {"id": row["record_id"], "kind": row["kind"], "datasetId": row["dataset_id"], "planId": row["plan_id"],
                 "revisionId": row["revision_id"], "baseRevision": row["base_revision_id"], "seq": row["seq"],
                 "payload": json.loads(row["payload"]), "contentHash": row["content_hash"], "createdAt": row["created_at"],
-                "conflict": bool(row["conflict"]), "deleted": bool(row["deleted"])}
+                "conflict": bool(row["conflict"]), "deleted": bool(row["deleted"]), "payloadVersion": row["payload_version"]}
+
+    @classmethod
+    def replay(cls, db, user_id, receipt):
+        record = cls.item(db, user_id, receipt["revision_id"])
+        if receipt["status"] == 200:
+            return 200, {"record": record, "applied": True}
+        return 409, {"error": "手机和电脑各有修改，两份均已保存。", "code": "revision_conflict", "record": record,
+                     "conflict": cls.item(db, user_id, receipt["conflict_revision_id"]), "applied": False}
 
     @staticmethod
     def references(db, user_id, kind, payload, base, record_id):
         if base:
             row = db.execute("SELECT record_id FROM learning_revisions WHERE user_id=? AND revision_id=?", (user_id, base)).fetchone()
             if row is None or row["record_id"] != record_id:
-                raise LearningError(422, "基础修订尚未同步或不属于此记录。", "missing_dependency")
+                raise LearningError(422, "基础修订尚未同步或不属于此记录。", "missing_dependency", missingRevisionId=base)
         plan_id = payload.get("planId")
         if kind != "plan":
-            plan = db.execute("SELECT kind,deleted_at,dataset_id FROM learning_records WHERE user_id=? AND id=?", (user_id, plan_id)).fetchone()
+            plan = db.execute("SELECT kind,deleted_at FROM learning_records WHERE user_id=? AND id=?", (user_id, plan_id)).fetchone()
             if plan is None or plan["kind"] != "plan" or plan["deleted_at"] is not None:
-                raise LearningError(422, "请先同步所属计划。", "missing_dependency")
-            if payload.get("datasetId", plan["dataset_id"]) != plan["dataset_id"]:
-                reject("记录与计划的词库不匹配。")
+                raise LearningError(422, "请先同步所属计划。", "missing_dependency", missingPlanId=plan_id)
         for field in ("workRevisionId", "parentRevisionId"):
             ref = payload.get(field)
             if ref:
-                row = db.execute("""SELECT v.content_hash,v.record_id,v.deleted,r.kind,r.plan_id FROM learning_revisions v
+                row = db.execute("""SELECT v.content_hash,v.record_id,v.deleted,v.payload,r.kind,r.plan_id FROM learning_revisions v
                                     JOIN learning_records r ON r.user_id=v.user_id AND r.id=v.record_id
                                     WHERE v.user_id=? AND v.revision_id=?""", (user_id, ref)).fetchone()
                 if row is None or row["kind"] not in {"essay", "speaking"} or row["plan_id"] != plan_id or row["deleted"]:
-                    raise LearningError(422, "原稿修订尚未同步或引用不正确。", "missing_dependency")
+                    raise LearningError(422, "原稿修订尚未同步或引用不正确。", "missing_dependency", missingRevisionId=ref)
                 if field == "workRevisionId":
-                    if payload["inputHash"] != row["content_hash"] or (payload.get("workId") and payload["workId"] != row["record_id"]):
+                    if ("inputHash" in payload and payload["inputHash"] != row["content_hash"]) or (payload.get("workId") and payload["workId"] != row["record_id"]):
                         reject("反馈与原稿版本不匹配。")
+                    work = json.loads(row["payload"])
+                    if row["kind"] == "essay" and work.get("taskType"):
+                        if payload.get("taskType") != work["taskType"] and any(field in payload for field in ("bands", "selfBands", "machineBands")):
+                            reject("反馈作文类型与原稿不匹配。")
+                        for field in ("bands", "selfBands", "machineBands"):
+                            if field in payload:
+                                validate_task_bands(work["taskType"], payload[field])
 
-    def put(self, user_id, record_id, body):
+    def put(self, user_id, record_id, body, replay_only=False):
         identifier(record_id)
         if not isinstance(body, dict) or set(body) - {"schemaVersion", "revisionId", "mutationId", "baseRevision", "kind", "payload", "deleted"}:
             reject()
         if not {"schemaVersion", "revisionId", "mutationId", "baseRevision", "kind", "payload"}.issubset(body):
             reject()
-        if type(body["schemaVersion"]) is not int or body["schemaVersion"] != 1 or not isinstance(body["kind"], str) or body["kind"] not in KINDS:
+        if type(body["schemaVersion"]) is not int or body["schemaVersion"] not in (1, 2) or not isinstance(body["kind"], str) or body["kind"] not in KINDS:
             reject("学习协议或记录类型不支持。")
         if "deleted" in body and not isinstance(body["deleted"], bool):
             reject()
         rev, mutation = revision_id(body["revisionId"]), revision_id(body["mutationId"])
         base = revision_id(body["baseRevision"]) if body["baseRevision"] is not None else None
         kind, deleted = body["kind"], body.get("deleted", False)
-        payload = validate_payload(kind, body["payload"], record_id, deleted)
-        if len(encoded(body).encode("utf-8")) > MAX_WRITE:
+        try:
+            request_text = encoded(body)
+            request_bytes = request_text.encode("utf-8")
+        except (ValueError, UnicodeError, TypeError):
+            reject("学习请求包含无效JSON文本。")
+        if len(request_bytes) > MAX_WRITE:
             reject("单条学习记录超过128 KiB。", 413)
-        fingerprint = hashlib.sha256((record_id + "\n" + encoded(body)).encode()).hexdigest()
+        fingerprint = hashlib.sha256((record_id + "\n" + request_text).encode()).hexdigest()
         now = int(time.time() * 1000)
         with self.database.connect() as db:
             db.execute("BEGIN IMMEDIATE")
@@ -305,7 +497,12 @@ class LearningStore:
             if old:
                 if old["fingerprint"] != fingerprint:
                     reject("同一提交标识不能用于不同内容。")
-                return old["status"], json.loads(old["response"])
+                return self.replay(db, user_id, old)
+            if replay_only:
+                raise LearningError(426, "学习协议已更新，请更新客户端；本机成果和待上传请求应保留。", "unsupported_learning_protocol")
+            if body["schemaVersion"] != PROTOCOL_VERSION:
+                reject("历史请求尚未获服务端接收，请保留原文并修复为新修订后重试。")
+            payload = validate_payload(kind, body["payload"], record_id, deleted)
             if db.execute("SELECT 1 FROM learning_revisions WHERE user_id=? AND revision_id=?", (user_id, rev)).fetchone():
                 reject("修订标识已使用，请创建新的修订。")
             record = db.execute("SELECT * FROM learning_records WHERE user_id=? AND id=?", (user_id, record_id)).fetchone()
@@ -318,25 +515,25 @@ class LearningStore:
                 dataset_id, plan_id = record["dataset_id"], record["plan_id"]
             else:
                 self.references(db, user_id, kind, payload, base, record_id)
-                dataset_id = payload.get("datasetId", "word-atlas-open") if kind == "plan" else db.execute(
-                    "SELECT dataset_id FROM learning_records WHERE user_id=? AND id=?", (user_id, payload["planId"])
-                ).fetchone()["dataset_id"]
+                dataset_id = payload.get("datasetId")
                 plan_id = record_id if kind == "plan" else payload["planId"]
-                if record and (record["dataset_id"] != dataset_id or record["plan_id"] != plan_id):
+                if record and record["plan_id"] != plan_id:
                     reject("记录归属不能变更。")
             current = record["current_revision_id"] if record else None
             conflict = current != base
             if not record:
                 db.execute("INSERT INTO learning_records(user_id,id,kind,dataset_id,plan_id) VALUES(?,?,?,?,?)", (user_id, record_id, kind, dataset_id, plan_id))
-            db.execute("""INSERT INTO learning_revisions(revision_id,user_id,record_id,base_revision_id,payload,content_hash,created_at,conflict,deleted)
-                          VALUES(?,?,?,?,?,?,?,?,?)""", (rev, user_id, record_id, base, encoded(payload), content_hash(kind, payload), now, int(conflict), int(deleted)))
+            db.execute("""INSERT INTO learning_revisions(revision_id,user_id,record_id,base_revision_id,payload,content_hash,created_at,conflict,deleted,dataset_id,payload_version)
+                          VALUES(?,?,?,?,?,?,?,?,?,?,?)""", (rev, user_id, record_id, base, encoded(payload), content_hash(kind, payload), now, int(conflict), int(deleted), dataset_id, PROTOCOL_VERSION))
             incoming = self.item(db, user_id, rev)
             if conflict:
                 status, response = 409, {"error": "手机和电脑各有修改，两份均已保存。", "code": "revision_conflict", "record": self.item(db, user_id, current), "conflict": incoming, "applied": False}
             else:
-                db.execute("UPDATE learning_records SET current_revision_id=?,deleted_at=? WHERE user_id=? AND id=?", (rev, now if deleted else None, user_id, record_id))
+                db.execute("UPDATE learning_records SET current_revision_id=?,deleted_at=?,dataset_id=? WHERE user_id=? AND id=?", (rev, now if deleted else None, dataset_id, user_id, record_id))
                 status, response = 200, {"record": incoming, "applied": True}
-            db.execute("INSERT INTO learning_mutation_receipts VALUES(?,?,?,?,?)", (user_id, mutation, fingerprint, status, encoded(response)))
+            db.execute("INSERT INTO learning_mutation_receipts VALUES(?,?,?,?,?,?)", (user_id, mutation, fingerprint, status,
+                       response["record"]["revisionId"] if response.get("record") else None,
+                       response["conflict"]["revisionId"] if response.get("conflict") else None))
             return status, response
 
     def list(self, user_id, after=0, limit=100, kind=None, plan_id=None, record_id=None, current=False):
@@ -367,9 +564,10 @@ class LearningStore:
 def dispatch(handler, method, path, query):
     """Return true when this module handled a request."""
     if path == "/api/capabilities" and method == "GET":
-        handler.send_json(200, {"vocabSnapshot": 2, "learningRecords": 1, "learningWriteEnabled": handler.server.learning_write_enabled})
+        handler.send_json(200, {"vocabSnapshot": 2, "learningRecords": PROTOCOL_VERSION, "learningWriteEnabled": handler.server.learning_write_enabled})
         return True
-    prefix = "/api/learning/v1/"
+    legacy = path.startswith("/api/learning/v1/")
+    prefix = "/api/learning/v1/" if legacy else "/api/learning/v2/"
     if not path.startswith(prefix):
         return False
     user = handler.require_user()
@@ -386,11 +584,13 @@ def dispatch(handler, method, path, query):
             reject("写入接口不接受查询参数。")
         if not handler.server.learning_write_enabled:
             raise LearningError(503, "学习记录暂时不可同步，已保存的本机内容会保留。", "learning_write_disabled")
-        status, response = store.put(user["id"], unquote(tail[len("records/"):]), handler.body(maximum=MAX_WRITE))
+        status, response = store.put(user["id"], unquote(tail[len("records/"):]), handler.body(maximum=MAX_WRITE), replay_only=legacy)
         handler.send_json(status, response)
         return True
     if method != "GET":
         raise LearningError(404, "学习接口不存在。", "not_found")
+    if legacy:
+        raise LearningError(426, "学习协议已更新，请更新客户端；本机成果和待上传请求应保留。", "unsupported_learning_protocol")
     if set(params) - {"after", "limit", "kind", "planId"}:
         reject("学习查询格式不正确。")
     def integer(name, default, high):

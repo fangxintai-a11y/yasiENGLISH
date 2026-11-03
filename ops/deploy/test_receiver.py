@@ -9,12 +9,14 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import unittest
 
 OPS = Path(__file__).resolve().parent
 REVISION = "abcdef1234567890abcdef1234567890abcdef12"
 RELEASE_ID = "20261102T000000Z-" + REVISION[:8]
 OLD_ID = "20261029T000000Z-11111111"
 OLDER_ID = "20261028T000000Z-00000000"
+STABLE_WORD_ONLY_SHA256 = "9b9b7a38e67eb5c9bc26983e5daf544f86df87b413739b7b84fc36be34379611"
 
 FAKE_API = '''from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import os, pathlib, importlib.util
@@ -26,7 +28,7 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, *args): pass
     def do_GET(self):
         protected = self.path.startswith('/api/learning/')
-        body = b'{"ok":true}' if self.path.endswith('/health') else b'{"learningRecords":1}' if self.path == '/api/capabilities' else b'{"user":null}'
+        body = b'{"ok":true}' if self.path.endswith('/health') else b'{"learningRecords":2}' if self.path == '/api/capabilities' else b'{"user":null}'
         self.send_response(401 if protected else 200)
         self.send_header('Content-Length', str(len(body)))
         self.end_headers()
@@ -43,7 +45,7 @@ root = pathlib.Path(os.environ['TASK_ROOT'])
 case = os.environ['CASE']
 def fail(code): sys.exit(code)
 if name == 'git': fail(99)
-elif name == 'df': print('Available\n100000000')
+elif name == 'df': print('Available\n' + os.environ.get('MOCK_AVAILABLE_KIB', '100000000'))
 elif name == 'flock': pass
 elif name == 'readlink': print(pathlib.Path(args[-1]).resolve())
 elif name == 'sha256sum':
@@ -52,6 +54,10 @@ elif name == 'sha256sum':
 elif name == 'mv':
     files = [x for x in args if not x.startswith('-')]
     os.rename(files[0], files[1])
+    marker = root / 'static-switched'
+    if case == 'signal' and files[1].endswith('/current') and not marker.exists():
+        marker.touch()
+        os.kill(os.getppid(), signal.SIGTERM)
 elif name == 'rm':
     for arg in args:
         if arg.startswith('-'): continue
@@ -79,6 +85,7 @@ elif name == 'install':
         for filename in files: pathlib.Path(filename).mkdir(parents=True, exist_ok=True)
     else: shutil.copyfile(files[0], files[1]); os.chmod(files[1], mode)
 elif name == 'npm':
+    if os.environ.get('PREBUILT_MODE') == '1': fail(77)
     if args[0] == 'ci' and case == 'ci': fail(8)
     if args[0] == 'run':
         if case == 'build': fail(9)
@@ -88,26 +95,25 @@ elif name == 'npm':
             target.write_text('{}')
         if case == 'missing': pathlib.Path('dist/sw.js').unlink()
 elif name == 'nginx':
-    if case == 'nginx': fail(10)
+    fail(98) # Shared proxy commands must never be called.
 elif name == 'systemctl':
     with (root / 'controls.log').open('a') as log: log.write(' '.join(args) + '\n')
+    if args[0] == 'reload' or 'nginx' in args: fail(98)
+    if args[0] == 'cat':
+        entry = pathlib.Path(os.environ['BAND_DEPLOY_ROOT']) / ('app.py' if case == 'unmanaged_service' else 'api-current/app.py')
+        print('[Service]\nExecStart=/usr/bin/python3 ' + str(entry))
     if args[0] == 'is-active': fail(0 if os.environ['API_PREVIOUS'] == '1' else 3)
-    if args[:2] == ['restart', 'band-galaxy.service']:
+    if args[:2] == ['restart', os.environ['BAND_DEPLOY_API_SERVICE']]:
         marker = root / 'restarted'
         first = not marker.exists()
         marker.touch()
         if case == 'api_restart' and first: fail(11)
         if case == 'api_signal' and first: os.kill(os.getppid(), signal.SIGTERM)
-    if args[:2] == ['reload', 'nginx']:
-        marker = root / 'reloaded'
-        first = not marker.exists()
-        marker.touch()
-        if case == 'reload' and first: fail(11)
-        if case == 'signal' and first: os.kill(os.getppid(), signal.SIGTERM)
 elif name == 'curl':
+    with (root / 'curl.log').open('a') as log: log.write(' '.join(args) + '\n')
     url = next(arg for arg in args if arg.startswith('http'))
     if case == 'health' and url.endswith('/'): fail(12)
-    if case == 'api_health' and url.startswith('http://127.0.0.1:5189'): fail(13)
+    if case == 'api_health' and url.startswith('http://127.0.0.1:' + os.environ['BAND_DEPLOY_API_PORT']): fail(13)
     if case == 'api_proxy' and url.startswith('https://') and url.endswith('/api/health'): fail(14)
     output = args[args.index('-o') + 1] if '-o' in args else '/dev/null'
     ranged = 'Range: bytes=0-99' in args
@@ -119,8 +125,8 @@ elif name == 'curl':
 class Fixture:
     def __init__(self, root, case, has_api=False, previous_api=False):
         self.root, self.case, self.has_api, self.previous_api = Path(root).resolve(), case, has_api, previous_api
-        self.project = self.root / "opt/yasi"
-        self.web = self.root / "var/www/yasi"
+        self.project = self.root / "opt/bandgalaxy"
+        self.web = self.root / "var/www/bandgalaxy"
         self.binary = self.root / "bin"
         self.state = self.root / "var/lib/band-galaxy"
         for path in (self.project / "incoming", self.project / "releases", self.project / "api-releases", self.web, self.binary, self.root / "run/lock", self.root / "etc", self.state):
@@ -143,18 +149,27 @@ class Fixture:
         (self.root / "etc/band-galaxy.env").write_text("test configuration, no real secret\n")
         helper = self.root / "usr/local/lib/band-galaxy/backup.py"
         helper.parent.mkdir(parents=True)
-        helper.write_text((OPS / "backup-sync.py").read_text().replace("/var/lib/band-galaxy", str(self.state)))
+        # The mocked service cannot execute real legacy code. Use exact reviewed
+        # fixture hashes in its private helper; production retains only f3384e.
+        fixture_hashes = ', '.join(json.dumps(hashlib.sha256(code.encode()).hexdigest()) for code in ('previous API', 'target API'))
+        helper.write_text((OPS / "backup-sync.py").read_text().replace("/var/lib/band-galaxy", str(self.state)).replace(json.dumps(STABLE_WORD_ONLY_SHA256), fixture_hashes))
         for command in ('git', 'df', 'flock', 'readlink', 'sha256sum', 'mv', 'rm', 'stat', 'find', 'install', 'npm', 'nginx', 'systemctl', 'curl'):
             path = self.binary / command
             path.write_text(MOCK.replace('#!PYTHON', '#!' + sys.executable))
             path.chmod(0o755)
         (self.binary / 'python3').symlink_to(sys.executable)
-        self.env = os.environ | {'CASE': case, 'TASK_ROOT': str(self.root), 'API_PREVIOUS': '1' if previous_api else '0'}
+        self.env = os.environ | {'CASE': case, 'TASK_ROOT': str(self.root), 'API_PREVIOUS': '1' if previous_api else '0',
+            'BAND_DEPLOY_ROOT': str(self.project), 'BAND_DEPLOY_WEB_ROOT': str(self.web),
+            'BAND_DEPLOY_HOST': 'ibaz.cn', 'BAND_DEPLOY_HTTPS_PORT': '8443',
+            'BAND_DEPLOY_API_PORT': '5189', 'BAND_DEPLOY_API_SERVICE': 'band-galaxy.service',
+            'BAND_DEPLOY_MIN_FREE_MB': '1024', 'BAND_DEPLOY_LOCK': str(self.root / 'run/lock/band.lock'),
+            'BAND_DEPLOY_ENV_FILE': str(self.root / 'etc/band-galaxy.env'),
+            'BAND_DEPLOY_DB': str(self.state / 'progress.sqlite3'),
+            'BAND_DEPLOY_BACKUP_DIR': str(self.state / 'backups'),
+            'BAND_DEPLOY_BACKUP_SCRIPT': str(helper)}
 
     def rewritten(self, name):
         code = (OPS / name).read_text()
-        for source in ('/opt/yasi', '/var/www/yasi', '/var/lib/band-galaxy', '/run/lock', '/etc/band-galaxy.env', '/usr/local/lib/band-galaxy/backup.py'):
-            code = code.replace(source, str(self.root) + source)
         code = code.replace('[[ $EUID -eq 0 ]]', 'true')
         code = code.replace('export PATH=', 'export PATH=' + str(self.binary) + ':')
         target = self.root / name
@@ -164,6 +179,8 @@ class Fixture:
     def assert_database_unchanged(self):
         with sqlite3.connect(self.state / 'progress.sqlite3') as db:
             assert db.execute('SELECT value FROM preserve_me').fetchall() == [('actual progress',)]
+        controls = (self.root / 'controls.log').read_text() if (self.root / 'controls.log').exists() else ''
+        assert 'reload' not in controls and 'nginx' not in controls, controls
 
     def deploy(self):
         archive = self.project / 'incoming' / (RELEASE_ID + '.tar.gz')
@@ -184,7 +201,7 @@ class Fixture:
         result = subprocess.run(['bash', str(self.rewritten('yasi-deploy')), str(archive), digest, REVISION, RELEASE_ID], env=self.env, capture_output=True, text=True, timeout=60)
         success = self.case == 'success'
         assert (result.returncode == 0) == success, (self.case, result.stdout, result.stderr)
-        expected_failure = {'checksum': 2, 'commit': 1, 'escape': 1, 'ci': 8, 'build': 9, 'missing': 1, 'nginx': 10, 'reload': 11, 'health': 12, 'range': 1, 'signal': 143, 'api_candidate': 1, 'api_missing_module': 1, 'api_restart': 11, 'api_health': 13, 'api_proxy': 14, 'api_signal': 143}
+        expected_failure = {'checksum': 2, 'commit': 1, 'escape': 1, 'ci': 8, 'build': 9, 'missing': 1, 'health': 12, 'range': 1, 'signal': 143, 'api_candidate': 1, 'api_missing_module': 1, 'api_restart': 11, 'api_health': 13, 'api_proxy': 14, 'api_signal': 143}
         if not success:
             assert result.returncode == expected_failure[self.case], ('wrong failure phase', self.case, result.stdout, result.stderr)
         assert self.current.resolve() == (self.project / 'releases' / RELEASE_ID if success else self.previous), (self.case, result.stdout, result.stderr)
@@ -227,9 +244,185 @@ class Fixture:
         self.assert_database_unchanged()
 
 
+class PrebuiltTests(unittest.TestCase):
+    def run_prebuilt(self, missing_helper=False, configuration=None, missing_api=False):
+        scratch = tempfile.TemporaryDirectory(prefix='band-prebuilt-check-')
+        self.addCleanup(scratch.cleanup)
+        fixture = Fixture(scratch.name, 'success', has_api=True, previous_api=True)
+        fixture.env.update({
+            'PREBUILT_MODE': '1', 'MOCK_AVAILABLE_KIB': '1048576',
+            'BAND_DEPLOY_ROOT': str(fixture.project), 'BAND_DEPLOY_WEB_ROOT': str(fixture.web),
+            'BAND_DEPLOY_HOST': 'ibaz.cn', 'BAND_DEPLOY_HTTPS_PORT': '8443',
+            'BAND_DEPLOY_API_PORT': '5189', 'BAND_DEPLOY_API_SERVICE': 'band-galaxy.service',
+            'BAND_DEPLOY_MIN_FREE_MB': '1024', 'BAND_DEPLOY_LOCK': str(fixture.root / 'run/lock/band.lock'),
+            'BAND_DEPLOY_ENV_FILE': str(fixture.root / 'etc/band-galaxy.env'),
+            'BAND_DEPLOY_DB': str(fixture.state / 'progress.sqlite3'),
+            'BAND_DEPLOY_BACKUP_DIR': str(fixture.state / 'backups'),
+            'BAND_DEPLOY_BACKUP_SCRIPT': str(fixture.root / 'usr/local/lib/band-galaxy/backup.py'),
+        })
+        fixture.env.update(configuration or {})
+        files = {name: '{}' for name in ['dist/index.html', 'dist/sw.js', 'dist/manifest.webmanifest',
+                 'dist/atlas/index.json', 'dist/offline/pack.json', 'dist/atlas/audio/word-uk/example.mp3',
+                 'dist/atlas/img/example.webp']}
+        files.update({'server/app.py': FAKE_API, 'server/runtime-files.json': json.dumps(['app.py', 'learning.py'])})
+        if not missing_helper:
+            files['server/learning.py'] = "RUNTIME_MARKER = 'installed helper'\n"
+        if missing_api:
+            del files['server/app.py']
+        archive = fixture.project / 'incoming' / (RELEASE_ID + '.tar.gz')
+        with tarfile.open(archive, 'w:gz', format=tarfile.PAX_FORMAT, pax_headers={'comment': REVISION + '\n'}) as tar:
+            for name, content in files.items():
+                item = tarfile.TarInfo(name); body = content.encode(); item.size = len(body)
+                tar.addfile(item, io.BytesIO(body))
+        digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+        result = subprocess.run(['bash', str(fixture.rewritten('yasi-deploy')), '--prebuilt', str(archive), digest, REVISION, RELEASE_ID],
+                                env=fixture.env, capture_output=True, text=True, timeout=60)
+        return fixture, result
+
+    def test_prebuilt_mode_runs_without_npm_and_with_1gb_free(self):
+        fixture, result = self.run_prebuilt()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(fixture.current.resolve(), fixture.project / 'releases' / RELEASE_ID)
+        self.assertTrue((fixture.api_current / 'learning.py').is_file())
+        fixture.assert_database_unchanged()
+
+    def test_custom_host_port_8443_used_for_health_checks(self):
+        fixture, result = self.run_prebuilt()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        calls = (fixture.root / 'curl.log').read_text()
+        self.assertIn('--resolve ibaz.cn:8443:127.0.0.1', calls)
+        self.assertIn('https://ibaz.cn:8443/', calls)
+        self.assertNotIn(':443:', calls)
+        self.assertNotIn('reload nginx', (fixture.root / 'controls.log').read_text())
+
+    def test_missing_learning_py_aborts_and_rolls_back(self):
+        fixture, result = self.run_prebuilt(missing_helper=True)
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn('Missing API runtime file: learning.py', result.stderr)
+        self.assertEqual(fixture.current.resolve(), fixture.previous)
+        self.assertEqual(fixture.api_current.resolve(), fixture.old_api)
+        fixture.assert_database_unchanged()
+
+    def test_prebuilt_package_requires_the_api_entry_module(self):
+        fixture, result = self.run_prebuilt(missing_api=True)
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn('Prebuilt artifact requires server/app.py', result.stderr)
+        self.assertEqual(fixture.current.resolve(), fixture.previous)
+        self.assertEqual(fixture.api_current.resolve(), fixture.old_api)
+        fixture.assert_database_unchanged()
+
+    def test_shared_443_port_is_rejected_before_any_service_action(self):
+        fixture, result = self.run_prebuilt(configuration={'BAND_DEPLOY_HTTPS_PORT': '443'})
+        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+        self.assertFalse((fixture.root / 'controls.log').exists())
+        self.assertEqual(fixture.current.resolve(), fixture.previous)
+        fixture.assert_database_unchanged()
+
+    def test_existing_flat_api_service_is_not_automatically_reconfigured(self):
+        fixture, result = self.run_prebuilt(configuration={'CASE': 'unmanaged_service'})
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn('must already run api-current/app.py', result.stderr)
+        self.assertNotIn('restart', (fixture.root / 'controls.log').read_text())
+        self.assertEqual(fixture.current.resolve(), fixture.previous)
+        fixture.assert_database_unchanged()
+
+
+class CompatibilityTests(unittest.TestCase):
+    def fixture(self, case='success'):
+        scratch = tempfile.TemporaryDirectory(prefix='band-rollback-compat-')
+        self.addCleanup(scratch.cleanup)
+        return Fixture(scratch.name, case, has_api=True, previous_api=True)
+
+    def target(self, fixture, schema=None):
+        target = fixture.project / 'api-releases' / OLDER_ID
+        target.mkdir()
+        (target / 'app.py').write_text(FAKE_API)
+        (target / 'learning.py').write_text("RUNTIME_MARKER = 'installed helper'\n")
+        if schema is not None:
+            files = ['app.py', 'learning.py']
+            metadata = {'learningProtocolVersion': 2, 'learningSchemaVersion': schema,
+                        'moduleSha256': {name: hashlib.sha256((target / name).read_bytes()).hexdigest() for name in files}}
+            (target / 'runtime-meta.json').write_text(json.dumps(metadata))
+        return target
+
+    def set_schema(self, fixture, version=2):
+        with sqlite3.connect(fixture.state / 'progress.sqlite3') as db:
+            db.execute('CREATE TABLE learning_schema_migrations(version INTEGER PRIMARY KEY, applied_at INTEGER NOT NULL)')
+            db.execute('INSERT INTO learning_schema_migrations VALUES(?,0)', (version,))
+
+    def rollback(self, fixture):
+        return subprocess.run(['bash', str(fixture.rewritten('yasi-rollback')), str(fixture.obsolete)],
+                              env=fixture.env, capture_output=True, text=True, timeout=30)
+
+    def test_current_learning_entry_without_helper_is_not_a_word_only_api(self):
+        fixture = self.fixture(); self.set_schema(fixture)
+        target = fixture.project / 'api-releases' / OLDER_ID
+        target.mkdir()
+        (target / 'app.py').write_bytes((OPS.parent.parent / 'server/app.py').read_bytes())
+        result = subprocess.run([sys.executable, str(OPS / 'backup-sync.py'), '--db', str(fixture.state / 'progress.sqlite3'), '--verify-api', str(target)],
+                                capture_output=True, text=True, timeout=10)
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        fixture.assert_database_unchanged()
+
+    def test_unrecognized_word_only_entry_is_not_implicitly_trusted(self):
+        fixture = self.fixture(); self.set_schema(fixture)
+        target = fixture.project / 'api-releases' / OLDER_ID
+        target.mkdir()
+        (target / 'app.py').write_text('print("An unreviewed standalone API")\n')
+        result = self.rollback(fixture)
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertNotIn('restart', (fixture.root / 'controls.log').read_text())
+        self.assertEqual(fixture.current.resolve(), fixture.previous)
+        fixture.assert_database_unchanged()
+
+    def test_verified_word_only_api_can_rollback_without_restoring_the_database(self):
+        fixture = self.fixture(); self.set_schema(fixture)
+        target = fixture.project / 'api-releases' / OLDER_ID
+        target.mkdir()
+        (target / 'app.py').write_text('target API')
+        result = self.rollback(fixture)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(fixture.api_current.resolve(), target)
+        self.assertEqual(fixture.current.resolve(), fixture.obsolete)
+        fixture.assert_database_unchanged()
+
+    def test_unmarked_old_learning_api_cannot_resume_writes_after_migration(self):
+        fixture = self.fixture(); self.set_schema(fixture); self.target(fixture)
+        result = self.rollback(fixture)
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertEqual(fixture.current.resolve(), fixture.previous)
+        self.assertEqual(fixture.api_current.resolve(), fixture.old_api)
+        fixture.assert_database_unchanged()
+
+    def test_matching_schema_and_module_metadata_allow_verified_v2_rollback(self):
+        fixture = self.fixture(); self.set_schema(fixture); target = self.target(fixture, schema=2)
+        result = self.rollback(fixture)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(fixture.api_current.resolve(), target)
+        self.assertEqual(fixture.current.resolve(), fixture.obsolete)
+        fixture.assert_database_unchanged()
+
+    def test_mismatched_schema_refuses_learning_api_rollback(self):
+        fixture = self.fixture(); self.set_schema(fixture); self.target(fixture, schema=1)
+        result = self.rollback(fixture)
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertEqual(fixture.api_current.resolve(), fixture.old_api)
+        self.assertNotIn('restart', (fixture.root / 'controls.log').read_text())
+        fixture.assert_database_unchanged()
+
+    def test_automatic_restore_stops_an_unverified_previous_learning_api(self):
+        fixture = self.fixture(case='api_health')
+        (fixture.old_api / 'learning.py').write_text('unverified historical learning code')
+        fixture.deploy()
+        controls = (fixture.root / 'controls.log').read_text()
+        self.assertIn('stop band-galaxy.service', controls)
+        self.assertEqual(fixture.api_current.resolve(), fixture.old_api)
+        fixture.assert_database_unchanged()
+
+
 def main():
     count = 0
-    for has_api, cases in ((False, ['checksum', 'commit', 'escape', 'ci', 'build', 'missing', 'nginx', 'reload', 'health', 'range', 'signal', 'success']), (True, ['api_candidate', 'api_missing_module', 'api_restart', 'api_health', 'api_proxy', 'reload', 'health', 'range', 'api_signal', 'success'])):
+    for has_api, cases in ((False, ['checksum', 'commit', 'escape', 'ci', 'build', 'missing', 'health', 'range', 'signal', 'success']), (True, ['api_candidate', 'api_missing_module', 'api_restart', 'api_health', 'api_proxy', 'health', 'range', 'api_signal', 'success'])):
         for case in cases:
             with tempfile.TemporaryDirectory(prefix='yasi-receiver-check-') as scratch:
                 Fixture(scratch, case, has_api, previous_api=has_api).deploy()
@@ -241,12 +434,17 @@ def main():
         count += 1
         print(f'PASS first API {case}', flush=True)
     for target_has_api in (False, True):
-        for case in ('reload', 'success') + (('api_restart', 'api_health', 'api_proxy') if target_has_api else ()):
+        for case in ('success',) + (('api_restart', 'api_health', 'api_proxy') if target_has_api else ()):
             with tempfile.TemporaryDirectory(prefix='yasi-rollback-check-') as scratch:
                 Fixture(scratch, case, previous_api=True).rollback(target_has_api)
             count += 1
             print(f'PASS rollback api={target_has_api} {case}', flush=True)
-    print(f'{count} isolated deployment and rollback scenarios passed. No server-side Git or production paths used.')
+    suite = unittest.TestSuite([unittest.defaultTestLoader.loadTestsFromTestCase(PrebuiltTests),
+                                unittest.defaultTestLoader.loadTestsFromTestCase(CompatibilityTests)])
+    result = unittest.TextTestRunner(verbosity=2).run(suite)
+    if not result.wasSuccessful():
+        raise SystemExit(1)
+    print(f'{count + result.testsRun} isolated deployment and rollback scenarios passed. No server-side Git or production paths used.')
 
 
 if __name__ == '__main__':
