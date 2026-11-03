@@ -6,6 +6,14 @@ export type LocalStoragePort = Pick<Storage, "getItem" | "setItem" | "removeItem
 const listeners = new Set<() => void>();
 const identifier = /^[a-z0-9][a-z0-9_-]{0,63}$/i;
 const credentialPattern = /\b(?:sk-(?:ant-|proj-)[A-Za-z0-9_-]{10,}|sk-[A-Za-z0-9]{20,}|xai-[A-Za-z0-9_-]{10,}|AIza[0-9A-Za-z_-]{30,}|gh[po]_[A-Za-z0-9_-]{10,})/;
+/** Known local placeholders are ordinary learning/configuration words. Genuine
+ * credential-shaped text is still blocked independently of this allowlist. */
+export const CREDENTIAL_SUBSTRING_MIN_LENGTH = 16;
+const localPlaceholders = new Set(["ab", "test", "ollama"]);
+function knownCredentialMatches(text: string, credential: string): boolean {
+  if (!credential || localPlaceholders.has(credential.trim().toLowerCase())) return false;
+  return credential.length >= CREDENTIAL_SUBSTRING_MIN_LENGTH ? text.includes(credential) : text.trim() === credential;
+}
 function textForms(value: string): string[] {
   const values = [value];
   for (let round = 0; round < 3; round++) {
@@ -13,6 +21,10 @@ function textForms(value: string): string[] {
     catch { break; }
   }
   return values;
+}
+/** One policy for free text, public metadata, transport and failure references. */
+export function credentialMatchesContent(text: string, credential: string): boolean {
+  return textForms(text).some((form) => knownCredentialMatches(form, credential));
 }
 const publicText = (maximum: number) => z.string().trim().max(maximum).refine((value) => !textForms(value).some((form) => credentialPattern.test(form)));
 export class CredentialPrivacyError extends Error {
@@ -30,12 +42,12 @@ function knownCredentials(): string[] {
 }
 /** Read-only guard; callers receive no credential material. Authorization headers
  * are deliberately outside this input: only content and public metadata belong here. */
-export function assertNoCredentials(value: unknown): void {
-  const secrets = knownCredentials(), visited = new WeakSet<object>();
+export function assertNoCredentials(value: unknown, transportCredential?: string): void {
+  const secrets = [...new Set([...knownCredentials(), ...(transportCredential ? [transportCredential] : [])])], visited = new WeakSet<object>();
   const visit = (item: unknown, depth: number): void => {
     if (depth > 40) throw new Error("内容结构过深，无法安全处理。");
     if (typeof item === "string") {
-      if (textForms(item).some((text) => credentialPattern.test(text) || secrets.some((secret) => text.includes(secret)))) throw new CredentialPrivacyError();
+      if (textForms(item).some((text) => credentialPattern.test(text) || secrets.some((secret) => knownCredentialMatches(text, secret)))) throw new CredentialPrivacyError();
     } else if (item && typeof item === "object") {
       if (visited.has(item)) throw new Error("内容不能包含循环引用。");
       visited.add(item);
@@ -94,7 +106,7 @@ export function saveFeedbackConfig(value: FeedbackConfig, storage?: LocalStorage
     const publicForms = parsed.data.providers.flatMap((provider) => [provider.id, provider.label, provider.model, provider.baseURL].flatMap(textForms));
     for (const id of new Set([...previousIds, ...parsed.data.providers.map((provider) => provider.id)])) {
       const credential = port.getItem(SECRET + id);
-      if (credential && (serialized.includes(credential) || publicForms.some((text) => text.includes(credential)))) throw new Error("private");
+      if (credential && (knownCredentialMatches(serialized, credential) || publicForms.some((text) => knownCredentialMatches(text, credential)))) throw new Error("private");
     }
     port.setItem(KEY, serialized);
   } catch { throw new Error("接口设置未保存，请检查浏览器存储权限，勿把密钥填入其他字段。"); }

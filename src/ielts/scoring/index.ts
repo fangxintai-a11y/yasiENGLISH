@@ -10,6 +10,7 @@ import { buildTaskPrompt } from "./prompts";
 import { HackSchema, ReadingSchema, SentenceGradeSchema, SentenceResultSchema, SpeakingFeedbackSchema, Task1FeedbackSchema, Task2FeedbackSchema, type FeedbackBody } from "./schemas";
 import { scoreSentenceRules } from "./rules/sentence";
 import { buildReadingRules } from "./rules/reading";
+import { readingCoverage } from "./rules/readingCoverage";
 import { buildHackRules } from "./rules/hack";
 import { scoreWritingRules } from "./rules/writing";
 import { scoreSpeakingRules } from "./rules/speaking";
@@ -79,8 +80,8 @@ function wrapped(task: TaskId, input: unknown, wire: unknown, provider: string, 
   assertSafe(wire);
   if (task === "sentence") return SentenceResultSchema.parse({ ...SentenceGradeSchema.parse(wire), source: "ai", provider, confidence: .6, evidence: [], cause: null, fallbackTrail: trail }) as SentenceResult;
   if (task === "reading") {
-    const value = ReadingSchema.parse(wire), words = (input as ReadingInput).words.map((word) => word.id);
-    return { ...value, id: `r-${now}-${words.join("-").slice(0, 40)}`, at: now, words, answers: value.questions.map(() => null), src: provider === "manual" ? "manual" as const : "ai" as const, fallbackTrail: trail } satisfies ReadingResult;
+    const value = ReadingSchema.parse(wire), coverage = readingCoverage(input as ReadingInput, value.passage), words = coverage.coveredWordIds;
+    return { ...value, id: `r-${now}-${words.join("-").slice(0, 40)}`, at: now, words, coverage, answers: value.questions.map(() => null), src: provider === "manual" ? "manual" as const : "ai" as const, fallbackTrail: trail } satisfies ReadingResult;
   }
   if (task === "hack") return { ...HackSchema.parse(wire), at: now, src: provider === "manual" ? "manual" as const : "ai" as const, fallbackTrail: trail } satisfies HackResult;
   return feedbackResult(task, input as WritingInput | SpeakingInput, wire, rawHash, provider, trail, now);
@@ -117,7 +118,8 @@ export async function scoreSentence(input: SentenceInput, context: ScoringContex
 }
 export async function buildReading(input: ReadingInput, context: ScoringContext): Promise<ReadingResult> {
   cancelled(context.signal); taskInput("reading", input); const now = context.now ?? Date.now(), value = buildReadingRules(input);
-  const local: ReadingResult = { ...value, id: `r-${now}-${input.words.map((word) => word.id).join("-").slice(0, 40)}`, at: now, words: input.words.slice(0, 12).map((word) => word.id), answers: value.questions.map(() => null), src: "rules", fallbackTrail: [] };
+  const coverage = readingCoverage(input, value.passage);
+  const local: ReadingResult = { ...value, id: `r-${now}-${input.words.map((word) => word.id).join("-").slice(0, 40)}`, at: now, words: coverage.coveredWordIds, coverage, answers: value.questions.map(() => null), src: "rules", fallbackTrail: [] };
   return enhance("reading", input, context, local, now);
 }
 export async function buildHack(input: HackInput, context: ScoringContext): Promise<HackResult> {

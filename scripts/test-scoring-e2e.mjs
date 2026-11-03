@@ -75,6 +75,23 @@ try {
   assert.deepEqual(migration, { removed: true, reads: 0, marker: "1", unrelated: "keep-this-fixture" });
   checks.push("首次渲染前清除唯一旧密钥，不读取值并保留其他本机键");
 
+  phase = "local placeholder credential does not block ordinary learning text";
+  const placeholder = await page.evaluate(async () => {
+    const scoring = await import("/src/ielts/scoring/index.ts");
+    const module = await import("/src/store/store.ts");
+    scoring.saveFeedbackConfig({ version: 1, providers: [{ id: "local-placeholder", kind: "openai-compatible", label: "本机接口", baseURL: "http://localhost:11434/v1", model: "user-selected", jsonMode: "prompt-only", timeoutMs: 1000, tasks: ["essay"] }] });
+    scoring.setCredential("local-placeholder", "ollama");
+    const text = "I use ollama to test a method in the laboratory.";
+    module.store.progress((p) => ({ ...p, hacks: { ...p.hacks, placeholder: { homophone: text, split: "test", scene: "正常学习笔记", at: 1 } } }));
+    const backup = JSON.parse(module.exportBackup()), snapshot = module.store.cloudSnapshot();
+    const preserved = module.store.get().progress.hacks.placeholder.homophone === text;
+    module.store.progress((p) => ({ ...p, hacks: {} }));
+    return { backup: backup.progress.hacks.placeholder.homophone === text, snapshot: snapshot?.progress.hacks.placeholder.homophone === text, preserved,
+      provider: scoring.getFeedbackConfig().providers[0].baseURL };
+  });
+  assert.deepEqual(placeholder, { backup: true, snapshot: true, preserved: true, provider: "http://localhost:11434/v1" });
+  checks.push("本机接口ollama占位配置合法，普通学习文本可备份与同步且原文保留");
+
   phase = "online fixture and static-resource warmup";
   const fixtures = await page.evaluate(async () => {
     const { loadOpenAtlas } = await import("/src/atlas/data.ts");
@@ -146,6 +163,7 @@ try {
   checks.push("自动接口无可用配置时保留本地反馈并转到复制提示词，不额外记复习");
 
   phase = "real offline reading generation";
+  const skillsBeforeReading = (await state()).progress.skills;
   await page.evaluate(async () => (await import("/src/store/store.ts")).store.settings({ feedbackMode: "rules" }));
   await route({ page: "ielts", tab: "reading" });
   await page.getByRole("button", { name: "生成一篇", exact: true }).click();
@@ -154,8 +172,21 @@ try {
   assert.equal(reading.src, "rules"); assert.ok(reading.questions.length >= 5);
   assert.deepEqual([...new Set(reading.questions.map((q) => q.a))].sort(), ["FALSE", "NOT GIVEN", "TRUE"]);
   assert.equal(await page.locator(".tfng > li").count(), reading.questions.length);
-  assert.match(await page.locator(".reading-view").innerText(), /由你的错词和词库例句组成/);
-  checks.push("真实断网错词阅读可出至少5题，TRUE/FALSE/NOT GIVEN齐全并显示本地来源");
+  assert.match(await page.locator(".reading-view").innerText(), /本地主题阅读/);
+  assert.doesNotMatch(reading.passage, /These vocabulary examples describe separate situations|The compiler gives no information|Researchers discuss the term/);
+  for (const question of reading.questions) assert.doesNotMatch(question.q, /^(?:It is not true that|The compiler preferred this alternative example)/i);
+  const coverage = page.getByRole("region", { name: "目标词覆盖", exact: true });
+  const missed = fixtures.filter((word) => !reading.words.includes(word.id));
+  assert.match(await coverage.innerText(), new RegExp(`本篇已覆盖 ${reading.words.length} 个目标词`));
+  assert.match(await coverage.innerText(), new RegExp(`本次未覆盖 ${missed.length} 个`));
+  if (missed.length) assert.equal(await coverage.getByRole("list", { name: "未覆盖目标词", exact: true }).locator("li").count(), missed.length);
+  const firstQuestion = page.locator(".tfng > li").first();
+  assert.equal(await firstQuestion.locator(".tfng-why").count(), 0);
+  await firstQuestion.getByRole("button", { name: reading.questions[0].a, exact: true }).click();
+  await eventually(async () => (await state()).progress.readings[0].answers[0] === reading.questions[0].a, "the first reading answer was not retained");
+  assert.equal(await firstQuestion.getByRole("button", { name: reading.questions[0].a, exact: true }).isDisabled(), true);
+  assert.deepEqual((await state()).progress.skills, skillsBeforeReading, "reading answers must not count a second production review");
+  checks.push("断网连贯主题阅读有三种判断题，无旧答案提示句式，覆盖与未覆盖如实展示，作答不重复记复习");
 
   phase = "real offline memory split and self-authored save";
   await route({ page: "ielts", tab: "reading" }, fixture.id);
@@ -171,6 +202,19 @@ try {
   assert.equal(saved.homophone, "我的测试谐音"); assert.equal(saved.scene, "一个能提醒我词义的测试画面。");
   assert.equal(saved.src, "manual"); assert.ok(saved.split.length > 0);
   checks.push("真实断网显示音节拆分，能填写并保存自写谐音与画面");
+
+  phase = "saved reading answers survive a real page reload without a duplicate review";
+  await moduleCall("flush");
+  await context.setOffline(false);
+  await page.reload({ waitUntil: "networkidle" });
+  await route({ page: "ielts", tab: "reading" });
+  await eventually(async () => await page.locator(".tfng > li").count() === reading.questions.length, "saved reading did not reopen after reload");
+  const recoveredReading = (await state()).progress.readings.find((item) => item.id === reading.id);
+  assert.ok(recoveredReading);
+  assert.equal(recoveredReading.answers[0], reading.questions[0].a);
+  assert.equal(await page.locator(".tfng > li").first().getByRole("button", { name: reading.questions[0].a, exact: true }).isDisabled(), true);
+  assert.deepEqual((await state()).progress.skills, skillsBeforeReading);
+  checks.push("阅读题库与已答结果在真实刷新后恢复，产出卡复习记录不增加");
 
   assert.deepEqual(externalRequests, [], "practice must not request a third-party address");
   const backup = JSON.parse(await moduleCall("exportBackup"));
@@ -209,7 +253,9 @@ try {
   assert.deepEqual(pageErrors, [], "uncaught browser errors");
   success = true;
 } catch (error) {
-  failure = error.message || String(error); process.exitCode = 1;
+  failure = error.message || String(error);
+  if (phase === "startup" && logs.length) failure += `\n${logs.join("").slice(-2000)}`;
+  process.exitCode = 1;
 } finally {
   await context?.close().catch(() => null); await browser?.close().catch(() => null); await stop(vite);
   console.log(JSON.stringify({ success, checks, ...(failure ? { failedPhase: phase, error: failure } : {}) }, null, 2));

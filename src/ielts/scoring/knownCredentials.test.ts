@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { acceptManual, manualPrompt, saveFeedbackConfig, scoreWriting, setCredential, toFeedbackPayload } from "./index";
 import { scoreWritingRules } from "./rules/writing";
-const secret = "brief-pass";
+const secret = "private-second-provider-credential";
 async function withConfiguredCredential(run: () => Promise<void>) {
   const originalStorage = Object.getOwnPropertyDescriptor(globalThis, "localStorage"), originalFetch = globalThis.fetch;
   const values = new Map<string, string>();
@@ -17,7 +17,7 @@ async function withConfiguredCredential(run: () => Promise<void>) {
     if (originalStorage) Object.defineProperty(globalThis, "localStorage", originalStorage); else Reflect.deleteProperty(globalThis, "localStorage");
   }
 }
-test("a second provider short credential pasted in a task is blocked before any fetch", async () => {
+test("a second provider long credential pasted in a task is blocked before any fetch", async () => {
   await withConfiguredCredential(async () => {
     let calls = 0; globalThis.fetch = (async () => { calls++; throw new Error("不应发送"); }) as typeof fetch;
     await assert.rejects(scoreWriting({ taskType: "task2", prompt: "Discuss transport.", text: `Draft contains ${secret}.` }, { mode: "auto" }), /密钥/);

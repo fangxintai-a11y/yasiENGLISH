@@ -8,6 +8,59 @@ class StorageFixture {
   setItem(key: string, value: string) { this.data.set(key, value); }
   removeItem(key: string) { this.removed.push(key); this.data.delete(key); }
 }
+function withCredential(secret: string, run: (storage: StorageFixture) => void) {
+  const previous = Object.getOwnPropertyDescriptor(globalThis, "localStorage"), storage = new StorageFixture();
+  Object.defineProperty(globalThis, "localStorage", { configurable: true, value: storage });
+  try {
+    saveFeedbackConfig({ version: 1, providers: [{ id: "ab", kind: "openai-compatible", label: "本机接口", baseURL: "http://localhost:11434/v1", model: "local-test-model", jsonMode: "prompt-only", timeoutMs: 1000, tasks: ["sentence"] }] });
+    setCredential("ab", secret); run(storage);
+  } finally { if (previous) Object.defineProperty(globalThis, "localStorage", previous); else delete (globalThis as { localStorage?: unknown }).localStorage; }
+}
+for (const [placeholder, sentence] of [["ab", "a lab report"], ["test", "Please test the proposed method."], ["ollama", "The local tool is called ollama."]]) test(`local placeholder ${placeholder} does not block ordinary or whole-value learning text`, () => {
+  withCredential(placeholder, () => {
+    assert.doesNotThrow(() => assertNoCredentials({ text: sentence }));
+    assert.doesNotThrow(() => assertNoCredentials({ text: placeholder }));
+  });
+});
+test("a short placeholder does not prevent re-saving a short provider ID", () => {
+  withCredential("ab", () => { assert.doesNotThrow(() => saveFeedbackConfig(getFeedbackConfig())); });
+});
+test("an ordinary short credential is not searched inside free text", () => {
+  withCredential("q7p9", () => { assert.doesNotThrow(() => assertNoCredentials({ text: "A q7p9 marker appears in a lab report." })); });
+});
+test("a fifteen-character credential uses complete values rather than substring matching", () => {
+  const secret = "123456789abcdef";
+  withCredential(secret, () => {
+    assert.doesNotThrow(() => assertNoCredentials({ text: `A ${secret} marker appears here.` }));
+    assert.throws(() => assertNoCredentials({ text: ` ${secret} ` }), /密钥/);
+  });
+});
+test("a sixteen-character credential still blocks raw and URL-decoded text", () => {
+  const secret = "123456789abcdef!";
+  withCredential(secret, () => {
+    assert.throws(() => assertNoCredentials({ text: `A ${secret} marker appears here.` }), /密钥/);
+    assert.throws(() => assertNoCredentials({ text: `A %31${secret.slice(1, -1)}%21 marker appears here.` }), /密钥/);
+  });
+});
+test("a genuine credential prefix remains blocked below the substring threshold", () => {
+  assert.throws(() => assertNoCredentials({ text: `A ${"x" + "ai-" + "A".repeat(10)} marker appears here.` }), /密钥/);
+});
+for (const placeholder of ["ab", "test", "ollama"]) test(`explicit credential fields still reject the local placeholder ${placeholder}`, () => {
+  withCredential(placeholder, (storage) => {
+    assert.throws(() => assertNoCredentials({ apiKey: placeholder }), /密钥/);
+    const config = getFeedbackConfig(), before = storage.data.get("band-galaxy:llm");
+    const invalid = { ...config, providers: config.providers.map((provider) => ({ ...provider, apiKey: placeholder })) };
+    assert.throws(() => saveFeedbackConfig(invalid));
+    assert.equal(storage.data.get("band-galaxy:llm"), before);
+  });
+});
+test("an ordinary short credential remains blocked as an exact public or backup value", () => {
+  withCredential("q7p9", () => {
+    const config = getFeedbackConfig();
+    assert.throws(() => saveFeedbackConfig({ ...config, providers: config.providers.map((provider) => ({ ...provider, label: "q7p9" })) }));
+    assert.throws(() => assertNoCredentials({ progress: { hacks: { draft: { homophone: "q7p9" } } } }), /密钥/);
+  });
+});
 test("legacy migration removes only its key without reading it and is idempotent", () => {
   const storage = new StorageFixture();
   const old = "band-galaxy:" + "ai-key";

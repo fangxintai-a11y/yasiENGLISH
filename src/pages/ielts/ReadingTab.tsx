@@ -1,7 +1,7 @@
 import { Languages, Pause, Sparkles, Trash2, Volume2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAtlas } from "../../atlas/context";
-import { buildReading, needsManualFallback } from "../../ielts/scoring";
+import { buildReading, needsManualFallback, type ReadingCoverage as Coverage } from "../../ielts/scoring";
 import { SECTION_TARGETS } from "../../study365/protocol";
 import { play, stopAudio } from "../../lib/audio";
 import { openWord } from "../../lib/router";
@@ -38,19 +38,21 @@ export function ReadingTab() {
   const [error, setError] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(progress.readings[0]?.id ?? null);
   const [manualInput, setManualInput] = useState<Parameters<typeof buildReading>[0] | null>(null);
+  const [coverageById, setCoverageById] = useState<Record<string, Coverage>>({});
   const request = useRef(0);
   useEffect(() => {
-    setBusy(false); setManualInput(null);
+    setBusy(false); setManualInput(null); setCoverageById({});
     return () => { request.current++; };
   }, [atlas.id, accountId, progress.datasetId]);
   const words = useMemo(() => pickWords(progress, (id) => atlas.byId.has(id)), [progress, atlas]);
   const reading = progress.readings.find((r) => r.id === openId) ?? null;
 
-  const keepReading = (value: Reading) => {
+  const keepReading = (value: Reading & { coverage?: Coverage }) => {
     // Endpoint failures are transient UI metadata and never join the snapshot.
     const r: Reading = { id: value.id, at: value.at, title: value.title, passage: value.passage, zh: value.zh, words: value.words,
       questions: value.questions, answers: value.answers, ...(value.src ? { src: value.src } : {}) };
     store.progress((p) => ({ ...p, readings: [r, ...p.readings.filter((old) => old.id !== r.id)].slice(0, 30) }));
+    if (value.coverage) setCoverageById((current) => ({ ...current, [r.id]: value.coverage! }));
     setOpenId(r.id);
   };
   const generate = async () => {
@@ -78,11 +80,11 @@ export function ReadingTab() {
     <div className="lab-grid">
       <section className="panel span-2 reading-gen">
         <div>
-          <h3 className="eyebrow">用你的错词，写一篇专属雅思阅读</h3>
+          <h3 className="eyebrow">用连贯阅读练你的错词</h3>
           <p className="muted">
-            用这 {words.length} 个词组成一篇雅思阅读短文，配判断题：错词在真实题型里再见一次。阅读训练目标为 {SECTION_TARGETS.reading}。
+            按这 {words.length} 个候选词选择连贯文章并练判断题。正文覆盖的词和未覆盖的词会分别列出，未覆盖词留待后续练习。阅读训练目标为 {SECTION_TARGETS.reading}。
           </p>
-          <ul className="chip-cloud">
+          <ul className="chip-cloud" aria-label="候选目标词">
             {words.map((id) => (
               <li key={id}>
                 <button className="chip-btn" onClick={() => openWord(id)} lang="en">
@@ -100,7 +102,7 @@ export function ReadingTab() {
         </div>
       </section>
 
-      {manualInput && <ManualPrompt task="reading" input={manualInput} onAccept={(value) => { keepReading(value as Reading); setManualInput(null); }} onCancel={() => setManualInput(null)} />}
+      {manualInput && <ManualPrompt task="reading" input={manualInput} onAccept={(value) => { keepReading(value as Reading & { coverage?: Coverage }); setManualInput(null); }} onCancel={() => setManualInput(null)} />}
 
       {progress.readings.length > 0 && (
         <section className="panel reading-list">
@@ -124,16 +126,21 @@ export function ReadingTab() {
         </section>
       )}
 
-      {reading && <ReadingView key={reading.id} r={reading} />}
+      {reading && <ReadingView key={reading.id} r={reading} coverage={coverageById[reading.id]} />}
     </div>
   );
 }
 
-function ReadingView({ r }: { r: Reading }) {
+function ReadingView({ r, coverage }: { r: Reading; coverage?: Coverage }) {
   const atlas = useAtlas();
   const accent = useStore((s) => s.settings.accent);
   const [zh, setZh] = useState(false);
   const [speaking, setSpeaking] = useState(false);
+  const covered = coverage?.coveredWordIds ?? r.words.filter((id) => {
+    const ref = atlas.byId.get(id);
+    return ref && new RegExp(headwordPattern(ref.word).source, "i").test(r.passage);
+  });
+  const uncovered = coverage?.uncoveredWordIds ?? [];
   const patterns = useMemo(
     () =>
       r.words
@@ -178,6 +185,18 @@ function ReadingView({ r }: { r: Reading }) {
           </button>
         </div>
       </header>
+      <section className="reading-coverage" aria-label="目标词覆盖">
+        <p className="muted">本篇已覆盖 {covered.length} 个目标词{coverage ? `，本次未覆盖 ${uncovered.length} 个` : ""}。</p>
+        {!!covered.length && <ul className="chip-cloud" aria-label="已覆盖目标词">{covered.map((id) => (
+          <li key={id}><button className="chip-btn" lang="en" onClick={() => openWord(id)}>{atlas.byId.get(id)?.word ?? id}</button></li>
+        ))}</ul>}
+        {!!uncovered.length && <>
+          <p className="muted small">以下候选词未出现在本篇中，留待后续练习：</p>
+          <ul className="chip-cloud" aria-label="未覆盖目标词">{uncovered.map((id) => (
+            <li key={id}><button className="chip-btn" lang="en" onClick={() => openWord(id)}>{atlas.byId.get(id)?.word ?? id}</button></li>
+          ))}</ul>
+        </>}
+      </section>
       <div className="reading-body" lang="en">
         {r.passage.split(/\n+/).map((para, i) => (
           <p key={i}>{highlight(para, patterns)}</p>
@@ -213,7 +232,7 @@ function ReadingView({ r }: { r: Reading }) {
           );
         })}
       </ol>
-      <p className="muted small">{r.src === "rules" ? "由你的错词和词库例句组成" : "由外部接口生成，可能有不准确之处"}；高亮的是你的目标词，点一下看词条。</p>
+      <p className="muted small">{r.src === "rules" ? "本地主题阅读" : "由外部接口生成，可能有不准确之处"}；可点击正文中高亮的词查看词条。</p>
     </section>
   );
 }

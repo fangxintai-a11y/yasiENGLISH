@@ -1,4 +1,4 @@
-import { assertNoCredentials, CredentialPrivacyError, getCredential, normalizeProvider, validEndpoint } from "./config";
+import { assertNoCredentials, credentialMatchesContent, CredentialPrivacyError, getCredential, normalizeProvider, validEndpoint } from "./config";
 import { LlmError, type ChatMessage, type ProviderConfig } from "./types";
 export async function requestCompletion(provider: ProviderConfig, messages: ChatMessage[], jsonSchema?: Record<string, unknown>, options: { signal?: AbortSignal } = {}): Promise<string> {
   if (options.signal?.aborted) throw new LlmError("cancelled");
@@ -7,8 +7,7 @@ export async function requestCompletion(provider: ProviderConfig, messages: Chat
   provider = normalized;
   const credential = getCredential(provider.id);
   const outbound = { messages, jsonSchema, id: provider.id, label: provider.label, model: provider.model, baseURL: provider.baseURL };
-  assertNoCredentials(outbound);
-  if (credential && JSON.stringify(outbound).includes(credential)) throw new CredentialPrivacyError();
+  assertNoCredentials(outbound, credential);
   const controller = new AbortController();
   let timedOut = false;
   const cancel = () => controller.abort();
@@ -35,7 +34,7 @@ export async function requestCompletion(provider: ProviderConfig, messages: Chat
     const candidate = body && typeof body === "object" && "choices" in body ? (body as { choices?: unknown }).choices : null;
     const first = Array.isArray(candidate) ? candidate[0] as { message?: { content?: unknown } } | undefined : undefined;
     const content = first?.message?.content;
-    if (typeof content !== "string" || !content.trim() || content.length > 1000000 || credential && content.includes(credential)) throw new LlmError("bad-json");
+    if (typeof content !== "string" || !content.trim() || content.length > 1000000 || credentialMatchesContent(content, credential)) throw new LlmError("bad-json");
     return content;
   } catch (error) {
     if (options.signal?.aborted) throw new LlmError("cancelled");

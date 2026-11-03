@@ -84,9 +84,9 @@ for (const [format, secret] of [["generic", "sk-" + "a".repeat(24)], ["project",
   });
 }
 
-test("a known second-provider short credential cannot leave inside learning text", () => {
-  const secret = "q7p9";
-  isolatedOutboundRecord(secret, () => {
+test("a known second-provider long credential cannot leave inside learning text", () => {
+  const secret = "private-current-second-provider-credential";
+  isolatedOutboundRecord(`An original learning sentence contains ${secret} inside its text.`, () => {
     const provider = { kind: "openai-compatible", label: "自定义接口", baseURL: "https://endpoint.example/v1", model: "user-selected", jsonMode: "prompt-only", timeoutMs: 1000, tasks: ["sentence"] };
     localStorage.setItem("band-galaxy:llm", JSON.stringify({ version: 1, providers: [{ ...provider, id: "first" }, { ...provider, id: "second" }] }));
     localStorage.setItem("band-galaxy:llm-secret:first", "other-private-value");
@@ -96,3 +96,22 @@ test("a known second-provider short credential cannot leave inside learning text
     assert.throws(() => store.cloudSnapshot(), safeError);
   });
 });
+
+
+for (const [placeholder, sentence] of [
+  ["ab", "The laboratory compared several methods before choosing a reliable approach."],
+  ["test", "The team will test a new approach and record the evidence."],
+  ["ollama", "The learner runs ollama on a local computer while reviewing the article."],
+] as const) {
+  test(`local placeholder ${placeholder} does not block ordinary backup or sync text`, () => {
+    isolatedOutboundRecord(sentence, () => {
+      localStorage.setItem("band-galaxy:llm", JSON.stringify({ version: 1, providers: [{ id: "local", kind: "openai-compatible", label: "本机接口", baseURL: "http://localhost:11434/v1", model: "user-selected", jsonMode: "prompt-only", timeoutMs: 1000, tasks: ["sentence"] }] }));
+      localStorage.setItem("band-galaxy:llm-secret:local", placeholder);
+      const backup = JSON.parse(exportBackup());
+      const snapshot = store.cloudSnapshot();
+      assert.equal(backup.progress.hacks.original.homophone, sentence);
+      assert.equal(snapshot?.progress.hacks.original.homophone, sentence);
+      assert.deepEqual(backup.progress.readings, [oldReading]);
+    });
+  });
+}

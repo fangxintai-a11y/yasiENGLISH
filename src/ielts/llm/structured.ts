@@ -1,6 +1,6 @@
 import { z, type ZodType } from "zod";
 import { chain } from "./chain";
-import { assertNoCredentials, CredentialPrivacyError, getCredential } from "./config";
+import { assertNoCredentials, credentialMatchesContent, CredentialPrivacyError, getCredential } from "./config";
 import { extractJson, validationErrors } from "./manual";
 import { requestCompletion } from "./openaiCompatible";
 import { LlmError, providerReference, type ChatMessage, type FallbackEntry, type Prompt, type TaskId } from "./types";
@@ -11,7 +11,7 @@ export async function requestStructured<T>(task: TaskId, schema: ZodType<T>, pro
   const trail: FallbackEntry[] = [];
   const jsonSchema = z.toJSONSchema(schema);
   const providers = chain(task), credentials = providers.map((provider) => getCredential(provider.id)).filter(Boolean);
-  const reference = (id: string) => credentials.some((credential) => id.includes(credential)) ? "接口" : providerReference(id);
+  const reference = (id: string) => credentials.some((credential) => credentialMatchesContent(id, credential)) ? "接口" : providerReference(id);
   for (const provider of providers) {
     const messages: ChatMessage[] = [{ role: "system", content: prompt.system }, { role: "user", content: `${prompt.user}\n只返回JSON。\nJSON Schema：${JSON.stringify(jsonSchema)}` }];
     for (let attempt = 0; attempt < 2; attempt++) {
@@ -20,7 +20,7 @@ export async function requestStructured<T>(task: TaskId, schema: ZodType<T>, pro
         const content = await requestCompletion(provider, messages, jsonSchema, options);
         if (options.signal?.aborted) throw new LlmError("cancelled", trail);
         try { assertNoCredentials(content); } catch (error) { if (error instanceof CredentialPrivacyError) throw new LlmError("bad-json"); throw error; }
-        if (credentials.some((credential) => content.includes(credential))) throw new LlmError("bad-json");
+        if (credentials.some((credential) => credentialMatchesContent(content, credential))) throw new LlmError("bad-json");
         let parsed: unknown;
         try { parsed = JSON.parse(extractJson(content)); } catch { throw new LlmError("bad-json"); }
         assertNoCredentials(parsed);

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { z } from "zod";
 import { requestStructured, extractJson } from "./structured";
-import { saveFeedbackConfig, setCredential } from "./config";
+import { getFeedbackConfig, saveFeedbackConfig, setCredential } from "./config";
 import { LlmError, type ProviderConfig } from "./types";
 import { requestCompletion } from "./openaiCompatible";
 const schema = z.strictObject({ band: z.number().min(0).max(9).refine((n) => Number.isInteger(n * 2)) });
@@ -17,6 +17,17 @@ async function fixture(run: (requests: { url: string; init?: RequestInit }[]) =>
   try { await run(requests); } finally { globalThis.fetch = previousFetch; if (previousStorage) Object.defineProperty(globalThis, "localStorage", previousStorage); else delete (globalThis as { localStorage?: unknown }).localStorage; }
 }
 const reply = (content: string) => new Response(JSON.stringify({ choices: [{ message: { content } }] }), { status: 200 });
+for (const placeholder of ["ab", "test", "ollama"]) test(`local placeholder ${placeholder} allows a real prompt/response round trip with unchanged provider reference`, async () => {
+  await fixture(async (requests) => {
+    const id = placeholder === "ab" ? "ab" : "local";
+    saveFeedbackConfig({ version: 1, providers: [{ ...provider(id), baseURL: "http://localhost:11434/v1", model: "user-test-model", label: "本机接口" }] });
+    setCredential(id, placeholder); saveFeedbackConfig(getFeedbackConfig());
+    const result = await requestStructured("essay", z.strictObject({ note: z.string() }), { system: "评分", user: "A lab report can test ollama output." });
+    assert.equal(result.provider, id); assert.deepEqual(result.fallbackTrail, []);
+    assert.equal(result.value.note, "A lab report can test ollama output."); assert.equal(requests.length, 1);
+    assert.equal((requests[0].init?.headers as Record<string, string>).Authorization, `Bearer ${placeholder}`);
+  }, async () => reply('{"note":"A lab report can test ollama output."}'));
+});
 test("401 falls back in order and fenced JSON is validated", async () => {
   await fixture(async (requests) => {
     const result = await requestStructured("essay", schema, { system: "评分", user: "作品" });

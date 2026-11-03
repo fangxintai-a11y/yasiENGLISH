@@ -39,7 +39,8 @@ export interface TimedWord { w: string; start: number; end: number }
 export interface SpeakingInput { part: 1 | 2 | 3; prompt: string; transcript: string; words?: TimedWord[]; durationSeconds: number; cueCardPoints?: string[] }
 export interface ReadingBody { title: string; passage: string; zh: string; questions: { q: string; a: "TRUE" | "FALSE" | "NOT GIVEN"; why: string }[] }
 export interface HackBody { homophone: string; split: string; scene: string }
-export type ReadingResult = Reading & FallbackInfo & { src: "rules" | "ai" | "manual" };
+export interface ReadingCoverage { requestedWordIds: string[]; coveredWordIds: string[]; uncoveredWordIds: string[] }
+export type ReadingResult = Reading & FallbackInfo & { src: "rules" | "ai" | "manual"; coverage: ReadingCoverage };
 export type HackResult = SavedHack & FallbackInfo & { src: "rules" | "ai" | "manual" };
 export interface FeedbackWork { planId: string; workId: string; workRevisionId: string; text: string }
 export const RUBRIC_VERSION = "bg-rubric-2026.11-s0";
