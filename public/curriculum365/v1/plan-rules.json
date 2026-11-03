@@ -1,0 +1,173 @@
+{
+  "schemaVersion": 1,
+  "id": "bandgalaxy-365-r0-rules",
+  "version": "1.0.0",
+  "goal": {
+    "statement": "让我学习365天之后拿到雅思8分",
+    "durationDays": 365,
+    "examType": "academic",
+    "targetOverall": 8,
+    "minimumSection": 6.5,
+    "studyBudgetsMinutes": [120, 150, 180],
+    "milestoneBands": [7, 7.5],
+    "recommendedSections": {
+      "listening": 8.5,
+      "reading": 8.5,
+      "writing": 7.5,
+      "speaking": 7.5
+    },
+    "recommendedSectionsAreRequired": false,
+    "completionSource": "official"
+  },
+  "phases": [
+    {"id": "baseline", "startDay": 1, "endDay": 7, "title": "基线与试跑"},
+    {"id": "foundation", "startDay": 8, "endDay": 84, "title": "基础衔接"},
+    {"id": "task-skills", "startDay": 85, "endDay": 196, "title": "雅思任务衔接"},
+    {"id": "integration", "startDay": 197, "endDay": 308, "title": "围绕8分强化完整分项"},
+    {"id": "verification", "startDay": 309, "endDay": 365, "title": "8分准备度验证与考试安排"}
+  ],
+  "budgetTemplates": [
+    {
+      "id": "ordinary-120",
+      "kind": "ordinary",
+      "budgetMinutes": 120,
+      "studyMinutes": 110,
+      "blocks": [
+        {"id": "vocabulary", "kind": "study", "minutes": 20},
+        {"id": "primary-a", "kind": "study", "minutes": 35},
+        {"id": "primary-b", "kind": "study", "minutes": 35},
+        {"id": "cross-day-review", "kind": "study", "minutes": 20},
+        {"id": "break-and-log", "kind": "break", "minutes": 10}
+      ]
+    },
+    {
+      "id": "ordinary-150",
+      "kind": "ordinary",
+      "budgetMinutes": 150,
+      "studyMinutes": 140,
+      "blocks": [
+        {"id": "vocabulary", "kind": "study", "minutes": 20},
+        {"id": "primary-a", "kind": "study", "minutes": 35},
+        {"id": "primary-b", "kind": "study", "minutes": 35},
+        {"id": "cross-day-review", "kind": "study", "minutes": 20},
+        {"id": "break-and-log", "kind": "break", "minutes": 10},
+        {"id": "extra-correction-a", "kind": "study", "minutes": 30}
+      ]
+    },
+    {
+      "id": "ordinary-180",
+      "kind": "ordinary",
+      "budgetMinutes": 180,
+      "studyMinutes": 170,
+      "blocks": [
+        {"id": "vocabulary", "kind": "study", "minutes": 20},
+        {"id": "primary-a", "kind": "study", "minutes": 35},
+        {"id": "primary-b", "kind": "study", "minutes": 35},
+        {"id": "cross-day-review", "kind": "study", "minutes": 20},
+        {"id": "break-and-log", "kind": "break", "minutes": 10},
+        {"id": "extra-correction-a", "kind": "study", "minutes": 30},
+        {"id": "extra-correction-b", "kind": "study", "minutes": 30}
+      ]
+    },
+    {
+      "id": "full-mock-computer-180",
+      "kind": "full-mock",
+      "budgetMinutes": 180,
+      "studyMinutes": 164,
+      "blocks": [
+        {"id": "listening", "kind": "study", "minutes": 30},
+        {"id": "reading", "kind": "study", "minutes": 60},
+        {"id": "writing-task-1-and-2", "kind": "study", "minutes": 60},
+        {"id": "speaking-parts-1-to-3", "kind": "study", "minutes": 14},
+        {"id": "setup-and-transitions", "kind": "transition", "minutes": 16}
+      ]
+    }
+  ],
+  "budgetPolicy": {
+    "primaryA": "听力或阅读首答与复盘",
+    "primaryB": "句型、写作或口语作品",
+    "ordinaryExtension": "增加纠错或完整输出任务，不按比例缩短完整测评",
+    "breaksCountTowardsStudy": false,
+    "transitionsCountTowardsStudy": false,
+    "plannedMinutesAreActualMinutes": false,
+    "minimumTaskDayMinutes": [20, 30],
+    "minimumTaskDayCountsAsFullDay": false,
+    "fullMockMinimumBudgetMinutes": 180,
+    "smallerBudgetMockMode": "split-section-assessments",
+    "shrinkExamSectionsToFitBudget": false,
+    "listeningReadingWritingConsecutive": true,
+    "speakingMayUseSeparateSession": true,
+    "mockReviewOnSeparateDay": true,
+    "actualExamTimingSource": "material-and-selected-exam-mode",
+    "computerListeningMinutesAreApproximate": true,
+    "reallocation": "仅调整可调任务，保持非负预算和四项每周覆盖；不扣完整测评时长"
+  },
+  "calendarPolicy": {
+    "timeZone": "Asia/Shanghai",
+    "calendarDayIsSeparateFromUnitAndMaterialLevel": true,
+    "advanceMaterialLevelFromDate": false,
+    "awardScoreFromDate": false,
+    "awardScoreFromMinutes": false,
+    "awardScoreFromStreak": false,
+    "day365Action": "保留原始成绩与证据，检查8分目标状态；日期本身不产生分数"
+  },
+  "readinessPolicy": {
+    "windowDays": 28,
+    "minimumIndependentAssessments": 2,
+    "requireDifferentMaterials": true,
+    "requireUnseen": true,
+    "requireTimed": true,
+    "requireNoHints": true,
+    "requireCompleteSections": true,
+    "writingTasksRequired": ["task1", "task2"],
+    "speakingPartsRequired": ["part1", "part2", "part3"],
+    "writingSpeakingRequireHumanReviewEvidence": true,
+    "missingScoreValue": null,
+    "combineBestScoresFromDifferentSessions": false,
+    "aiOrSelfScoreCanCompleteGoal": false,
+    "finalCompletionRequires": "official-score-at-or-above-goal",
+    "policyIsOfficialEligibilityRule": false
+  },
+  "scoreExamples": [
+    {
+      "id": "overall-eight-below-section-floor",
+      "source": "official",
+      "sections": {"listening": 9, "reading": 9, "writing": 6, "speaking": 7},
+      "expected": {"overall": 8, "sectionFloorMet": false, "numericTargetMet": false, "finalGoalMet": false}
+    },
+    {
+      "id": "seven-point-five-is-milestone",
+      "source": "official",
+      "sections": {"listening": 8, "reading": 8, "writing": 7, "speaking": 7},
+      "expected": {"overall": 7.5, "sectionFloorMet": true, "numericTargetMet": false, "finalGoalMet": false}
+    },
+    {
+      "id": "all-sections-eight",
+      "source": "official",
+      "sections": {"listening": 8, "reading": 8, "writing": 8, "speaking": 8},
+      "expected": {"overall": 8, "sectionFloorMet": true, "numericTargetMet": true, "finalGoalMet": true}
+    },
+    {
+      "id": "recommended-combination",
+      "source": "official",
+      "sections": {"listening": 8.5, "reading": 8.5, "writing": 7.5, "speaking": 7.5},
+      "expected": {"overall": 8, "sectionFloorMet": true, "numericTargetMet": true, "finalGoalMet": true}
+    },
+    {
+      "id": "missing-writing-remains-unknown",
+      "source": "human",
+      "sections": {"listening": 8, "reading": 8, "writing": null, "speaking": 8},
+      "expected": {"overall": null, "sectionFloorMet": false, "numericTargetMet": false, "finalGoalMet": false}
+    },
+    {
+      "id": "ai-estimate-is-not-final-completion",
+      "source": "ai",
+      "sections": {"listening": 8, "reading": 8, "writing": 8, "speaking": 8},
+      "expected": {"overall": 8, "sectionFloorMet": true, "numericTargetMet": true, "finalGoalMet": false}
+    }
+  ],
+  "sources": [
+    {"title": "IELTS官方计分说明", "url": "https://ielts.org/take-a-test/your-results/ielts-scoring-in-detail"},
+    {"title": "IELTS Academic官方考试结构", "url": "https://ielts.org/take-a-test/test-types/ielts-academic-test"}
+  ]
+}

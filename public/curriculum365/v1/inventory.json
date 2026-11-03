@@ -1,0 +1,251 @@
+{
+  "schemaVersion": 1,
+  "id": "bandgalaxy-foundation-14-day-inventory",
+  "version": "2026.11.03-r0",
+  "coverageDays": 14,
+  "purpose": "R0首14天库存清单。sample_ready只表示已有可执行样本，教师审校状态另列；planned不计作已备齐材料。",
+  "releaseMinimum": {
+    "listeningIncludingTwoReserves": 16,
+    "readingIncludingTwoReserves": 16,
+    "sentenceGroups": 14,
+    "outputThemes": 14
+  },
+  "sampleAvailability": [
+    {
+      "materialId": "listening-sample-01",
+      "version": "1",
+      "artifactStatus": "sample_ready",
+      "reviewStatus": "draft"
+    },
+    {
+      "materialId": "reading-sample-01",
+      "version": "1",
+      "artifactStatus": "sample_ready",
+      "reviewStatus": "draft"
+    },
+    {
+      "materialId": "writing-sample-01",
+      "version": "1",
+      "artifactStatus": "sample_ready",
+      "reviewStatus": "draft"
+    },
+    {
+      "materialId": "speaking-sample-01",
+      "version": "1",
+      "artifactStatus": "sample_ready",
+      "reviewStatus": "draft"
+    }
+  ],
+  "days": [
+    {
+      "day": 1,
+      "title": "起点样本与工具试跑",
+      "pool": "practice",
+      "artifactStatus": "sample_ready",
+      "materialIds": [
+        "listening-sample-01",
+        "reading-sample-01",
+        "writing-sample-01",
+        "speaking-sample-01"
+      ],
+      "plannedSkills": [
+        "listening",
+        "reading",
+        "writing",
+        "speaking"
+      ],
+      "note": "四份基础样本含真实合成音频，可整体试做并观察障碍，不推算雅思分；独立教师审校和人工审听仍待完成。"
+    },
+    {
+      "day": 2,
+      "title": "人物介绍",
+      "pool": "practice",
+      "artifactStatus": "planned",
+      "materialIds": [],
+      "plannedSkills": [
+        "listening",
+        "reading",
+        "writing",
+        "speaking"
+      ]
+    },
+    {
+      "day": 3,
+      "title": "数字与时间",
+      "pool": "practice",
+      "artifactStatus": "planned",
+      "materialIds": [],
+      "plannedSkills": [
+        "listening",
+        "reading",
+        "writing",
+        "speaking"
+      ]
+    },
+    {
+      "day": 4,
+      "title": "日常习惯",
+      "pool": "practice",
+      "artifactStatus": "planned",
+      "materialIds": [],
+      "plannedSkills": [
+        "listening",
+        "reading",
+        "writing",
+        "speaking"
+      ]
+    },
+    {
+      "day": 5,
+      "title": "购物与数量",
+      "pool": "practice",
+      "artifactStatus": "planned",
+      "materialIds": [],
+      "plannedSkills": [
+        "listening",
+        "reading",
+        "writing",
+        "speaking"
+      ]
+    },
+    {
+      "day": 6,
+      "title": "地点与路线",
+      "pool": "practice",
+      "artifactStatus": "planned",
+      "materialIds": [],
+      "plannedSkills": [
+        "listening",
+        "reading",
+        "writing",
+        "speaking"
+      ]
+    },
+    {
+      "day": 7,
+      "title": "第一周未见材料检查",
+      "pool": "checkpoint",
+      "artifactStatus": "planned",
+      "materialIds": [],
+      "plannedSkills": [
+        "listening",
+        "reading",
+        "writing",
+        "speaking"
+      ],
+      "note": "须另外编写同级新材料并保留到检查日，不能重复D1样本充当未见测评。"
+    },
+    {
+      "day": 8,
+      "title": "住所",
+      "pool": "practice",
+      "artifactStatus": "planned",
+      "materialIds": [],
+      "plannedSkills": [
+        "listening",
+        "reading",
+        "writing",
+        "speaking"
+      ]
+    },
+    {
+      "day": 9,
+      "title": "工作与学习",
+      "pool": "practice",
+      "artifactStatus": "planned",
+      "materialIds": [],
+      "plannedSkills": [
+        "listening",
+        "reading",
+        "writing",
+        "speaking"
+      ]
+    },
+    {
+      "day": 10,
+      "title": "过去经历",
+      "pool": "practice",
+      "artifactStatus": "planned",
+      "materialIds": [],
+      "plannedSkills": [
+        "listening",
+        "reading",
+        "writing",
+        "speaking"
+      ]
+    },
+    {
+      "day": 11,
+      "title": "未来计划",
+      "pool": "practice",
+      "artifactStatus": "planned",
+      "materialIds": [],
+      "plannedSkills": [
+        "listening",
+        "reading",
+        "writing",
+        "speaking"
+      ]
+    },
+    {
+      "day": 12,
+      "title": "比较与选择",
+      "pool": "practice",
+      "artifactStatus": "planned",
+      "materialIds": [],
+      "plannedSkills": [
+        "listening",
+        "reading",
+        "writing",
+        "speaking"
+      ]
+    },
+    {
+      "day": 13,
+      "title": "观点与理由",
+      "pool": "practice",
+      "artifactStatus": "planned",
+      "materialIds": [],
+      "plannedSkills": [
+        "listening",
+        "reading",
+        "writing",
+        "speaking"
+      ]
+    },
+    {
+      "day": 14,
+      "title": "第二周未见材料复查",
+      "pool": "checkpoint",
+      "artifactStatus": "planned",
+      "materialIds": [],
+      "plannedSkills": [
+        "listening",
+        "reading",
+        "writing",
+        "speaking"
+      ],
+      "note": "检查材料与训练池独立；先提交再看证据，记录重播或提示条件。"
+    }
+  ],
+  "reserves": [
+    {
+      "slotId": "foundation-reserve-01",
+      "artifactStatus": "planned",
+      "plannedSkills": [
+        "listening",
+        "reading"
+      ],
+      "purpose": "过难时替换或材料失效后的备用"
+    },
+    {
+      "slotId": "foundation-reserve-02",
+      "artifactStatus": "planned",
+      "plannedSkills": [
+        "listening",
+        "reading"
+      ],
+      "purpose": "同级变式或材料失效后的备用"
+    }
+  ]
+}

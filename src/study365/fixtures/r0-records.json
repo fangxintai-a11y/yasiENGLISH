@@ -1,0 +1,209 @@
+{
+  "fixtureVersion": 1,
+  "purpose": "synthetic-wire-examples-not-user-learning-records",
+  "records": [
+    {
+      "recordId": "r0-plan-band8",
+      "request": {
+        "schemaVersion": 1,
+        "revisionId": "10000000-0000-4000-8000-000000000001",
+        "mutationId": "20000000-0000-4000-8000-000000000001",
+        "baseRevision": null,
+        "kind": "plan",
+        "payload": {
+          "datasetId": "word-atlas-open",
+          "planId": "r0-plan-band8",
+          "startDate": "2026-11-03",
+          "timeZone": "Asia/Shanghai",
+          "curriculumVersion": "2026.11.03-r0",
+          "studyBudgetMinutes": 120,
+          "targetBand": 8,
+          "sectionMinimum": 6.5,
+          "enabled": false,
+          "syllabusUnit": 1,
+          "materialLevel": "foundation",
+          "title": "365天8分计划通信样例",
+          "pauseIntervals": []
+        }
+      },
+      "expectedContentHash": "2acf1ae344344c7538e2ba0b0c13a550d5d5dd72c9872c9d554738ec6f616c10"
+    },
+    {
+      "recordId": "r0-mission-reading",
+      "request": {
+        "schemaVersion": 1,
+        "revisionId": "10000000-0000-4000-8000-000000000002",
+        "mutationId": "20000000-0000-4000-8000-000000000002",
+        "baseRevision": null,
+        "kind": "mission",
+        "payload": {
+          "datasetId": "word-atlas-open",
+          "planId": "r0-plan-band8",
+          "date": "2026-11-03",
+          "day": 1,
+          "taskId": "r0-task-reading",
+          "skill": "reading",
+          "status": "in_progress",
+          "plannedMinutes": 35,
+          "actualMinutes": 5,
+          "timeSource": "manual"
+        }
+      },
+      "expectedContentHash": "4f7c6b55248ebdc07c2fadda6d1079e6173227ab008c96bd3ac1738ddb16f0d6"
+    },
+    {
+      "recordId": "r0-attempt-reading",
+      "request": {
+        "schemaVersion": 1,
+        "revisionId": "10000000-0000-4000-8000-000000000003",
+        "mutationId": "20000000-0000-4000-8000-000000000003",
+        "baseRevision": null,
+        "kind": "attempt",
+        "payload": {
+          "datasetId": "word-atlas-open",
+          "planId": "r0-plan-band8",
+          "date": "2026-11-03",
+          "day": 1,
+          "taskId": "r0-task-reading",
+          "contentId": "reading-sample-01",
+          "contentVersion": "1",
+          "skill": "reading",
+          "answers": [
+            "fifteen minutes",
+            "Saturday",
+            "local food bank"
+          ],
+          "correct": 3,
+          "score": 3,
+          "total": 3,
+          "actualMinutes": 5,
+          "elapsedSeconds": 300,
+          "conditions": {
+            "replays": 0,
+            "transcriptViewed": false,
+            "unseen": true,
+            "timed": false
+          },
+          "replayed": false,
+          "viewedTranscript": false,
+          "firstAttempt": true,
+          "isCheckpoint": false,
+          "note": "合成通信样例：短答题原始分，不是用户成绩或雅思分。"
+        }
+      },
+      "expectedContentHash": "2334cb45dbe5015e8b30f65653df9d3b24e0ac3119833ba050122487438df7b6"
+    },
+    {
+      "recordId": "r0-essay-writing",
+      "request": {
+        "schemaVersion": 1,
+        "revisionId": "10000000-0000-4000-8000-000000000004",
+        "mutationId": "20000000-0000-4000-8000-000000000004",
+        "baseRevision": null,
+        "kind": "essay",
+        "payload": {
+          "datasetId": "word-atlas-open",
+          "planId": "r0-plan-band8",
+          "date": "2026-11-03",
+          "day": 1,
+          "taskId": "r0-task-writing",
+          "contentId": "writing-sample-01",
+          "contentVersion": "1",
+          "prompt": "Write 50–80 words about when and where you study English. Explain one reason for your routine.",
+          "text": "I study English at a small desk in my bedroom. On weekdays, I study after dinner for about two hours. I first review a few useful words and then listen to a short recording. This routine helps me focus because the house is quiet in the evening. At weekends, I sometimes study at the library.",
+          "wordCount": 55,
+          "parentRevisionId": null
+        }
+      },
+      "expectedContentHash": "eeefa1033276bb26aeba138ab05ce972e75fc30c2f8fafd79d29e4f1ac54a187"
+    },
+    {
+      "recordId": "r0-speaking-response",
+      "request": {
+        "schemaVersion": 1,
+        "revisionId": "10000000-0000-4000-8000-000000000005",
+        "mutationId": "20000000-0000-4000-8000-000000000005",
+        "baseRevision": null,
+        "kind": "speaking",
+        "payload": {
+          "datasetId": "word-atlas-open",
+          "planId": "r0-plan-band8",
+          "date": "2026-11-03",
+          "day": 1,
+          "taskId": "r0-task-speaking",
+          "contentId": "speaking-sample-01",
+          "contentVersion": "1",
+          "prompt": "What do you usually do after work or school? Why do you enjoy it?",
+          "transcript": "After work, I usually take a short walk in the park. I enjoy it because it helps me relax. Sometimes I listen to an English podcast while I walk.",
+          "durationSeconds": 0,
+          "recordingId": null,
+          "recordingDevice": null,
+          "parentRevisionId": null
+        }
+      },
+      "expectedContentHash": "5c175a61222d5dbb87c779453829acecdc4a61e0de88269004faf54831d1579d"
+    },
+    {
+      "recordId": "r0-feedback-writing",
+      "request": {
+        "schemaVersion": 1,
+        "revisionId": "10000000-0000-4000-8000-000000000006",
+        "mutationId": "20000000-0000-4000-8000-000000000006",
+        "baseRevision": null,
+        "kind": "feedback",
+        "payload": {
+          "datasetId": "word-atlas-open",
+          "planId": "r0-plan-band8",
+          "workId": "r0-essay-writing",
+          "workRevisionId": "10000000-0000-4000-8000-000000000004",
+          "inputHash": "eeefa1033276bb26aeba138ab05ce972e75fc30c2f8fafd79d29e4f1ac54a187",
+          "rubricVersion": "r0-foundation-writing-v1",
+          "source": "self",
+          "sourceText": "合成自查样例，不提供雅思估分。",
+          "assessedAt": null,
+          "text": "On weekdays, I study after dinner for about two hours.\n自查：说明了学习地点、时间和一个原因。下次换一个场景重新表达。",
+          "bands": {
+            "taskResponse": null,
+            "coherence": null,
+            "lexical": null,
+            "grammar": null
+          }
+        }
+      },
+      "expectedContentHash": "94b5a9c7540d19cbca0987a076335be7102e756f631dc60c73d7438d70acf704"
+    },
+    {
+      "recordId": "r0-assessment-reading",
+      "request": {
+        "schemaVersion": 1,
+        "revisionId": "10000000-0000-4000-8000-000000000007",
+        "mutationId": "20000000-0000-4000-8000-000000000007",
+        "baseRevision": null,
+        "kind": "assessment",
+        "payload": {
+          "datasetId": "word-atlas-open",
+          "planId": "r0-plan-band8",
+          "date": "2026-11-03",
+          "day": 1,
+          "kind": "foundation-reading-raw",
+          "source": "manual",
+          "materialId": "reading-sample-01",
+          "score": 3,
+          "total": 3,
+          "bands": {
+            "listening": null,
+            "reading": null,
+            "writing": null,
+            "speaking": null
+          },
+          "conditions": {
+            "unseen": true,
+            "timed": false
+          },
+          "note": "合成通信样例：仅基础阅读原始分。无完整四科测评，不计算雅思总分。"
+        }
+      },
+      "expectedContentHash": "9fd39cadb9e76939d708429d67deb55b722a3d5e09c47dda04a63648559d09e9"
+    }
+  ]
+}

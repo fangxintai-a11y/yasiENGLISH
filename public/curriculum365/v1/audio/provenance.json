@@ -1,0 +1,115 @@
+{
+  "schemaVersion": 1,
+  "audioPath": "listening-sample-01.wav",
+  "sha256": "e0b401e6079b39e2eaf4185ead2252de25419c959f9a2d7e2db0bab95c0a7013",
+  "durationSeconds": 17.524583,
+  "sampleRate": 24000,
+  "channels": 1,
+  "format": "PCM_16",
+  "engine": "kokoro-onnx",
+  "voice": "af_heart",
+  "language": "en-us",
+  "speed": 0.9,
+  "generatedOn": "2026-11-03",
+  "syntheticSpeech": true,
+  "textSource": "Project-authored R0 listening sample",
+  "transcriptSha256": "6733b517f9ccebb17619332c6ed1cec86ef03c03a5969c5b5c22d847f0176e33",
+  "textPreprocessing": "Original four sentences passed unchanged, synthesized one at a time.",
+  "postprocessing": {
+    "leadSilenceSeconds": 0.25,
+    "gapSeconds": 0.5,
+    "tailSilenceSeconds": 0.25,
+    "gain": 1.0,
+    "peakLimit": 0.95
+  },
+  "pythonVersion": "3.12.13",
+  "dependencyVersions": {
+    "kokoro-onnx": "0.6.1",
+    "onnxruntime": "1.31.1",
+    "phonemizer": "3.6.0",
+    "espeakng-loader": "0.2.4",
+    "numpy": "2.5.4",
+    "soundfile": "0.14.0"
+  },
+  "dependencySources": {
+    "kokoro-onnx": "https://pypi.org/project/kokoro-onnx/0.6.1/",
+    "onnxruntime": "https://pypi.org/project/onnxruntime/1.31.1/",
+    "phonemizer": "https://pypi.org/project/phonemizer/3.6.0/",
+    "espeakng-loader": "https://pypi.org/project/espeakng-loader/0.2.4/",
+    "numpy": "https://pypi.org/project/numpy/2.5.4/",
+    "soundfile": "https://pypi.org/project/soundfile/0.14.0/"
+  },
+  "generatorSha256": "eaaaf52845c4a8497c015179c76f6eb18f268963b1a76ec660870a5f1ee57f4b",
+  "sources": [
+    {
+      "component": "kokoro-onnx",
+      "url": "https://github.com/thewh1teagle/kokoro-onnx",
+      "license": "MIT"
+    },
+    {
+      "component": "Kokoro model and voice",
+      "url": "https://huggingface.co/hexgrad/Kokoro-82M",
+      "license": "Apache-2.0"
+    },
+    {
+      "component": "kokoro-v1.0.int8.onnx",
+      "url": "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/kokoro-v1.0.int8.onnx",
+      "sha256": "ae315a79b623f244700e4afb9246c46a26066782e049ba174bf3ba433970ee9c",
+      "bytes": 114119327
+    },
+    {
+      "component": "voices-v1.0.bin",
+      "url": "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/voices-v1.0.bin",
+      "sha256": "bca610b8308e8d99f32e6fe4197e7ec01679264efed0cac9140fe9c29f1fbf7d",
+      "bytes": 28214398
+    }
+  ],
+  "segments": [
+    {
+      "id": "s1",
+      "text": "Our English group meets at the Green Street Library every Tuesday.",
+      "startSeconds": 0.25,
+      "endSeconds": 4.326667,
+      "durationSeconds": 4.076667,
+      "startFrame": 6000,
+      "endFrame": 103840
+    },
+    {
+      "id": "s2",
+      "text": "The meeting starts at six thirty and finishes at seven thirty.",
+      "startSeconds": 4.826667,
+      "endSeconds": 8.468,
+      "durationSeconds": 3.641333,
+      "startFrame": 115840,
+      "endFrame": 203232
+    },
+    {
+      "id": "s3",
+      "text": "Please use the side door because the front door closes at six.",
+      "startSeconds": 8.968,
+      "endSeconds": 12.956625,
+      "durationSeconds": 3.988625,
+      "startFrame": 215232,
+      "endFrame": 310959
+    },
+    {
+      "id": "s4",
+      "text": "Bring a notebook and a blue pen, but you do not need any books.",
+      "startSeconds": 13.456625,
+      "endSeconds": 17.274583,
+      "durationSeconds": 3.817958,
+      "startFrame": 322959,
+      "endFrame": 414590
+    }
+  ],
+  "verification": {
+    "checks": [
+      "upstream asset SHA256 match",
+      "finite non-silent synthesized speech",
+      "mono 24000Hz PCM16 WAV round-trip",
+      "exact frame-based segment timing"
+    ],
+    "humanListeningReview": "pending"
+  },
+  "generatorPath": "scripts/curriculum/generate-r0-audio.py"
+}

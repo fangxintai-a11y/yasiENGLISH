@@ -1,0 +1,254 @@
+{
+  "schemaVersion": 1,
+  "id": "bandgalaxy-r0-samples",
+  "version": "2026.11.03-r0",
+  "purpose": "基础衔接内容样本，用于验证任务、答案、作品与保存契约；不换算雅思分数。",
+  "materials": [
+    {
+      "id": "listening-sample-01",
+      "version": "1",
+      "skill": "listening",
+      "type": "short-listening",
+      "materialLevel": "foundation",
+      "deliveryMode": "builtin",
+      "title": "英语小组的第一次见面",
+      "instructions": [
+        "先不看文本和答案。听一次音频，回答四个问题；拿不准可以留空。",
+        "记录是否重播或看过文本，再对照答案。",
+        "选一道错题，找到对应句子，再听一遍并说明自己漏掉了什么。"
+      ],
+      "estimatedMinutes": 12,
+      "source": {
+        "kind": "original",
+        "rights": "project-authored",
+        "reviewStatus": "draft",
+        "author": "BandGalaxy R0",
+        "reviewNote": "自编基础练习，已自查题干与证据一致性；尚未经过独立教师教研审核。"
+      },
+      "isCheckpoint": false,
+      "audio": {
+        "path": "audio/listening-sample-01.wav",
+        "durationSeconds": 17.524583
+      },
+      "transcript": "Our English group meets at the Green Street Library every Tuesday. The meeting starts at six thirty and finishes at seven thirty. Please use the side door because the front door closes at six. Bring a notebook and a blue pen, but you do not need any books.",
+      "segments": [
+        {
+          "id": "s1",
+          "text": "Our English group meets at the Green Street Library every Tuesday."
+        },
+        {
+          "id": "s2",
+          "text": "The meeting starts at six thirty and finishes at seven thirty."
+        },
+        {
+          "id": "s3",
+          "text": "Please use the side door because the front door closes at six."
+        },
+        {
+          "id": "s4",
+          "text": "Bring a notebook and a blue pen, but you do not need any books."
+        }
+      ],
+      "questions": [
+        {
+          "id": "listening-sample-01-q1",
+          "prompt": "On which day does the group meet?",
+          "answer": {
+            "accepted": [
+              "Tuesday"
+            ],
+            "maxWords": 1
+          },
+          "evidence": {
+            "quote": "Our English group meets at the Green Street Library every Tuesday.",
+            "startSeconds": 0.25,
+            "endSeconds": 4.326667
+          }
+        },
+        {
+          "id": "listening-sample-01-q2",
+          "prompt": "What time does the meeting finish?",
+          "answer": {
+            "accepted": [
+              "7:30",
+              "7.30",
+              "seven thirty"
+            ],
+            "maxWords": 2
+          },
+          "evidence": {
+            "quote": "The meeting starts at six thirty and finishes at seven thirty.",
+            "startSeconds": 4.826667,
+            "endSeconds": 8.468
+          }
+        },
+        {
+          "id": "listening-sample-01-q3",
+          "prompt": "Which door should you use?",
+          "answer": {
+            "accepted": [
+              "side door"
+            ],
+            "maxWords": 2
+          },
+          "evidence": {
+            "quote": "Please use the side door because the front door closes at six.",
+            "startSeconds": 8.968,
+            "endSeconds": 12.956625
+          }
+        },
+        {
+          "id": "listening-sample-01-q4",
+          "prompt": "What colour pen should you bring?",
+          "answer": {
+            "accepted": [
+              "blue"
+            ],
+            "maxWords": 1
+          },
+          "evidence": {
+            "quote": "Bring a notebook and a blue pen, but you do not need any books.",
+            "startSeconds": 13.456625,
+            "endSeconds": 17.274583
+          }
+        }
+      ]
+    },
+    {
+      "id": "reading-sample-01",
+      "version": "1",
+      "skill": "reading",
+      "type": "short-reading",
+      "materialLevel": "foundation",
+      "deliveryMode": "builtin",
+      "title": "Leo的周末花园",
+      "instructions": [
+        "先独立读短文，不查词，回答三个问题；建议用时5分钟。",
+        "提交后再查词，每题找到一句原文证据。",
+        "用中文或简单英文说出：Leo在哪里做什么，这件事帮助了谁。"
+      ],
+      "estimatedMinutes": 15,
+      "source": {
+        "kind": "original",
+        "rights": "project-authored",
+        "reviewStatus": "draft",
+        "author": "BandGalaxy R0",
+        "reviewNote": "自编基础短文，已自查问题和答案的原文证据；尚未经过独立教师教研审核。"
+      },
+      "isCheckpoint": false,
+      "passage": "My name is Leo. I live near a small park. On weekdays, I walk to work, and the walk takes fifteen minutes. On Saturdays, I help in a community garden. I usually arrive at nine in the morning. We grow tomatoes and beans, but I do not take any vegetables home. The garden gives them to a local food bank. I enjoy the work because I meet my neighbours there. When it rains, we work in a small greenhouse instead of outside.",
+      "questions": [
+        {
+          "id": "reading-sample-01-q1",
+          "prompt": "How long does Leo's walk to work take?",
+          "answer": {
+            "accepted": [
+              "fifteen minutes",
+              "15 minutes"
+            ],
+            "maxWords": 2
+          },
+          "evidence": {
+            "quote": "On weekdays, I walk to work, and the walk takes fifteen minutes."
+          }
+        },
+        {
+          "id": "reading-sample-01-q2",
+          "prompt": "On which day does Leo help in the garden?",
+          "answer": {
+            "accepted": [
+              "Saturday",
+              "Saturdays"
+            ],
+            "maxWords": 1
+          },
+          "evidence": {
+            "quote": "On Saturdays, I help in a community garden."
+          }
+        },
+        {
+          "id": "reading-sample-01-q3",
+          "prompt": "Where does the garden send its vegetables?",
+          "answer": {
+            "accepted": [
+              "food bank",
+              "local food bank"
+            ],
+            "maxWords": 3
+          },
+          "evidence": {
+            "quote": "The garden gives them to a local food bank."
+          }
+        }
+      ]
+    },
+    {
+      "id": "writing-sample-01",
+      "version": "1",
+      "skill": "writing",
+      "type": "foundation-paragraph",
+      "materialLevel": "foundation",
+      "deliveryMode": "builtin",
+      "title": "我的英语学习习惯",
+      "instructions": [
+        "先独立写，不看后面的示例。建议先写5至7个简单句，说明时间、地点和一个原因。",
+        "50至80词是练习建议，超出或不足时保留原稿，不自动判错或换算雅思分。",
+        "保存第一稿，按自查问题改一处，再保存修改稿。"
+      ],
+      "estimatedMinutes": 20,
+      "source": {
+        "kind": "original",
+        "rights": "project-authored",
+        "reviewStatus": "draft",
+        "author": "BandGalaxy R0",
+        "reviewNote": "自编句子到段落衔接练习及示例；不是完整雅思Task 2，不提供写作单项分或范文等级。"
+      },
+      "isCheckpoint": false,
+      "prompt": "Write 50–80 words about when and where you study English. Explain one reason for your routine.",
+      "minWords": 50,
+      "maxWords": 80,
+      "selfCheck": [
+        "我写清楚了什么时候、在哪里学习英语。",
+        "我解释了一个原因，读者能看懂这个原因与安排的关系。",
+        "我检查了句首大写、句末标点，以及常见词的拼写。",
+        "我能指出修改稿中一处具体改动，并解释为什么修改。"
+      ],
+      "example": "I study English after work. I usually start at seven and study for forty minutes. First, I review a few words. Then I read a short text and write three sentences. I like studying at home because it is quiet. On busy days, I do a shorter lesson. This helps me keep learning every week."
+    },
+    {
+      "id": "speaking-sample-01",
+      "version": "1",
+      "skill": "speaking",
+      "type": "foundation-short-answer",
+      "materialLevel": "foundation",
+      "deliveryMode": "builtin",
+      "title": "下班或放学以后",
+      "instructions": [
+        "先看问题，准备30秒，然后连续回答两个问题并录音；建议合计40至60秒。",
+        "可以用简单句；忘词时尝试换一种说法，不为凑时长背示例。",
+        "回听原录音，写下一个想改进的地方。隔天再录一次，保留两份录音。",
+        "这是基础短答，不是完整口语模考；时长和转写不换算发音或雅思口语分。"
+      ],
+      "estimatedMinutes": 10,
+      "source": {
+        "kind": "original",
+        "rights": "project-authored",
+        "reviewStatus": "draft",
+        "author": "BandGalaxy R0",
+        "reviewNote": "自编基础口语短答；尚未经过独立教师教研审核，发音和流利度需听原录音判断。"
+      },
+      "isCheckpoint": false,
+      "prompts": [
+        "What do you usually do after work or school?",
+        "Why do you enjoy it?"
+      ],
+      "suggestedSeconds": 60,
+      "reviewChecklist": [
+        "我回答了做什么，并给出至少一个具体细节。",
+        "我说明了自己喜欢这件事的原因。",
+        "我回听了原录音，记录一处具体问题，而不是只看文字稿。",
+        "我保留了第一遍回答，第二遍另存，不覆盖第一次表现。"
+      ]
+    }
+  ]
+}
