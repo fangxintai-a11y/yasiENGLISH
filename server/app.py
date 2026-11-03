@@ -8,7 +8,7 @@ loopback service; do not publish its HTTP port to the internet.
 from __future__ import annotations
 
 import argparse
-from contextlib import contextmanager
+from contextlib import closing, contextmanager
 import hashlib
 import hmac
 from http.cookies import SimpleCookie
@@ -354,7 +354,7 @@ class Database:
             raise ValueError("Backup destination already exists")
         fd = os.open(str(target), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         os.close(fd)
-        with self.connect() as source, sqlite3.connect(str(target)) as output:
+        with self.connect() as source, closing(sqlite3.connect(str(target))) as output:
             source.backup(output)
 
 

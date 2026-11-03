@@ -9,6 +9,9 @@ import { ExamFields } from "../ui/ExamSetup";
 import { OfflinePanel } from "../ui/OfflinePanel";
 import { SyncPanel } from "../ui/SyncPanel";
 import { toast } from "../ui/Toast";
+import { SyncIssues } from "../study365/ui/SyncIssues";
+import { RecordingsBackup } from "../study365/ui/RecordingsBackup";
+import { CalibrationStatus } from "../study365/ui/CalibrationStatus";
 import { streakOf } from "./Today";
 
 export function Me({ privateAvailable }: { privateAvailable: boolean }) {
@@ -127,6 +130,12 @@ export function Me({ privateAvailable }: { privateAvailable: boolean }) {
         </section>
 
         <SyncPanel />
+
+        <SyncIssues />
+
+        <RecordingsBackup />
+
+        <CalibrationStatus />
 
         <AiPanel />
 

@@ -1,11 +1,11 @@
 {
-  "fixtureVersion": 1,
+  "fixtureVersion": 2,
   "purpose": "synthetic-wire-examples-not-user-learning-records",
   "records": [
     {
       "recordId": "r0-plan-band8",
       "request": {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "revisionId": "10000000-0000-4000-8000-000000000001",
         "mutationId": "20000000-0000-4000-8000-000000000001",
         "baseRevision": null,
@@ -15,23 +15,28 @@
           "planId": "r0-plan-band8",
           "startDate": "2026-11-03",
           "timeZone": "Asia/Shanghai",
-          "curriculumVersion": "2026.11.03-r0",
+          "curriculumVersion": "2026.11.03-r0-fixed",
           "studyBudgetMinutes": 120,
           "targetBand": 8,
-          "sectionMinimum": 6.5,
+          "sectionTargets": {
+            "listening": 8.5,
+            "reading": 8.5,
+            "writing": 7.5,
+            "speaking": 7.5
+          },
           "enabled": false,
           "syllabusUnit": 1,
-          "materialLevel": "foundation",
-          "title": "365天8分计划通信样例",
+          "materialLevel": "ielts-academic",
+          "title": "365天8分v2合成通信样例",
           "pauseIntervals": []
         }
       },
-      "expectedContentHash": "2acf1ae344344c7538e2ba0b0c13a550d5d5dd72c9872c9d554738ec6f616c10"
+      "expectedContentHash": "25b34fb7250838ce26818531e5fe91ae13ca32b35950ba5a62958f41d33a0c6d"
     },
     {
       "recordId": "r0-mission-reading",
       "request": {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "revisionId": "10000000-0000-4000-8000-000000000002",
         "mutationId": "20000000-0000-4000-8000-000000000002",
         "baseRevision": null,
@@ -39,22 +44,22 @@
         "payload": {
           "datasetId": "word-atlas-open",
           "planId": "r0-plan-band8",
-          "date": "2026-11-03",
-          "day": 1,
+          "date": "2026-11-10",
+          "day": 8,
           "taskId": "r0-task-reading",
           "skill": "reading",
           "status": "in_progress",
-          "plannedMinutes": 35,
-          "actualMinutes": 5,
+          "plannedMinutes": 25,
+          "actualMinutes": 12,
           "timeSource": "manual"
         }
       },
-      "expectedContentHash": "4f7c6b55248ebdc07c2fadda6d1079e6173227ab008c96bd3ac1738ddb16f0d6"
+      "expectedContentHash": "9cbd0266dfbb208d19d05114b0934a47dac5cbd857abae967803db9a4d217e77"
     },
     {
       "recordId": "r0-attempt-reading",
       "request": {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "revisionId": "10000000-0000-4000-8000-000000000003",
         "mutationId": "20000000-0000-4000-8000-000000000003",
         "baseRevision": null,
@@ -62,41 +67,131 @@
         "payload": {
           "datasetId": "word-atlas-open",
           "planId": "r0-plan-band8",
-          "date": "2026-11-03",
-          "day": 1,
+          "date": "2026-11-10",
+          "day": 8,
           "taskId": "r0-task-reading",
           "contentId": "reading-sample-01",
-          "contentVersion": "1",
+          "contentVersion": "2",
           "skill": "reading",
           "answers": [
-            "fifteen minutes",
-            "Saturday",
-            "local food bank"
+            "FALSE",
+            "TRUE",
+            "NOT GIVEN",
+            "FALSE",
+            "i",
+            "ii",
+            "iv",
+            "association",
+            "evaporation",
+            "underground pipes",
+            "rented flats",
+            "twenty years",
+            "a synthetic wrong answer"
           ],
-          "correct": 3,
-          "score": 3,
-          "total": 3,
-          "actualMinutes": 5,
-          "elapsedSeconds": 300,
+          "questionResults": [
+            {
+              "questionId": "reading-sample-01-q1",
+              "correct": true,
+              "confidence": "sure",
+              "errorCause": null
+            },
+            {
+              "questionId": "reading-sample-01-q2",
+              "correct": true,
+              "confidence": "sure",
+              "errorCause": null
+            },
+            {
+              "questionId": "reading-sample-01-q3",
+              "correct": true,
+              "confidence": "sure",
+              "errorCause": null
+            },
+            {
+              "questionId": "reading-sample-01-q4",
+              "correct": true,
+              "confidence": "sure",
+              "errorCause": null
+            },
+            {
+              "questionId": "reading-sample-01-q5",
+              "correct": true,
+              "confidence": "sure",
+              "errorCause": null
+            },
+            {
+              "questionId": "reading-sample-01-q6",
+              "correct": true,
+              "confidence": "sure",
+              "errorCause": null
+            },
+            {
+              "questionId": "reading-sample-01-q7",
+              "correct": true,
+              "confidence": "sure",
+              "errorCause": null
+            },
+            {
+              "questionId": "reading-sample-01-q8",
+              "correct": true,
+              "confidence": "sure",
+              "errorCause": null
+            },
+            {
+              "questionId": "reading-sample-01-q9",
+              "correct": true,
+              "confidence": "sure",
+              "errorCause": null
+            },
+            {
+              "questionId": "reading-sample-01-q10",
+              "correct": true,
+              "confidence": "sure",
+              "errorCause": null
+            },
+            {
+              "questionId": "reading-sample-01-q11",
+              "correct": true,
+              "confidence": "sure",
+              "errorCause": null
+            },
+            {
+              "questionId": "reading-sample-01-q12",
+              "correct": true,
+              "confidence": "sure",
+              "errorCause": null
+            },
+            {
+              "questionId": "reading-sample-01-q13",
+              "correct": false,
+              "confidence": "unsure",
+              "errorCause": "vocab-unknown"
+            }
+          ],
+          "correct": 12,
+          "score": 12,
+          "total": 13,
+          "actualMinutes": 20,
+          "elapsedSeconds": 1200,
           "conditions": {
             "replays": 0,
             "transcriptViewed": false,
             "unseen": true,
-            "timed": false
+            "timed": true
           },
           "replayed": false,
           "viewedTranscript": false,
           "firstAttempt": true,
           "isCheckpoint": false,
-          "note": "合成通信样例：短答题原始分，不是用户成绩或雅思分。"
+          "note": "合成首答：末题确实误答，原始分不换算雅思分。"
         }
       },
-      "expectedContentHash": "2334cb45dbe5015e8b30f65653df9d3b24e0ac3119833ba050122487438df7b6"
+      "expectedContentHash": "2a2d0c575903ba48c7b332e77cb394bb2f86f56732e7de6adb635ac1867eee77"
     },
     {
       "recordId": "r0-essay-writing",
       "request": {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "revisionId": "10000000-0000-4000-8000-000000000004",
         "mutationId": "20000000-0000-4000-8000-000000000004",
         "baseRevision": null,
@@ -104,51 +199,77 @@
         "payload": {
           "datasetId": "word-atlas-open",
           "planId": "r0-plan-band8",
-          "date": "2026-11-03",
-          "day": 1,
-          "taskId": "r0-task-writing",
+          "date": "2026-11-04",
+          "day": 2,
+          "taskId": "r0-task-task2",
           "contentId": "writing-sample-01",
-          "contentVersion": "1",
-          "prompt": "Write 50–80 words about when and where you study English. Explain one reason for your routine.",
-          "text": "I study English at a small desk in my bedroom. On weekdays, I study after dinner for about two hours. I first review a few useful words and then listen to a short recording. This routine helps me focus because the house is quiet in the evening. At weekends, I sometimes study at the library.",
-          "wordCount": 55,
+          "contentVersion": "2",
+          "prompt": "Some people believe that cities should spend more money on public transport than on new roads. To what extent do you agree or disagree? Give reasons for your answer and include relevant examples from your own knowledge or experience. Write at least 250 words.",
+          "taskType": "task2",
+          "text": "I largely agree that cities should give public transport a higher funding priority than new roads. Reliable buses and trains can move many people through a limited space, while additional road capacity may provide only temporary relief. Nevertheless, some road investment remains necessary for safety and access.\n\nThe strongest reason to favour public transport is that urban space cannot expand as quickly as demand for travel. A frequent bus service can carry passengers who would otherwise use separate cars. If it connects residential areas with workplaces and operates beyond office hours, it becomes a practical choice for a wider group of residents. For example, a worker finishing late may leave the car at home when the last bus is predictable. Investment should therefore improve frequency and reliability, rather than merely produce an impressive new station.\n\nThere is also an issue of access. People who cannot drive still need to reach schools, hospitals and jobs. Spending most of a transport budget on roads may improve journeys for motorists while doing little for these residents. Affordable fares and accessible vehicles can make public expenditure useful to more of the population. This does not mean that every route must attract identical passenger numbers; some provide an essential connection for smaller communities.\n\nHowever, prioritising public transport should not imply neglecting roads altogether. Dangerous junctions need repair, and emergency services require dependable access. In rapidly growing districts, a carefully planned road connection may also be necessary. Such projects should be assessed against clear needs instead of an assumption that more traffic always requires more lanes.\n\nOverall, cities should direct the larger share of new transport funding towards dependable public services, while maintaining roads and addressing specific safety problems. This balance recognises both the limitations of urban space and the different needs of residents.",
+          "wordCount": 298,
           "parentRevisionId": null
         }
       },
-      "expectedContentHash": "eeefa1033276bb26aeba138ab05ce972e75fc30c2f8fafd79d29e4f1ac54a187"
+      "expectedContentHash": "9b6fb2688cb2cee1a6aca37bef354d51268c08e2f31ecff9baaf4ae1af906e2e"
+    },
+    {
+      "recordId": "r0-essay-task1",
+      "request": {
+        "schemaVersion": 2,
+        "revisionId": "10000000-0000-4000-8000-000000000005",
+        "mutationId": "20000000-0000-4000-8000-000000000005",
+        "baseRevision": null,
+        "kind": "essay",
+        "payload": {
+          "datasetId": "word-atlas-open",
+          "planId": "r0-plan-band8",
+          "date": "2026-11-04",
+          "day": 2,
+          "taskId": "r0-task-task1",
+          "contentId": "writing-task1-sample-01",
+          "contentVersion": "1",
+          "prompt": "The table shows the percentage of commuters using three main forms of transport in the fictional city of Bellhaven in 2005, 2015 and 2025. Summarise the information by selecting and reporting the main features, and make comparisons where relevant. Write at least 150 words.",
+          "taskType": "task1",
+          "text": "The table compares the proportions of commuters travelling by car, bus and bicycle in Bellhaven in three selected years between 2005 and 2025.\n\nOverall, bus travel became increasingly common and replaced cars as the largest category. Cycling also gained a greater share, although it remained the least frequently used of the three forms of transport throughout the period.\n\nIn 2005, half of commuters used a car, while buses accounted for 40 percent. The remaining 10 percent travelled by bicycle. Ten years later, the car figure had fallen to 40 percent. By contrast, the proportion taking a bus rose to 45 percent, putting it five percentage points above the car category. The bicycle share also increased, reaching 15 percent in 2015.\n\nThe changes continued in the final year shown. Bus use reached 55 percent in 2025, compared with 25 percent for cars and 20 percent for bicycles. Over the whole period, the car share declined by 25 percentage points, whereas the bus and bicycle figures increased by 15 and 10 points respectively. The table provides no information about the reasons behind these changes.",
+          "wordCount": 182,
+          "parentRevisionId": null
+        }
+      },
+      "expectedContentHash": "21768943be60e9a2b402727f5c5db3a80edb7aeacf0ad584d5590ca664acf1d7"
     },
     {
       "recordId": "r0-speaking-response",
       "request": {
-        "schemaVersion": 1,
-        "revisionId": "10000000-0000-4000-8000-000000000005",
-        "mutationId": "20000000-0000-4000-8000-000000000005",
+        "schemaVersion": 2,
+        "revisionId": "10000000-0000-4000-8000-000000000006",
+        "mutationId": "20000000-0000-4000-8000-000000000006",
         "baseRevision": null,
         "kind": "speaking",
         "payload": {
           "datasetId": "word-atlas-open",
           "planId": "r0-plan-band8",
-          "date": "2026-11-03",
-          "day": 1,
+          "date": "2026-11-05",
+          "day": 3,
           "taskId": "r0-task-speaking",
           "contentId": "speaking-sample-01",
-          "contentVersion": "1",
-          "prompt": "What do you usually do after work or school? Why do you enjoy it?",
-          "transcript": "After work, I usually take a short walk in the park. I enjoy it because it helps me relax. Sometimes I listen to an English podcast while I walk.",
+          "contentVersion": "2",
+          "prompt": "Do you work or study? What do you enjoy about your daily routine? When do you prefer to learn something new? Has your routine changed recently?",
+          "transcript": "I work in an operations team, so the timing of my day can change. What I enjoy most is a short walk before work because it gives me time to think. I prefer learning something new in the evening, after I have dealt with urgent tasks. For instance, I recently started reading an English article after dinner. My routine has changed a little: I used to look at my phone first, but now I try to begin with ten minutes of reading. These are separate example answers; in practice, answer each question naturally rather than reciting this paragraph.",
           "durationSeconds": 0,
           "recordingId": null,
           "recordingDevice": null,
           "parentRevisionId": null
         }
       },
-      "expectedContentHash": "5c175a61222d5dbb87c779453829acecdc4a61e0de88269004faf54831d1579d"
+      "expectedContentHash": "41fbe3751efde35a1cf73270e83493afa6c056d2bb4b08dc9e3bbcd89c9d0f65"
     },
     {
       "recordId": "r0-feedback-writing",
       "request": {
-        "schemaVersion": 1,
-        "revisionId": "10000000-0000-4000-8000-000000000006",
-        "mutationId": "20000000-0000-4000-8000-000000000006",
+        "schemaVersion": 2,
+        "revisionId": "10000000-0000-4000-8000-000000000007",
+        "mutationId": "20000000-0000-4000-8000-000000000007",
         "baseRevision": null,
         "kind": "feedback",
         "payload": {
@@ -156,41 +277,98 @@
           "planId": "r0-plan-band8",
           "workId": "r0-essay-writing",
           "workRevisionId": "10000000-0000-4000-8000-000000000004",
-          "inputHash": "eeefa1033276bb26aeba138ab05ce972e75fc30c2f8fafd79d29e4f1ac54a187",
-          "rubricVersion": "r0-foundation-writing-v1",
+          "inputHash": "9b6fb2688cb2cee1a6aca37bef354d51268c08e2f31ecff9baaf4ae1af906e2e",
+          "rubricVersion": "r0-task2-v2",
           "source": "self",
-          "sourceText": "合成自查样例，不提供雅思估分。",
+          "sourceText": "合成通信样例，无真实评阅或评分服务调用，不作学习效果证据。",
           "assessedAt": null,
-          "text": "On weekdays, I study after dinner for about two hours.\n自查：说明了学习地点、时间和一个原因。下次换一个场景重新表达。",
+          "text": "原稿和意见分别保存。此处仅演示反馈引用，不将样例分数当作真实成绩。",
           "bands": {
             "taskResponse": null,
             "coherence": null,
             "lexical": null,
             "grammar": null
+          },
+          "taskType": "task2"
+        }
+      },
+      "expectedContentHash": "9ddfd09fc3ddea7ecf15976da74702f8c2b7c520dea6afac0c65e4aee1b6ed42"
+    },
+    {
+      "recordId": "r0-feedback-task1",
+      "request": {
+        "schemaVersion": 2,
+        "revisionId": "10000000-0000-4000-8000-000000000008",
+        "mutationId": "20000000-0000-4000-8000-000000000008",
+        "baseRevision": null,
+        "kind": "feedback",
+        "payload": {
+          "datasetId": "word-atlas-open",
+          "planId": "r0-plan-band8",
+          "workId": "r0-essay-task1",
+          "workRevisionId": "10000000-0000-4000-8000-000000000005",
+          "inputHash": "21768943be60e9a2b402727f5c5db3a80edb7aeacf0ad584d5590ca664acf1d7",
+          "rubricVersion": "r0-task1-v2",
+          "source": "human",
+          "sourceText": "合成通信样例，无真实评阅或评分服务调用，不作学习效果证据。",
+          "assessedAt": null,
+          "text": "原稿和意见分别保存。此处仅演示反馈引用，不将样例分数当作真实成绩。",
+          "bands": {
+            "taskAchievement": 7,
+            "coherence": 7.5,
+            "lexical": 7,
+            "grammar": 7
+          },
+          "taskType": "task1"
+        }
+      },
+      "expectedContentHash": "ed589acd9015934e457400cfd24ea626ab0d322632cb257152198d426c1d9372"
+    },
+    {
+      "recordId": "r0-feedback-speaking",
+      "request": {
+        "schemaVersion": 2,
+        "revisionId": "10000000-0000-4000-8000-000000000009",
+        "mutationId": "20000000-0000-4000-8000-000000000009",
+        "baseRevision": null,
+        "kind": "feedback",
+        "payload": {
+          "datasetId": "word-atlas-open",
+          "planId": "r0-plan-band8",
+          "workId": "r0-speaking-response",
+          "workRevisionId": "10000000-0000-4000-8000-000000000006",
+          "inputHash": "41fbe3751efde35a1cf73270e83493afa6c056d2bb4b08dc9e3bbcd89c9d0f65",
+          "rubricVersion": "r0-speaking-v2",
+          "source": "self",
+          "sourceText": "合成通信样例，无真实评阅或评分服务调用，不作学习效果证据。",
+          "assessedAt": null,
+          "text": "原稿和意见分别保存。此处仅演示反馈引用，不将样例分数当作真实成绩。",
+          "bands": {
+            "fluency": null,
+            "lexical": null,
+            "grammar": null,
+            "pronunciation": null
           }
         }
       },
-      "expectedContentHash": "94b5a9c7540d19cbca0987a076335be7102e756f631dc60c73d7438d70acf704"
+      "expectedContentHash": "5e27192f39065a6541e50fe588d7adfa1af19690f2b03134b541199bc10e284a"
     },
     {
-      "recordId": "r0-assessment-reading",
+      "recordId": "r0-assessment-baseline",
       "request": {
-        "schemaVersion": 1,
-        "revisionId": "10000000-0000-4000-8000-000000000007",
-        "mutationId": "20000000-0000-4000-8000-000000000007",
+        "schemaVersion": 2,
+        "revisionId": "10000000-0000-4000-8000-000000000010",
+        "mutationId": "20000000-0000-4000-8000-000000000010",
         "baseRevision": null,
         "kind": "assessment",
         "payload": {
           "datasetId": "word-atlas-open",
           "planId": "r0-plan-band8",
           "date": "2026-11-03",
-          "day": 1,
-          "kind": "foundation-reading-raw",
-          "source": "manual",
-          "materialId": "reading-sample-01",
-          "score": 3,
-          "total": 3,
-          "bands": {
+          "kind": "baseline",
+          "source": "rules",
+          "materialId": "synthetic-baseline-paper",
+          "scores": {
             "listening": null,
             "reading": null,
             "writing": null,
@@ -198,12 +376,408 @@
           },
           "conditions": {
             "unseen": true,
-            "timed": false
+            "timed": true
           },
-          "note": "合成通信样例：仅基础阅读原始分。无完整四科测评，不计算雅思总分。"
+          "note": "通信样例的四科尚未评估，null不是零分，不能推算总分。"
         }
       },
-      "expectedContentHash": "9fd39cadb9e76939d708429d67deb55b722a3d5e09c47dda04a63648559d09e9"
+      "expectedContentHash": "3ad66b0734bcf95d46ad1dbdb543bf782d813c8b6bd706ab7536773268a5225a"
+    },
+    {
+      "recordId": "r0-gate-g1",
+      "request": {
+        "schemaVersion": 2,
+        "revisionId": "10000000-0000-4000-8000-000000000011",
+        "mutationId": "20000000-0000-4000-8000-000000000011",
+        "baseRevision": null,
+        "kind": "assessment",
+        "payload": {
+          "datasetId": "word-atlas-open",
+          "planId": "r0-plan-band8",
+          "date": "2027-02-02",
+          "kind": "gate",
+          "gateId": "G1",
+          "source": "human",
+          "materialId": "synthetic-g1-paper",
+          "targets": {
+            "overall": 6.5,
+            "listening": 7,
+            "reading": 7,
+            "writing": 6,
+            "speaking": 6
+          },
+          "scores": {
+            "listening": 7,
+            "reading": 7,
+            "writing": 6,
+            "speaking": 6
+          },
+          "scoreSources": {
+            "listening": "rules",
+            "reading": "rules",
+            "writing": "human",
+            "speaking": "human"
+          },
+          "conditions": {
+            "unseen": true,
+            "timed": true
+          },
+          "note": "合成门槛通信样例，不代表已有真题包、真实评阅或成绩。"
+        }
+      },
+      "expectedContentHash": "a5d5997156e932f9d4502aeaf2c64931c4984f4d059a13c680856c04a7a118c4"
+    },
+    {
+      "recordId": "r0-gate-g2",
+      "request": {
+        "schemaVersion": 2,
+        "revisionId": "10000000-0000-4000-8000-000000000012",
+        "mutationId": "20000000-0000-4000-8000-000000000012",
+        "baseRevision": null,
+        "kind": "assessment",
+        "payload": {
+          "datasetId": "word-atlas-open",
+          "planId": "r0-plan-band8",
+          "date": "2027-06-02",
+          "kind": "gate",
+          "gateId": "G2",
+          "source": "human",
+          "materialId": "synthetic-g2-paper",
+          "targets": {
+            "overall": 7,
+            "listening": 7.5,
+            "reading": 7.5,
+            "writing": 6.5,
+            "speaking": 6.5
+          },
+          "scores": {
+            "listening": 7.5,
+            "reading": 7.5,
+            "writing": 6.5,
+            "speaking": 6.5
+          },
+          "scoreSources": {
+            "listening": "rules",
+            "reading": "rules",
+            "writing": "human",
+            "speaking": "human"
+          },
+          "conditions": {
+            "unseen": true,
+            "timed": true
+          },
+          "note": "合成门槛通信样例，不代表已有真题包、真实评阅或成绩。"
+        }
+      },
+      "expectedContentHash": "f24212794dd53d4b3f7d464164ed5f119b20d002c68a64dfc9ba2a4a8bca21c4"
+    },
+    {
+      "recordId": "r0-gate-g3-first",
+      "request": {
+        "schemaVersion": 2,
+        "revisionId": "10000000-0000-4000-8000-000000000013",
+        "mutationId": "20000000-0000-4000-8000-000000000013",
+        "baseRevision": null,
+        "kind": "assessment",
+        "payload": {
+          "datasetId": "word-atlas-open",
+          "planId": "r0-plan-band8",
+          "date": "2027-09-02",
+          "kind": "gate",
+          "gateId": "G3",
+          "source": "human",
+          "materialId": "synthetic-g3-paper-a",
+          "targets": {
+            "overall": 7.5,
+            "listening": 8,
+            "reading": 8,
+            "writing": 7,
+            "speaking": 7
+          },
+          "scores": {
+            "listening": 8,
+            "reading": 8,
+            "writing": 7,
+            "speaking": 7
+          },
+          "scoreSources": {
+            "listening": "rules",
+            "reading": "rules",
+            "writing": "human",
+            "speaking": "human"
+          },
+          "conditions": {
+            "unseen": true,
+            "timed": true
+          },
+          "note": "合成门槛通信样例，不代表已有真题包、真实评阅或成绩。",
+          "consecutiveIndex": 1
+        }
+      },
+      "expectedContentHash": "597915cc5c89b99ac82df6233dfa9f5fd5ea2dccc17abc924b0915d36c48c08f"
+    },
+    {
+      "recordId": "r0-gate-g3-second",
+      "request": {
+        "schemaVersion": 2,
+        "revisionId": "10000000-0000-4000-8000-000000000014",
+        "mutationId": "20000000-0000-4000-8000-000000000014",
+        "baseRevision": null,
+        "kind": "assessment",
+        "payload": {
+          "datasetId": "word-atlas-open",
+          "planId": "r0-plan-band8",
+          "date": "2027-09-09",
+          "kind": "gate",
+          "gateId": "G3",
+          "source": "human",
+          "materialId": "synthetic-g3-paper-b",
+          "targets": {
+            "overall": 7.5,
+            "listening": 8,
+            "reading": 8,
+            "writing": 7,
+            "speaking": 7
+          },
+          "scores": {
+            "listening": 8,
+            "reading": 8,
+            "writing": 7,
+            "speaking": 7
+          },
+          "scoreSources": {
+            "listening": "rules",
+            "reading": "rules",
+            "writing": "human",
+            "speaking": "human"
+          },
+          "conditions": {
+            "unseen": true,
+            "timed": true
+          },
+          "note": "合成门槛通信样例，不代表已有真题包、真实评阅或成绩。",
+          "consecutiveIndex": 2
+        }
+      },
+      "expectedContentHash": "2d35dbfe981b0cec355a8d5483c564add57aa1303cd577d43dabdd0c458a8844"
+    },
+    {
+      "recordId": "r0-gate-g4",
+      "request": {
+        "schemaVersion": 2,
+        "revisionId": "10000000-0000-4000-8000-000000000015",
+        "mutationId": "20000000-0000-4000-8000-000000000015",
+        "baseRevision": null,
+        "kind": "assessment",
+        "payload": {
+          "datasetId": "word-atlas-open",
+          "planId": "r0-plan-band8",
+          "date": "2027-11-02",
+          "kind": "gate",
+          "gateId": "G4",
+          "source": "official",
+          "materialId": "synthetic-official-exam",
+          "targets": {
+            "overall": 8,
+            "listening": 8.5,
+            "reading": 8.5,
+            "writing": 7.5,
+            "speaking": 7.5
+          },
+          "scores": {
+            "listening": 8.5,
+            "reading": 8.5,
+            "writing": 7.5,
+            "speaking": 7.5
+          },
+          "scoreSources": {
+            "listening": "official",
+            "reading": "official",
+            "writing": "official",
+            "speaking": "official"
+          },
+          "conditions": {
+            "unseen": true,
+            "timed": true
+          },
+          "note": "合成门槛通信样例，不代表已有真题包、真实评阅或成绩。"
+        }
+      },
+      "expectedContentHash": "38f1619f19419e1c006907e0ae787f21a113d829c81e96099db973f44fc99864"
+    },
+    {
+      "recordId": "r0-assessment-official",
+      "request": {
+        "schemaVersion": 2,
+        "revisionId": "10000000-0000-4000-8000-000000000016",
+        "mutationId": "20000000-0000-4000-8000-000000000016",
+        "baseRevision": null,
+        "kind": "assessment",
+        "payload": {
+          "datasetId": "word-atlas-open",
+          "planId": "r0-plan-band8",
+          "date": "2027-11-02",
+          "kind": "official",
+          "source": "official",
+          "materialId": "synthetic-official-exam",
+          "scores": {
+            "listening": 8.5,
+            "reading": 8.5,
+            "writing": 7.5,
+            "speaking": 7.5
+          },
+          "note": "合成正式来源示例，只测试数值和来源契约，不是实际成绩单。"
+        }
+      },
+      "expectedContentHash": "47f6b3d969edcdb8370a0106ce584eef6939a1f16e0fd2b6dc7f0861c7d2942a"
+    },
+    {
+      "recordId": "r0-calibration-task2-human",
+      "request": {
+        "schemaVersion": 2,
+        "revisionId": "10000000-0000-4000-8000-000000000017",
+        "mutationId": "20000000-0000-4000-8000-000000000017",
+        "baseRevision": null,
+        "kind": "assessment",
+        "payload": {
+          "datasetId": "word-atlas-open",
+          "planId": "r0-plan-band8",
+          "date": "2026-11-08",
+          "kind": "weekly-calibration",
+          "source": "human",
+          "weekIndex": 1,
+          "workId": "r0-essay-writing",
+          "workRevisionId": "10000000-0000-4000-8000-000000000004",
+          "inputHash": "9b6fb2688cb2cee1a6aca37bef354d51268c08e2f31ecff9baaf4ae1af906e2e",
+          "bands": {
+            "taskResponse": 7,
+            "coherence": 7.5,
+            "lexical": 7,
+            "grammar": 7
+          },
+          "note": "合成同稿校准，仅演示来源隔离，无真实评阅、音频评估或模型调用；不能用于用户达标。",
+          "taskType": "task2"
+        }
+      },
+      "expectedContentHash": "822abf8346f87e8b7d9fd95e516996c7f6339796a3f181580045e0438fba0246"
+    },
+    {
+      "recordId": "r0-calibration-task2-ai",
+      "request": {
+        "schemaVersion": 2,
+        "revisionId": "10000000-0000-4000-8000-000000000018",
+        "mutationId": "20000000-0000-4000-8000-000000000018",
+        "baseRevision": null,
+        "kind": "assessment",
+        "payload": {
+          "datasetId": "word-atlas-open",
+          "planId": "r0-plan-band8",
+          "date": "2026-11-08",
+          "kind": "weekly-calibration",
+          "source": "ai",
+          "weekIndex": 1,
+          "workId": "r0-essay-writing",
+          "workRevisionId": "10000000-0000-4000-8000-000000000004",
+          "inputHash": "9b6fb2688cb2cee1a6aca37bef354d51268c08e2f31ecff9baaf4ae1af906e2e",
+          "bands": {
+            "taskResponse": 7.5,
+            "coherence": 7.5,
+            "lexical": 7.5,
+            "grammar": 7
+          },
+          "note": "合成同稿校准，仅演示来源隔离，无真实评阅、音频评估或模型调用；不能用于用户达标。",
+          "taskType": "task2"
+        }
+      },
+      "expectedContentHash": "b45be09552bbf49cd4481684e128310689fddafbed797628864ac3ceb037d4bf"
+    },
+    {
+      "recordId": "r0-calibration-task2-self",
+      "request": {
+        "schemaVersion": 2,
+        "revisionId": "10000000-0000-4000-8000-000000000019",
+        "mutationId": "20000000-0000-4000-8000-000000000019",
+        "baseRevision": null,
+        "kind": "assessment",
+        "payload": {
+          "datasetId": "word-atlas-open",
+          "planId": "r0-plan-band8",
+          "date": "2026-11-08",
+          "kind": "weekly-calibration",
+          "source": "self",
+          "weekIndex": 1,
+          "workId": "r0-essay-writing",
+          "workRevisionId": "10000000-0000-4000-8000-000000000004",
+          "inputHash": "9b6fb2688cb2cee1a6aca37bef354d51268c08e2f31ecff9baaf4ae1af906e2e",
+          "bands": {
+            "taskResponse": 7.5,
+            "coherence": 8,
+            "lexical": 7.5,
+            "grammar": 7.5
+          },
+          "note": "合成同稿校准，仅演示来源隔离，无真实评阅、音频评估或模型调用；不能用于用户达标。",
+          "taskType": "task2"
+        }
+      },
+      "expectedContentHash": "6473e6129e07df297a844cfd93f2b9c7b38004d93a081da13365ab42bc7fa74c"
+    },
+    {
+      "recordId": "r0-calibration-speaking-human",
+      "request": {
+        "schemaVersion": 2,
+        "revisionId": "10000000-0000-4000-8000-000000000020",
+        "mutationId": "20000000-0000-4000-8000-000000000020",
+        "baseRevision": null,
+        "kind": "assessment",
+        "payload": {
+          "datasetId": "word-atlas-open",
+          "planId": "r0-plan-band8",
+          "date": "2026-11-08",
+          "kind": "weekly-calibration",
+          "source": "human",
+          "weekIndex": 1,
+          "workId": "r0-speaking-response",
+          "workRevisionId": "10000000-0000-4000-8000-000000000006",
+          "inputHash": "41fbe3751efde35a1cf73270e83493afa6c056d2bb4b08dc9e3bbcd89c9d0f65",
+          "bands": {
+            "fluency": 7,
+            "lexical": 7,
+            "grammar": 7,
+            "pronunciation": 7
+          },
+          "note": "合成同稿校准，仅演示来源隔离，无真实评阅、音频评估或模型调用；不能用于用户达标。"
+        }
+      },
+      "expectedContentHash": "c2fb8a98542a671c09a515ac90d57efd340a9fc069a61107bc3982bdc008bf67"
+    },
+    {
+      "recordId": "r0-calibration-speaking-ai",
+      "request": {
+        "schemaVersion": 2,
+        "revisionId": "10000000-0000-4000-8000-000000000021",
+        "mutationId": "20000000-0000-4000-8000-000000000021",
+        "baseRevision": null,
+        "kind": "assessment",
+        "payload": {
+          "datasetId": "word-atlas-open",
+          "planId": "r0-plan-band8",
+          "date": "2026-11-08",
+          "kind": "weekly-calibration",
+          "source": "ai",
+          "weekIndex": 1,
+          "workId": "r0-speaking-response",
+          "workRevisionId": "10000000-0000-4000-8000-000000000006",
+          "inputHash": "41fbe3751efde35a1cf73270e83493afa6c056d2bb4b08dc9e3bbcd89c9d0f65",
+          "bands": {
+            "fluency": null,
+            "lexical": 7.5,
+            "grammar": 7,
+            "pronunciation": null
+          },
+          "note": "合成同稿校准，仅演示来源隔离，无真实评阅、音频评估或模型调用；不能用于用户达标。"
+        }
+      },
+      "expectedContentHash": "ba466206b8b441eef34b04e513d46e3cb8c0f877befa37cd1b8cbbff2e580656"
     }
   ]
 }

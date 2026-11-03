@@ -1,28 +1,53 @@
 #!/usr/bin/env bash
+# Switch managed code links only. Never change shared proxy config or restore old data.
 set -Eeuo pipefail
 export PATH=/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 [[ $EUID -eq 0 ]] || { echo 'Run with sudo.' >&2; exit 1; }
-exec 9>/run/lock/yasi-deploy.lock
+root=${BAND_DEPLOY_ROOT:?Set BAND_DEPLOY_ROOT}
+web_root=${BAND_DEPLOY_WEB_ROOT:?Set BAND_DEPLOY_WEB_ROOT}
+host=${BAND_DEPLOY_HOST:?Set BAND_DEPLOY_HOST}
+https_port=${BAND_DEPLOY_HTTPS_PORT:-8443}
+api_port=${BAND_DEPLOY_API_PORT:-5189}
+api_service=${BAND_DEPLOY_API_SERVICE:-band-galaxy.service}
+lock=${BAND_DEPLOY_LOCK:-$root/deploy.lock}
+env_file=${BAND_DEPLOY_ENV_FILE:-$root/server.env}
+database=${BAND_DEPLOY_DB:?Set BAND_DEPLOY_DB}
+backup_script=${BAND_DEPLOY_BACKUP_SCRIPT:?Set BAND_DEPLOY_BACKUP_SCRIPT}
+[[ $root == /* && $root != / && $web_root == /* && $web_root != / && $lock == /* && $env_file == /* && $database == /* && $backup_script == /* ]] || { echo 'Invalid deployment paths.' >&2; exit 2; }
+root=${root%/}; web_root=${web_root%/}
+[[ $host =~ ^[A-Za-z0-9][A-Za-z0-9.-]*$ && $https_port =~ ^[0-9]+$ && $api_port =~ ^[0-9]+$ ]] || { echo 'Invalid health-check configuration.' >&2; exit 2; }
+(( https_port >= 1024 && https_port <= 65535 && api_port >= 1024 && api_port <= 65535 )) || { echo 'Only dedicated ports >=1024 are allowed.' >&2; exit 2; }
+[[ $api_service =~ ^[A-Za-z0-9_.@:-]+\.service$ && $api_service != *nginx* ]] || { echo 'Pass the dedicated API service name.' >&2; exit 2; }
+[[ $# -eq 1 ]] || { echo 'Usage: yasi-rollback RELEASE_DIRECTORY' >&2; exit 2; }
+target=$1
+[[ $target == "$root/releases/${target##*/}" && ${target##*/} =~ ^[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8}$ && -f $target/index.html && ! -L $target ]] || { echo 'Pass a managed release path.' >&2; exit 1; }
+install -d -m 755 "$(dirname "$lock")"
+exec 9>"$lock"
 flock -n 9 || { echo 'Another deployment is running.' >&2; exit 1; }
-target=${1:-}
-[[ $target =~ ^/opt/yasi/releases/[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8}$ && -f $target/index.html ]] || { echo 'Pass a valid release path. Available releases:' >&2; find /opt/yasi/releases -mindepth 1 -maxdepth 1 -type d; exit 1; }
-current=/var/www/yasi/current
+current="$web_root/current"
 previous=$(readlink -f "$current")
-temp_link="/var/www/yasi/.rollback.$$.new"
-api_current=/opt/yasi/api-current
+[[ -L $current && -d $previous && $previous == "$root/releases/${previous##*/}" ]] || { echo 'Current release must be a managed symlink.' >&2; exit 1; }
+temp_link="$web_root/.rollback.$$.new"
+api_current="$root/api-current"
 api_previous=''
-api_target="/opt/yasi/api-releases/${target##*/}"
-api_link="/opt/yasi/.api-rollback.$$.new"
-api_was_active=0
-api_switched=0
+api_target="$root/api-releases/${target##*/}"
+api_link="$root/.api-rollback.$$.new"
+api_was_active=0; api_switched=0
 if [[ -L $api_current ]]; then
     api_previous=$(readlink -f "$api_current")
-    [[ $api_previous =~ ^/opt/yasi/api-releases/[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8}$ && -f $api_previous/app.py ]] || { echo 'Current API link is invalid.' >&2; exit 1; }
-    if systemctl is-active --quiet band-galaxy.service; then api_was_active=1; fi
+    [[ $api_previous == "$root/api-releases/${api_previous##*/}" && ${api_previous##*/} =~ ^[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8}$ && -f $api_previous/app.py ]] || { echo 'Current API link is invalid.' >&2; exit 1; }
+    if systemctl is-active --quiet "$api_service"; then api_was_active=1; fi
 else
     [[ ! -e $api_current ]] || { echo 'Current API path must be a managed symlink.' >&2; exit 1; }
 fi
 [[ ! -L $api_link && ! -L $temp_link ]] || { echo 'A temporary rollback link already exists.' >&2; exit 1; }
+if [[ -f $api_target/app.py ]]; then
+    python3 "$backup_script" --db "$database" --verify-api "$api_target" || { echo 'Rollback target is not verified for the current learning database.' >&2; exit 1; }
+fi
+if [[ -f $api_target/app.py || -n $api_previous ]]; then
+    unit=$(systemctl cat "$api_service")
+    [[ $unit == *"$api_current/app.py"* ]] || { echo 'The configured API service must already run api-current/app.py; no service file was changed.' >&2; exit 1; }
+fi
 restore() {
     status=${1:-$?}
     trap - ERR INT TERM
@@ -37,35 +62,39 @@ restore() {
         else
             [[ ! -L $api_current ]] || unlink "$api_current"
         fi
-        if (( api_was_active )); then systemctl restart band-galaxy.service || true
-        else systemctl stop band-galaxy.service || true; fi
+        if (( api_was_active )) && python3 "$backup_script" --db "$database" --verify-api "$api_previous"; then
+            systemctl restart "$api_service" || true
+        else
+            echo 'Previous API is not verified for the current database; its writes remain stopped. Database was not restored.' >&2
+            systemctl stop "$api_service" || true
+        fi
     fi
-    systemctl reload nginx || true
+    [[ ! -L $temp_link ]] || unlink "$temp_link"
+    [[ ! -L $api_link ]] || unlink "$api_link"
     exit "$status"
 }
-nginx -t
 trap restore ERR
 trap 'restore 130' INT
 trap 'restore 143' TERM
-# Roll back code only. Never replace or delete the persistent database.
 if [[ -f $api_target/app.py && ! -L $api_target ]]; then
-    [[ -r /etc/band-galaxy.env ]] || { echo 'Sync service configuration is missing.' >&2; restore 1; }
+    [[ -r $env_file ]] || { echo 'Sync service configuration is missing.' >&2; restore 1; }
     ln -s "$api_target" "$api_link"
     api_switched=1
     mv -Tf "$api_link" "$api_current"
-    systemctl restart band-galaxy.service
-    curl --fail --silent --show-error --retry 5 --retry-connrefused --retry-delay 1 --max-time 10 http://127.0.0.1:5189/api/health -o /dev/null
+    systemctl restart "$api_service"
+    curl --fail --silent --show-error --retry 5 --retry-connrefused --retry-delay 1 --max-time 10 "http://127.0.0.1:$api_port/api/health" -o /dev/null
 elif [[ -n $api_previous ]]; then
     api_switched=1
     unlink "$api_current"
-    systemctl stop band-galaxy.service
+    systemctl stop "$api_service"
 fi
 ln -s "$target" "$temp_link"
 mv -Tf "$temp_link" "$current"
-systemctl reload nginx
-curl --fail --silent --show-error --retry 5 --retry-connrefused --retry-delay 1 --max-time 30 --resolve www.i2023.com:443:127.0.0.1 https://www.i2023.com/ -o /dev/null
+public_url="https://$host:$https_port"
+resolve="$host:$https_port:127.0.0.1"
+curl --fail --silent --show-error --retry 5 --retry-connrefused --retry-delay 1 --max-time 30 --resolve "$resolve" "$public_url/" -o /dev/null
 if [[ -f $api_target/app.py ]]; then
-    curl --fail --silent --show-error --retry 3 --retry-connrefused --retry-delay 1 --max-time 10 --resolve www.i2023.com:443:127.0.0.1 https://www.i2023.com/api/health -o /dev/null
+    curl --fail --silent --show-error --retry 3 --retry-connrefused --retry-delay 1 --max-time 10 --resolve "$resolve" "$public_url/api/health" -o /dev/null
 fi
 trap - ERR INT TERM
 printf 'Live release: %s\n' "$target"

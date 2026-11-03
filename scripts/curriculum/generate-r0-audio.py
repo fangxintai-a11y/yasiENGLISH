@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Reproduce the R0 listening sample from the repository's four segment texts.
+"""Reproduce the R0 ten-question Section 4 from the repository's segment texts.
 
 Run in an environment that already provides kokoro-onnx, onnxruntime, soundfile,
 numpy, phonemizer and espeakng-loader. Versions used for the checked-in WAV are
@@ -12,8 +12,8 @@ Example:
       --voices /path/to/voices-v1.0.bin
 
 Inputs must match the official model-files-v1.1 int8/voice digests below. Only
-public/curriculum365/v1/audio/listening-sample-01.wav and provenance.json are
-written. The sample JSON and other project audio are never changed. Runtime
+public/curriculum365/v1/audio/listening-sample-01.wav, provenance.json and the
+sample's duration/evidence timestamps in samples.json are written. Runtime
 and platform differences can affect generated samples; the provenance records
 the exact output hash rather than promising bit-identical cross-platform TTS.
 """
@@ -60,8 +60,8 @@ def read_segments() -> list[dict[str, str]]:
     if len(materials) != 1 or materials[0]["skill"] != "listening":
         raise ValueError("Expected exactly one listening-sample-01 material.")
     segments = materials[0]["segments"]
-    if len(segments) != 4:
-        raise ValueError("The R0 sample requires exactly four text segments.")
+    if len(segments) != 10 or len(materials[0]["questions"]) != 10:
+        raise ValueError("The R0 Section 4 sample requires ten segments and questions.")
     if any(
         not isinstance(segment.get("id"), str)
         or not segment["id"]
@@ -70,6 +70,11 @@ def read_segments() -> list[dict[str, str]]:
         for segment in segments
     ) or len({segment["id"] for segment in segments}) != len(segments):
         raise ValueError("Segment IDs must be unique; each segment needs text.")
+    if " ".join(segment["text"] for segment in segments) != materials[0]["transcript"]:
+        raise ValueError("Segments must exactly match the immutable source transcript.")
+    for question in materials[0]["questions"]:
+        if sum(segment["text"] == question["evidence"]["quote"] for segment in segments) != 1:
+            raise ValueError("Each question must reference exactly one complete audio segment.")
     return [{"id": segment["id"], "text": segment["text"]} for segment in segments]
 
 
@@ -161,9 +166,9 @@ def main() -> None:
         "speed": SPEED,
         "generatedOn": datetime.now(ZoneInfo("Asia/Shanghai")).date().isoformat(),
         "syntheticSpeech": True,
-        "textSource": "Project-authored R0 listening sample",
+        "textSource": "Project-authored AI-assisted fictional Section 4 lecture; not a released IELTS paper",
         "transcriptSha256": hashlib.sha256(" ".join(segment["text"] for segment in segments).encode("utf-8")).hexdigest(),
-        "textPreprocessing": "Original four sentences passed unchanged, synthesized one at a time.",
+        "textPreprocessing": "Ten original lecture segments passed unchanged, synthesized separately without transcript rewriting.",
         "postprocessing": {"leadSilenceSeconds": 0.25, "gapSeconds": 0.5, "tailSilenceSeconds": 0.25, "gain": gain, "peakLimit": 0.95},
         "pythonVersion": platform.python_version(),
         "dependencyVersions": {name: metadata.version(name) for name in dependencies},
@@ -183,6 +188,17 @@ def main() -> None:
         },
     }
     (OUTPUT_DIRECTORY / "provenance.json").write_text(json.dumps(provenance, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    catalog = json.loads(SAMPLES_PATH.read_text(encoding="utf-8"))
+    material = next(item for item in catalog["materials"] if item["id"] == SAMPLE_ID)
+    # Prevent using this generator to hide an intervening transcript change.
+    if material["segments"] != segments:
+        raise ValueError("Sample text changed while audio was being generated; do not publish this output.")
+    material["audio"]["durationSeconds"] = provenance["durationSeconds"]
+    for question in material["questions"]:
+        segment = next(segment for segment in timed_segments if segment["text"] == question["evidence"]["quote"])
+        question["evidence"]["startSeconds"] = segment["startSeconds"]
+        question["evidence"]["endSeconds"] = segment["endSeconds"]
+    SAMPLES_PATH.write_text(json.dumps(catalog, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(json.dumps({"audioPath": audio_path.name, "sha256": provenance["sha256"], "durationSeconds": provenance["durationSeconds"]}))
 
 

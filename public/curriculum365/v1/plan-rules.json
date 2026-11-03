@@ -1,106 +1,523 @@
 {
   "schemaVersion": 1,
   "id": "bandgalaxy-365-r0-rules",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "goal": {
     "statement": "让我学习365天之后拿到雅思8分",
     "durationDays": 365,
     "examType": "academic",
     "targetOverall": 8,
-    "minimumSection": 6.5,
-    "studyBudgetsMinutes": [120, 150, 180],
-    "milestoneBands": [7, 7.5],
-    "recommendedSections": {
+    "sectionTargets": {
       "listening": 8.5,
       "reading": 8.5,
       "writing": 7.5,
       "speaking": 7.5
     },
-    "recommendedSectionsAreRequired": false,
-    "completionSource": "official"
+    "dailyMinutes": 120,
+    "completionSource": "official",
+    "completionRequiresAllSectionTargets": true
   },
   "phases": [
-    {"id": "baseline", "startDay": 1, "endDay": 7, "title": "基线与试跑"},
-    {"id": "foundation", "startDay": 8, "endDay": 84, "title": "基础衔接"},
-    {"id": "task-skills", "startDay": 85, "endDay": 196, "title": "雅思任务衔接"},
-    {"id": "integration", "startDay": 197, "endDay": 308, "title": "围绕8分强化完整分项"},
-    {"id": "verification", "startDay": 309, "endDay": 365, "title": "8分准备度验证与考试安排"}
-  ],
-  "budgetTemplates": [
     {
-      "id": "ordinary-120",
-      "kind": "ordinary",
-      "budgetMinutes": 120,
-      "studyMinutes": 110,
-      "blocks": [
-        {"id": "vocabulary", "kind": "study", "minutes": 20},
-        {"id": "primary-a", "kind": "study", "minutes": 35},
-        {"id": "primary-b", "kind": "study", "minutes": 35},
-        {"id": "cross-day-review", "kind": "study", "minutes": 20},
-        {"id": "break-and-log", "kind": "break", "minutes": 10}
+      "id": "baseline",
+      "startDay": 1,
+      "endDay": 7,
+      "title": "第0周：真题基线与试跑"
+    },
+    {
+      "id": "phase1",
+      "startDay": 8,
+      "endDay": 90,
+      "title": "阶段一：雅思题型与词句地基",
+      "weekdayTemplate": "phase1-weekday",
+      "ieltsSkills": [
+        "listening",
+        "reading",
+        "writing",
+        "speaking"
       ]
     },
     {
-      "id": "ordinary-150",
-      "kind": "ordinary",
-      "budgetMinutes": 150,
-      "studyMinutes": 140,
-      "blocks": [
-        {"id": "vocabulary", "kind": "study", "minutes": 20},
-        {"id": "primary-a", "kind": "study", "minutes": 35},
-        {"id": "primary-b", "kind": "study", "minutes": 35},
-        {"id": "cross-day-review", "kind": "study", "minutes": 20},
-        {"id": "break-and-log", "kind": "break", "minutes": 10},
-        {"id": "extra-correction-a", "kind": "study", "minutes": 30}
+      "id": "phase2",
+      "startDay": 91,
+      "endDay": 210,
+      "title": "阶段二：分项技能",
+      "weekdayTemplate": "phase2-weekday",
+      "ieltsSkills": [
+        "listening",
+        "reading",
+        "writing",
+        "speaking"
       ]
     },
     {
-      "id": "ordinary-180",
-      "kind": "ordinary",
-      "budgetMinutes": 180,
-      "studyMinutes": 170,
-      "blocks": [
-        {"id": "vocabulary", "kind": "study", "minutes": 20},
-        {"id": "primary-a", "kind": "study", "minutes": 35},
-        {"id": "primary-b", "kind": "study", "minutes": 35},
-        {"id": "cross-day-review", "kind": "study", "minutes": 20},
-        {"id": "break-and-log", "kind": "break", "minutes": 10},
-        {"id": "extra-correction-a", "kind": "study", "minutes": 30},
-        {"id": "extra-correction-b", "kind": "study", "minutes": 30}
+      "id": "phase3",
+      "startDay": 211,
+      "endDay": 300,
+      "title": "阶段三：整合强化",
+      "weekdayTemplate": "phase3-weekday",
+      "ieltsSkills": [
+        "listening",
+        "reading",
+        "writing",
+        "speaking"
       ]
     },
     {
-      "id": "full-mock-computer-180",
-      "kind": "full-mock",
-      "budgetMinutes": 180,
-      "studyMinutes": 164,
-      "blocks": [
-        {"id": "listening", "kind": "study", "minutes": 30},
-        {"id": "reading", "kind": "study", "minutes": 60},
-        {"id": "writing-task-1-and-2", "kind": "study", "minutes": 60},
-        {"id": "speaking-parts-1-to-3", "kind": "study", "minutes": 14},
-        {"id": "setup-and-transitions", "kind": "transition", "minutes": 16}
+      "id": "phase4",
+      "startDay": 301,
+      "endDay": 365,
+      "title": "阶段四：实战与正式考试",
+      "weekdayTemplate": "phase4-weekday",
+      "ieltsSkills": [
+        "listening",
+        "reading",
+        "writing",
+        "speaking"
       ]
     }
   ],
+  "baseline": {
+    "days": [
+      {
+        "day": 1,
+        "skills": [
+          "listening",
+          "reading"
+        ],
+        "source": "official-external-practice",
+        "minutes": {
+          "listening": 30,
+          "reading": 60,
+          "review": 30
+        }
+      },
+      {
+        "day": 2,
+        "skills": [
+          "writing"
+        ],
+        "source": "official-external-practice",
+        "minutes": {
+          "writing": 60,
+          "review": 60
+        }
+      },
+      {
+        "day": 3,
+        "skills": [
+          "speaking"
+        ],
+        "source": "official-external-practice",
+        "minutes": {
+          "speaking": 15,
+          "app-setup": 15,
+          "review": 90
+        }
+      }
+    ],
+    "trialDays": [
+      4,
+      5,
+      6,
+      7
+    ],
+    "trialTemplate": "phase1-weekday",
+    "requiredSkills": [
+      "listening",
+      "reading",
+      "writing",
+      "speaking"
+    ],
+    "writingSpeakingScoreSources": [
+      "human",
+      "official"
+    ],
+    "unassessedScore": null,
+    "materialLevelPolicy": "baseline-evidence",
+    "materialLevels": [
+      "foundation",
+      "intermediate",
+      "advanced",
+      "ielts-academic"
+    ],
+    "testPapersStoredInRepository": false,
+    "routing": [
+      {
+        "id": "at-least-6-5",
+        "minOverall": 6.5,
+        "maxExclusive": 9.5,
+        "phase1Months": 2,
+        "weekdayTemplate": "phase1-weekday"
+      },
+      {
+        "id": "six",
+        "minOverall": 6,
+        "maxExclusive": 6.5,
+        "phase1Months": 3,
+        "weekdayTemplate": "phase1-weekday"
+      },
+      {
+        "id": "five-5",
+        "minOverall": 5.5,
+        "maxExclusive": 6,
+        "phase1Months": 4,
+        "weekdayTemplate": "baseline55-weekday"
+      },
+      {
+        "id": "five-or-below",
+        "minOverall": 0,
+        "maxExclusive": 5.5,
+        "foundationMonths": [
+          2,
+          3
+        ],
+        "weekdayTemplate": "baseline55-weekday"
+      }
+    ],
+    "adaptation": {
+      "durationDays": 365,
+      "gateDatesStayFixed": true,
+      "calendarAloneCannotSetMaterialLevel": true,
+      "onDelay": "依据四科基线重排365天内后续任务并明确可行性与缺口；不顺延到第13个月，不降低最终目标。"
+    }
+  },
+  "vocabularyPolicy": {
+    "startMonth": 1,
+    "cefr": "C1",
+    "awl": true,
+    "ieltsTasksStartMonth": 1,
+    "foundationSupportDoesNotPostponeIeltsTasks": true
+  },
+  "budgetTemplates": [
+    {
+      "id": "phase1-weekday",
+      "kind": "weekday",
+      "budgetMinutes": 120,
+      "blocks": [
+        {
+          "id": "vocabulary",
+          "minutes": 35
+        },
+        {
+          "id": "listening",
+          "minutes": 25
+        },
+        {
+          "id": "reading",
+          "minutes": 25
+        },
+        {
+          "id": "writing",
+          "minutes": 20
+        },
+        {
+          "id": "speaking",
+          "minutes": 15
+        }
+      ]
+    },
+    {
+      "id": "phase2-weekday",
+      "kind": "weekday",
+      "budgetMinutes": 120,
+      "blocks": [
+        {
+          "id": "vocabulary",
+          "minutes": 20
+        },
+        {
+          "id": "listening",
+          "minutes": 20
+        },
+        {
+          "id": "reading",
+          "minutes": 20
+        },
+        {
+          "id": "writing",
+          "minutes": 35
+        },
+        {
+          "id": "speaking",
+          "minutes": 25
+        }
+      ]
+    },
+    {
+      "id": "phase3-weekday",
+      "kind": "weekday",
+      "budgetMinutes": 120,
+      "blocks": [
+        {
+          "id": "vocabulary",
+          "minutes": 15
+        },
+        {
+          "id": "listening",
+          "minutes": 20
+        },
+        {
+          "id": "reading",
+          "minutes": 20
+        },
+        {
+          "id": "writing",
+          "minutes": 40
+        },
+        {
+          "id": "speaking",
+          "minutes": 25
+        }
+      ]
+    },
+    {
+      "id": "phase4-weekday",
+      "kind": "weekday",
+      "budgetMinutes": 120,
+      "blocks": [
+        {
+          "id": "vocabulary",
+          "minutes": 10
+        },
+        {
+          "id": "timed-section",
+          "minutes": 60
+        },
+        {
+          "id": "review",
+          "minutes": 30
+        },
+        {
+          "id": "weak-skill",
+          "minutes": 20
+        }
+      ]
+    },
+    {
+      "id": "baseline55-weekday",
+      "kind": "baseline-adjustment",
+      "budgetMinutes": 120,
+      "blocks": [
+        {
+          "id": "vocabulary",
+          "minutes": 40
+        },
+        {
+          "id": "listening",
+          "minutes": 20
+        },
+        {
+          "id": "reading",
+          "minutes": 25
+        },
+        {
+          "id": "writing",
+          "minutes": 20
+        },
+        {
+          "id": "speaking",
+          "minutes": 15
+        }
+      ]
+    },
+    {
+      "id": "saturday-listening-reading",
+      "kind": "saturday",
+      "budgetMinutes": 120,
+      "blocks": [
+        {
+          "id": "listening",
+          "minutes": 30
+        },
+        {
+          "id": "reading",
+          "minutes": 60
+        },
+        {
+          "id": "review",
+          "minutes": 30
+        }
+      ]
+    },
+    {
+      "id": "sunday-writing-speaking-calibration",
+      "kind": "sunday",
+      "budgetMinutes": 120,
+      "blocks": [
+        {
+          "id": "writing",
+          "minutes": 60
+        },
+        {
+          "id": "speaking",
+          "minutes": 15
+        },
+        {
+          "id": "review",
+          "minutes": 30
+        },
+        {
+          "id": "human-calibration-handoff",
+          "minutes": 15
+        }
+      ]
+    },
+    {
+      "id": "phase4-thursday-mock-completion",
+      "kind": "split-mock-completion",
+      "budgetMinutes": 120,
+      "blocks": [
+        {
+          "id": "writing",
+          "minutes": 60
+        },
+        {
+          "id": "speaking",
+          "minutes": 15
+        },
+        {
+          "id": "review",
+          "minutes": 30
+        },
+        {
+          "id": "correction-log",
+          "minutes": 15
+        }
+      ]
+    }
+  ],
+  "weeklySchedule": {
+    "weekdayDays": [
+      "monday",
+      "tuesday",
+      "wednesday",
+      "thursday",
+      "friday"
+    ],
+    "saturdayTemplate": "saturday-listening-reading",
+    "sundayTemplate": "sunday-writing-speaking-calibration",
+    "phase4WeekdayOverrides": {
+      "wednesday": "saturday-listening-reading",
+      "thursday": "phase4-thursday-mock-completion"
+    }
+  },
   "budgetPolicy": {
-    "primaryA": "听力或阅读首答与复盘",
-    "primaryB": "句型、写作或口语作品",
-    "ordinaryExtension": "增加纠错或完整输出任务，不按比例缩短完整测评",
-    "breaksCountTowardsStudy": false,
-    "transitionsCountTowardsStudy": false,
+    "dailyMinutes": 120,
     "plannedMinutesAreActualMinutes": false,
-    "minimumTaskDayMinutes": [20, 30],
-    "minimumTaskDayCountsAsFullDay": false,
-    "fullMockMinimumBudgetMinutes": 180,
-    "smallerBudgetMockMode": "split-section-assessments",
     "shrinkExamSectionsToFitBudget": false,
-    "listeningReadingWritingConsecutive": true,
-    "speakingMayUseSeparateSession": true,
-    "mockReviewOnSeparateDay": true,
-    "actualExamTimingSource": "material-and-selected-exam-mode",
-    "computerListeningMinutesAreApproximate": true,
-    "reallocation": "仅调整可调任务，保持非负预算和四项每周覆盖；不扣完整测评时长"
+    "mockMode": "cross-day-section-assessments",
+    "claimConsecutiveFullMock": false,
+    "teacherMarkingTimeOutsideLearnerBudget": true,
+    "weeklyCalibrationHandoffMinutes": 15,
+    "reallocation": "仅重排120分钟以内的任务，保持阶段一至三每天四科；测评跨日保留每科日期、首答、限时与提示条件。"
+  },
+  "phase4MockCycles": [
+    {
+      "id": "midweek",
+      "startDay": "wednesday",
+      "completionDay": "thursday",
+      "startTemplate": "saturday-listening-reading",
+      "completionTemplate": "phase4-thursday-mock-completion",
+      "mode": "split-across-days",
+      "consecutiveFullExam": false
+    },
+    {
+      "id": "weekend",
+      "startDay": "saturday",
+      "completionDay": "sunday",
+      "startTemplate": "saturday-listening-reading",
+      "completionTemplate": "sunday-writing-speaking-calibration",
+      "mode": "split-across-days",
+      "consecutiveFullExam": false
+    }
+  ],
+  "gates": [
+    {
+      "id": "G1",
+      "atMonth": 3,
+      "consecutive": 1,
+      "targets": {
+        "overall": 6.5,
+        "listening": 7,
+        "reading": 7,
+        "writing": 6,
+        "speaking": 6
+      },
+      "writingSpeakingSources": [
+        "human",
+        "official"
+      ],
+      "onMiss": "回查基线与错因，把可调任务移给差距最大的科目；核对词汇记忆和句子理解，不降低8分目标。"
+    },
+    {
+      "id": "G2",
+      "atMonth": 7,
+      "consecutive": 1,
+      "targets": {
+        "overall": 7,
+        "listening": 7.5,
+        "reading": 7.5,
+        "writing": 6.5,
+        "speaking": 6.5
+      },
+      "writingSpeakingSources": [
+        "human",
+        "official"
+      ],
+      "onMiss": "按四科差距补强，写说用同稿真人评分对照自评/机器估分，优先修复反复错因。"
+    },
+    {
+      "id": "G3",
+      "atMonth": 10,
+      "consecutive": 2,
+      "targets": {
+        "overall": 7.5,
+        "listening": 8,
+        "reading": 8,
+        "writing": 7,
+        "speaking": 7
+      },
+      "writingSpeakingSources": [
+        "human",
+        "official"
+      ],
+      "onMiss": "保留连续两次不同未见材料的实际分；未连过则继续分科纠错与真人反馈，不把不连续最好成绩拼接。"
+    },
+    {
+      "id": "G4",
+      "atMonth": "exam",
+      "consecutive": 1,
+      "targets": {
+        "overall": 8,
+        "listening": 8.5,
+        "reading": 8.5,
+        "writing": 7.5,
+        "speaking": 7.5
+      },
+      "writingSpeakingSources": [
+        "official"
+      ],
+      "onMiss": "保留正式成绩和各科差距，目标保持不变；重新安排补强与下一次考试，不用AI、自评或日期宣布完成。"
+    }
+  ],
+  "weeklyCalibration": {
+    "weeks": 52,
+    "day": "sunday",
+    "items": [
+      "task2-essay",
+      "speaking-recording"
+    ],
+    "source": "human",
+    "deviationAlert": 0.5,
+    "comparison": "same-work-revision-and-rubric",
+    "compareSources": [
+      "self",
+      "ai",
+      "rules"
+    ],
+    "onDeviation": "同一作品任一评分项偏差达到0.5即提醒，保留三类分数并回看真人修改依据。",
+    "backupRecordingsAfterCalibration": true
   },
   "calendarPolicy": {
     "timeZone": "Asia/Shanghai",
@@ -109,65 +526,123 @@
     "awardScoreFromDate": false,
     "awardScoreFromMinutes": false,
     "awardScoreFromStreak": false,
-    "day365Action": "保留原始成绩与证据，检查8分目标状态；日期本身不产生分数"
-  },
-  "readinessPolicy": {
-    "windowDays": 28,
-    "minimumIndependentAssessments": 2,
-    "requireDifferentMaterials": true,
-    "requireUnseen": true,
-    "requireTimed": true,
-    "requireNoHints": true,
-    "requireCompleteSections": true,
-    "writingTasksRequired": ["task1", "task2"],
-    "speakingPartsRequired": ["part1", "part2", "part3"],
-    "writingSpeakingRequireHumanReviewEvidence": true,
-    "missingScoreValue": null,
-    "combineBestScoresFromDifferentSessions": false,
-    "aiOrSelfScoreCanCompleteGoal": false,
-    "finalCompletionRequires": "official-score-at-or-above-goal",
-    "policyIsOfficialEligibilityRule": false
+    "day365Action": "检查正式总分与四科目标及原始证据，记录仍有的差距；日期不会产生分数。"
   },
   "scoreExamples": [
     {
-      "id": "overall-eight-below-section-floor",
+      "id": "overall-eight-with-section-gaps",
       "source": "official",
-      "sections": {"listening": 9, "reading": 9, "writing": 6, "speaking": 7},
-      "expected": {"overall": 8, "sectionFloorMet": false, "numericTargetMet": false, "finalGoalMet": false}
+      "sections": {
+        "listening": 9,
+        "reading": 9,
+        "writing": 6,
+        "speaking": 7
+      },
+      "expected": {
+        "overall": 8.0,
+        "gaps": {
+          "listening": 0,
+          "reading": 0,
+          "writing": 1.5,
+          "speaking": 0.5
+        },
+        "numericTargetMet": false,
+        "finalGoalMet": false
+      }
     },
     {
-      "id": "seven-point-five-is-milestone",
+      "id": "all-sections-eight-is-not-complete",
       "source": "official",
-      "sections": {"listening": 8, "reading": 8, "writing": 7, "speaking": 7},
-      "expected": {"overall": 7.5, "sectionFloorMet": true, "numericTargetMet": false, "finalGoalMet": false}
+      "sections": {
+        "listening": 8,
+        "reading": 8,
+        "writing": 8,
+        "speaking": 8
+      },
+      "expected": {
+        "overall": 8.0,
+        "gaps": {
+          "listening": 0.5,
+          "reading": 0.5,
+          "writing": 0,
+          "speaking": 0
+        },
+        "numericTargetMet": false,
+        "finalGoalMet": false
+      }
     },
     {
-      "id": "all-sections-eight",
+      "id": "required-combination",
       "source": "official",
-      "sections": {"listening": 8, "reading": 8, "writing": 8, "speaking": 8},
-      "expected": {"overall": 8, "sectionFloorMet": true, "numericTargetMet": true, "finalGoalMet": true}
-    },
-    {
-      "id": "recommended-combination",
-      "source": "official",
-      "sections": {"listening": 8.5, "reading": 8.5, "writing": 7.5, "speaking": 7.5},
-      "expected": {"overall": 8, "sectionFloorMet": true, "numericTargetMet": true, "finalGoalMet": true}
+      "sections": {
+        "listening": 8.5,
+        "reading": 8.5,
+        "writing": 7.5,
+        "speaking": 7.5
+      },
+      "expected": {
+        "overall": 8.0,
+        "gaps": {
+          "listening": 0,
+          "reading": 0,
+          "writing": 0,
+          "speaking": 0
+        },
+        "numericTargetMet": true,
+        "finalGoalMet": true
+      }
     },
     {
       "id": "missing-writing-remains-unknown",
       "source": "human",
-      "sections": {"listening": 8, "reading": 8, "writing": null, "speaking": 8},
-      "expected": {"overall": null, "sectionFloorMet": false, "numericTargetMet": false, "finalGoalMet": false}
+      "sections": {
+        "listening": 8.5,
+        "reading": 8.5,
+        "writing": null,
+        "speaking": 7.5
+      },
+      "expected": {
+        "overall": null,
+        "gaps": {
+          "listening": 0,
+          "reading": 0,
+          "writing": null,
+          "speaking": 0
+        },
+        "numericTargetMet": false,
+        "finalGoalMet": false
+      }
     },
     {
-      "id": "ai-estimate-is-not-final-completion",
+      "id": "ai-estimate-is-not-completion",
       "source": "ai",
-      "sections": {"listening": 8, "reading": 8, "writing": 8, "speaking": 8},
-      "expected": {"overall": 8, "sectionFloorMet": true, "numericTargetMet": true, "finalGoalMet": false}
+      "sections": {
+        "listening": 8.5,
+        "reading": 8.5,
+        "writing": 7.5,
+        "speaking": 7.5
+      },
+      "expected": {
+        "overall": 8.0,
+        "gaps": {
+          "listening": 0,
+          "reading": 0,
+          "writing": 0,
+          "speaking": 0
+        },
+        "numericTargetMet": true,
+        "finalGoalMet": false
+      }
     }
   ],
   "sources": [
-    {"title": "IELTS官方计分说明", "url": "https://ielts.org/take-a-test/your-results/ielts-scoring-in-detail"},
-    {"title": "IELTS Academic官方考试结构", "url": "https://ielts.org/take-a-test/test-types/ielts-academic-test"}
+    {
+      "title": "IELTS官方计分说明",
+      "url": "https://ielts.org/take-a-test/your-results/ielts-scoring-in-detail"
+    },
+    {
+      "title": "IELTS Academic官方考试结构",
+      "url": "https://ielts.org/take-a-test/test-types/ielts-academic-test"
+    }
   ]
 }
