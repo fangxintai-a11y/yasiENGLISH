@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { dayCompletion, editableDates, missionStreak, missionTaskId, selectMission } from "../missionRecords";
 import { bundledInventory, bundledRules } from "../planData";
 import { buildDayPlan, selectLatestBaseline, type DayPlan } from "../planEngine";
@@ -7,19 +7,25 @@ import type { LearningState } from "../repository";
 import { useActivePlan } from "../useActivePlan";
 import { MissionCard } from "./MissionCard";
 import { PlanSetup } from "./PlanSetup";
+import { TaskRegistration } from "./TaskRegistration";
+import { latestAssessment, scoreView } from "../scoresModel";
 
 const weekdays: Record<string, string> = { monday: "一", tuesday: "二", wednesday: "三", thursday: "四", friday: "五", saturday: "六", sunday: "日" };
 
 function ActiveTasks({ plan, today, learning }: { plan: Revision; today: DayPlan; learning: LearningState }) {
   const [selectedDate, setSelectedDate] = useState(today.date);
+  const [registration, setRegistration] = useState<{ blockId: string; skill: DayPlan['blocks'][number]['skill']; date: string } | null>(null);
+  const registrationRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { if (registration) registrationRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' }); }, [registration]);
   const dates = editableDates(today.date, String(plan.payload.startDate));
   const date = dates.includes(selectedDate) ? selectedDate : today.date;
-  const dayPlan = useMemo(() => date === today.date ? today : buildDayPlan(bundledRules, plan.payload, date, selectLatestBaseline(learning.records, plan.id)), [date, today, plan, learning.records]);
+  const dayPlan = useMemo(() => date === today.date ? today : buildDayPlan(bundledRules, plan.payload, date, selectLatestBaseline(learning.records, plan.id), { scores: scoreView(latestAssessment(learning.records, plan.id)?.payload ?? {}).effectiveScores }), [date, today, plan, learning.records]);
+  const registrationBlock = registration?.date === date ? dayPlan.blocks.find(block => block.id === registration.blockId) : undefined;
   const completion = dayCompletion(learning.records, plan.id, date);
   const streak = missionStreak(learning.records, plan.id, today.date);
   return <div className="study365-tasks">
     <label className="field"><span>今日与补记<small>可以补记前7天的状态和用时，不改首答与成绩。</small></span>
-      <select aria-label="查看学习日期" value={date} onChange={event => setSelectedDate(event.target.value)}>
+      <select aria-label="查看学习日期" value={date} onChange={event => { setSelectedDate(event.target.value); setRegistration(null); }}>
         {dates.map(value => <option key={value} value={value}>{value}{value === today.date ? " · 今天" : " · 补记"}</option>)}
       </select>
     </label>
@@ -28,7 +34,9 @@ function ActiveTasks({ plan, today, learning }: { plan: Revision; today: DayPlan
     <progress aria-label="当天完成度" max={completion.totalMinutes} value={completion.completedMinutes} />
     <p className="muted">实际用时 {completion.actualMinutes} 分钟 · 连续达成80%：{streak}天</p>
     {dayPlan.blocks.map((block, index) => <MissionCard key={`${learning.userId ?? "guest"}:${plan.id}:${date}:${block.id}`} plan={plan} dayPlan={dayPlan} block={block} index={index} userId={learning.userId}
-      mission={selectMission(learning.records, plan.id, date, missionTaskId(dayPlan.day, block.id))} />)}
+      mission={selectMission(learning.records, plan.id, date, missionTaskId(dayPlan.day, block.id))} onRegister={skill => setRegistration({ blockId: block.id, skill, date })} />)}
+    {registrationBlock && registration && <div ref={registrationRef}><TaskRegistration key={`${learning.userId ?? 'guest'}:${plan.id}:${date}:${registrationBlock.id}:${registration.skill}`} plan={plan} dayPlan={dayPlan} block={registrationBlock} selectedSkill={registration.skill}
+      mission={selectMission(learning.records, plan.id, date, missionTaskId(dayPlan.day, registrationBlock.id))} onClose={() => setRegistration(null)} /></div>}
   </div>;
 }
 

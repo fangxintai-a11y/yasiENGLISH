@@ -3,6 +3,7 @@ import { bundledRules } from "./planData";
 import { buildDayPlan, selectLatestBaseline, todayInTimeZone, type DayPlan } from "./planEngine";
 import { selectActivePlan } from "./planRecords";
 import { useLearning } from "./repository";
+import { latestAssessment, scoreView } from "./scoresModel";
 
 /** Repository state already belongs to exactly one current account or guest. */
 export function useActivePlan() {
@@ -20,7 +21,8 @@ export function useActivePlan() {
     try {
       const baseline = selectLatestBaseline(learning.records, plan.id);
       const today = todayInTimeZone(now, String(plan.payload.timeZone));
-      return { dayPlan: buildDayPlan(bundledRules, plan.payload, today, baseline), error: null };
+      const scores = scoreView(latestAssessment(learning.records, plan.id)?.payload ?? {}).effectiveScores;
+      return { dayPlan: buildDayPlan(bundledRules, plan.payload, today, baseline, { scores }), error: null };
     } catch (error) {
       return { dayPlan: null, error: `暂时无法显示此计划：${error instanceof Error ? error.message : "请检查计划日期与时区。"}历史记录已保留。` };
     }

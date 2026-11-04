@@ -7,7 +7,7 @@ import { taskTitle } from "../taskGuides";
 const skills = { listening: "听力", reading: "阅读", writing: "写作", speaking: "口语" };
 
 export function MissionCard({ plan, dayPlan, block, mission, userId, index, onRegister }: {
-  plan: Revision; dayPlan: DayPlan; block: DayBlock; mission?: Revision; userId: string | null; index: number; onRegister?: () => void;
+  plan: Revision; dayPlan: DayPlan; block: DayBlock; mission?: Revision; userId: string | null; index: number; onRegister?: (skill: DayBlock['skill']) => void;
 }) {
   const [actual, setActual] = useState(String(mission?.payload.actualMinutes ?? 0));
   const [skill, setSkill] = useState(block.skill);
@@ -48,7 +48,7 @@ export function MissionCard({ plan, dayPlan, block, mission, userId, index, onRe
       {!material.materials.length && !material.externalReferences.length && <p>外部材料：请使用合法取得、适合当天任务的练习材料。</p>}
     </details>}
     <p>{block.route ? <a className="btn btn-ghost" href={block.route}>进入词汇学习</a> :
-      <button type="button" className="btn btn-ghost" onClick={() => onRegister ? onRegister() : input.current?.focus()}>外部完成后登记</button>}</p>
+      <button type="button" className="btn btn-ghost" onClick={() => onRegister ? onRegister(skill) : input.current?.focus()}>外部完成后登记</button>}</p>
     {["timed-section", "weak-skill"].includes(block.id) && <label className="field"><span>练习科目</span>
       <select aria-label={`${title}练习科目`} disabled={busy} value={skill ?? "writing"} onChange={event => setSkill(event.target.value as keyof typeof skills)}>
         {Object.entries(skills).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
