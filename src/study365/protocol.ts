@@ -1,4 +1,5 @@
 /** Independent learning records. Never add these fields to the vocabulary snapshot. */
+import { WRITING_ERROR_CAUSES, writingChecklistIds } from "./writingChecklist";
 export const LEARNING_KINDS = ["plan", "mission", "attempt", "essay", "speaking", "feedback", "assessment"] as const;
 export type LearningKind = (typeof LEARNING_KINDS)[number];
 export type LearningPayload = Record<string, unknown>;
@@ -60,9 +61,9 @@ const fields: Record<LearningKind, readonly string[]> = {
   plan: ["startDate", "timeZone", "curriculumVersion", "studyBudgetMinutes", "targetBand", "sectionTargets", "enabled", "syllabusUnit", "materialLevel", "title", "pauseIntervals"],
   mission: ["date", "day", "taskId", "missionId", "skill", "status", "plannedMinutes", "actualMinutes", "timeSource"],
   attempt: ["date", "day", "taskId", "contentId", "contentVersion", "skill", "answers", "correct", "score", "total", "actualMinutes", "elapsedSeconds", "conditions", "replayed", "viewedTranscript", "firstAttempt", "isCheckpoint", "note", "questionResults"],
-  essay: ["date", "day", "taskId", "contentId", "contentVersion", "prompt", "text", "wordCount", "parentRevisionId", "taskType"],
+  essay: ["date", "day", "taskId", "contentId", "contentVersion", "prompt", "text", "wordCount", "parentRevisionId", "taskType", "scope", "stage", "elapsedSeconds", "conditions", "sourceRef"],
   speaking: ["date", "day", "taskId", "contentId", "contentVersion", "prompt", "transcript", "durationSeconds", "recordingId", "recordingDevice", "parentRevisionId"],
-  feedback: ["workId", "workRevisionId", "inputHash", "rubricVersion", "source", "sourceText", "assessedAt", "text", "bands", "taskType"],
+  feedback: ["workId", "workRevisionId", "inputHash", "rubricVersion", "source", "sourceText", "assessedAt", "text", "bands", "taskType", "errorCauses", "spellingCheck", "checklist"],
   assessment: ["date", "day", "kind", "source", "materialId", "score", "total", "bands", "scores", "conditions", "note", "notes", "gateId", "targets", "consecutiveIndex", "scoreSources", "weekIndex", "workId", "workRevisionId", "inputHash", "taskType", "selfBands", "machineBands", "machineSource"],
 };
 const sensitive = /^(?:apikey|aikey|token|accesstoken|refreshtoken|password|secret|authorization|cookie)$/;
@@ -74,22 +75,22 @@ export const isRevisionId = (v: unknown): v is string => typeof v === "string" &
 export const isObject = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
 const validDate = (value: unknown): value is string => typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(`${value}T00:00:00Z`)) && new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) === value;
 
-function safe(value: unknown, depth = 0): void {
+function safe(value: unknown, depth = 0, path = ""): void {
   if (depth > 6) throw new Error("学习记录嵌套过深。");
   if (typeof value === "string") {
     if (value.length > 20000 || secret.test(value)) throw new Error("学习文本过长或包含凭据，未保存。");
   } else if (typeof value === "number") {
     if (!Number.isFinite(value)) throw new Error("学习记录包含无效数字。");
   } else if (Array.isArray(value)) {
-    if (value.length > 300) throw new Error("学习记录条目过多。");
-    value.forEach((item) => safe(item, depth + 1));
+    if (value.length > (path === "spellingCheck.items" ? 20000 : 300)) throw new Error("学习记录条目过多。");
+    value.forEach((item) => safe(item, depth + 1, `${path}[]`));
   } else if (isObject(value)) {
     if (Object.keys(value).length > 300) throw new Error("学习记录字段过多。");
     for (const [key, item] of Object.entries(value)) {
       const normalized = key.toLowerCase().replace(/[^a-z]/g, "");
       if (sensitive.test(normalized) || normalized.includes("apikey") || ["__proto__", "constructor", "prototype"].includes(key))
         throw new Error("学习记录不能包含密码或 API Key。");
-      safe(item, depth + 1);
+      safe(item, depth + 1, path ? `${path}.${key}` : key);
     }
   } else if (value !== null && typeof value !== "boolean") throw new Error("学习记录包含不支持的数据。");
 }
@@ -103,7 +104,7 @@ function validate(kind: LearningKind, payload: LearningPayload, deleted = false,
     return;
   }
   if ((payload.datasetId !== undefined && payload.datasetId !== null && !isIdentifier(payload.datasetId)) || !isIdentifier(payload.planId)) throw new Error("学习记录缺少计划标识或来源词库无效。");
-  const textLimits: Record<string, number> = { prompt: 8000, note: 4000, notes: 4000, sourceText: 1000, title: 300, source: 200, rubricVersion: 120, recordingDevice: 200, contentVersion: 120, materialLevel: 80, timeZone: 80, curriculumVersion: 120, kind: 80, timeSource: 40, status: 40, skill: 40, taskType: 20, gateId: 20, machineSource: 20 };
+  const textLimits: Record<string, number> = { prompt: 8000, note: 4000, notes: 4000, sourceText: 1000, sourceRef: 300, title: 300, source: 200, rubricVersion: 120, recordingDevice: 200, contentVersion: 120, materialLevel: 80, timeZone: 80, curriculumVersion: 120, kind: 80, timeSource: 40, status: 40, skill: 40, taskType: 20, gateId: 20, machineSource: 20 };
   const nullable = new Set(["datasetId", "parentRevisionId", "recordingId", "recordingDevice", "assessedAt", ...(legacy ? ["sectionMinimum"] : [])]);
   for (const [key, value] of Object.entries(payload)) {
     if (value === null && nullable.has(key)) continue;
@@ -120,7 +121,7 @@ function validate(kind: LearningKind, payload: LearningPayload, deleted = false,
     if (key === "timeZone") { try { new Intl.DateTimeFormat("en", { timeZone: String(value) }); } catch { throw new Error("计划时区无效。"); } }
     if (key === "answers" && (!Array.isArray(value) || value.some((a) => a !== null && typeof a !== "string" && typeof a !== "number"))) throw new Error("作答格式不正确。");
     if (key === "conditions") {
-      if (typeof value === "string" ? value.length > 2000 : !isObject(value) || Object.entries(value).some(([k, v]) => k === "replays" ? !Number.isInteger(v) || Number(v) < 0 || Number(v) > 1000 : !["transcriptViewed", "replayed", "viewedTranscript", "firstAttempt", "unseen", "timed"].includes(k) || typeof v !== "boolean")) throw new Error("作答条件格式不正确。");
+      if (kind === "essay" ? !isObject(value) || Object.entries(value).some(([key, item]) => !["timed", "firstAttempt", "unseen"].includes(key) || typeof item !== "boolean") : typeof value === "string" ? value.length > 2000 : !isObject(value) || Object.entries(value).some(([k, v]) => k === "replays" ? !Number.isInteger(v) || Number(v) < 0 || Number(v) > 1000 : !["transcriptViewed", "replayed", "viewedTranscript", "firstAttempt", "unseen", "timed"].includes(k) || typeof v !== "boolean")) throw new Error("作答条件格式不正确。");
     }
     if (["bands", "scores", "selfBands", "machineBands"].includes(key)) validateBands(value, legacy);
     if (key === "pauseIntervals" && (!Array.isArray(value) || value.some((v) => !isObject(v) || Object.keys(v).sort().join() !== "end,start" || !validDate(v.start) || !validDate(v.end) || v.end < v.start))) throw new Error("暂停日期格式不正确。");
@@ -134,11 +135,14 @@ function validate(kind: LearningKind, payload: LearningPayload, deleted = false,
   if (kind === "plan" && legacy && (typeof payload.studyBudgetMinutes !== "number" || ![120, 150, 180].includes(payload.studyBudgetMinutes))) throw new Error("历史计划时间预算无效。");
   if (kind === "essay" && typeof payload.text !== "string") throw new Error("作文缺少正文。");
   if (kind === "essay" && !legacy && !["task1", "task2"].includes(String(payload.taskType))) throw new Error("作文必须明确 task1 或 task2。");
+  if (kind === "essay" && payload.scope !== undefined && payload.scope !== "full" && payload.scope !== "paragraph") throw new Error("作文练习范围无效。");
+  if (kind === "essay" && payload.stage !== undefined && payload.stage !== "draft" && payload.stage !== "submitted") throw new Error("作文保存阶段无效。");
   if (kind === "speaking" && typeof payload.transcript !== "string") throw new Error("口语记录缺少转写字段。");
   if (kind === "feedback" && (!isRevisionId(payload.workRevisionId) || typeof payload.inputHash !== "string" || typeof payload.text !== "string" || typeof payload.source !== "string")) throw new Error("反馈缺少原稿引用或来源。");
   if (kind === "mission" && (!isIdentifier(payload.taskId ?? payload.missionId) || !["not_started", "in_progress", "completed", "partial", "minimum", "skipped"].includes(String(payload.status)))) throw new Error("任务标识或状态不正确。");
   if (kind === "attempt" && (!isIdentifier(payload.contentId) || !Array.isArray(payload.answers) || typeof payload.skill !== "string")) throw new Error("练习缺少材料或作答。");
   if (typeof payload.correct === "number" && typeof payload.total === "number" && payload.correct > payload.total) throw new Error("正确数不能超过总题数。");
+  if (kind === "feedback") validateWritingFeedback(payload);
   if (legacy) return;
   if ((kind === "feedback" || kind === "assessment") && !SCORE_SOURCES.includes(payload.source as typeof SCORE_SOURCES[number])) throw new Error("评分来源必须为 self、rules、ai、human 或 official。");
   if (payload.taskType !== undefined && !["task1", "task2"].includes(String(payload.taskType))) throw new Error("作文任务类型无效。");
@@ -158,6 +162,47 @@ function validate(kind: LearningKind, payload: LearningPayload, deleted = false,
     }
   }
   if (kind === "assessment") validateAssessment(payload);
+}
+
+const writingFeedbackFields = ["errorCauses", "spellingCheck", "checklist"] as const;
+function validateWritingFeedback(payload: LearningPayload): void {
+  if (!writingFeedbackFields.some((key) => Object.hasOwn(payload, key))) return;
+  if (payload.taskType !== "task1" && payload.taskType !== "task2") throw new Error("写作自查必须明确任务类型。");
+  if (payload.errorCauses !== undefined) {
+    const causes = payload.errorCauses;
+    if (!Array.isArray(causes) || causes.some((cause) => !WRITING_ERROR_CAUSES.includes(cause))) throw new Error("写作错因必须使用适用的枚举编码。");
+    if (new Set(causes).size !== causes.length) throw new Error("写作错因不能重复。");
+    if (payload.taskType === "task1" && causes.includes("task-response")) throw new Error("Task 1不能使用 task-response 错因。");
+    if (payload.taskType === "task2" && causes.includes("task-achievement")) throw new Error("Task 2不能使用 task-achievement 错因。");
+    if (causes.includes("other") && (typeof payload.text !== "string" || !payload.text.trim())) throw new Error("其他错因必须在反馈正文填写说明。");
+  }
+  if (payload.spellingCheck !== undefined) {
+    const check = payload.spellingCheck;
+    if (!isObject(check) || Object.keys(check).sort().join() !== "count,items,status" || check.status !== "unchecked" && check.status !== "checked" || !Array.isArray(check.items)) throw new Error("拼写检查格式无效。");
+    const positions = new Set<string>();
+    for (const item of check.items) {
+      if (!isObject(item) || Object.keys(item).sort().join() !== "confirmed,end,start,text" || !Number.isSafeInteger(item.start) || Number(item.start) < 0 || !Number.isSafeInteger(item.end) || Number(item.end) <= Number(item.start) || typeof item.text !== "string" || !item.text.length || typeof item.confirmed !== "boolean") throw new Error("拼写位置或片段格式无效。");
+      const key = `${item.start}:${item.end}`;
+      if (positions.has(key)) throw new Error("拼写位置不能重复。");
+      positions.add(key);
+    }
+    if (check.status === "unchecked" ? check.count !== null : typeof check.count !== "number" || !Number.isInteger(check.count) || check.count < 0 || check.count !== check.items.filter((item) => item.confirmed).length) throw new Error("拼写检查数量必须匹配确认条数；未检查时为空。");
+  }
+  if (payload.checklist !== undefined && (!isObject(payload.checklist) || Object.entries(payload.checklist).some(([key, value]) => !writingChecklistIds(payload.taskType as "task1" | "task2").includes(key) || value !== null && typeof value !== "boolean"))) throw new Error("自查清单条目或状态无效。");
+}
+
+/** UTF-16 offsets follow textarea selection/slice; never normalize the source. */
+export function validateWritingFeedbackReference(feedback: LearningPayload, work: LearningPayload): void {
+  validateWritingFeedback(feedback);
+  if (!writingFeedbackFields.some((key) => Object.hasOwn(feedback, key))) return;
+  if (typeof work.text !== "string" || (work.taskType !== "task1" && work.taskType !== "task2") || feedback.taskType !== work.taskType) throw new Error("写作自查任务类型与原稿不匹配。");
+  if (!isObject(feedback.spellingCheck) || !Array.isArray(feedback.spellingCheck.items)) return;
+  const text = work.text;
+  const boundary = (index: number) => !(index > 0 && index < text.length && /[\uD800-\uDBFF]/.test(text[index - 1]) && /[\uDC00-\uDFFF]/.test(text[index]));
+  for (const item of feedback.spellingCheck.items) {
+    const start = Number(item.start), end = Number(item.end);
+    if (end > text.length || !boundary(start) || !boundary(end) || text.slice(start, end) !== item.text) throw new Error("拼写片段与原稿不一致。");
+  }
 }
 
 function sameNumbers(value: unknown, expected: Record<string, number>): boolean {
@@ -206,6 +251,7 @@ export function validatePayload(kind: LearningKind, payload: LearningPayload, de
 export function validateStoredPayload(kind: LearningKind, payload: LearningPayload, deleted = false): void { validate(kind, payload, deleted, true); }
 /** Business-only projection. Never replace a raw revision/outbox body with this view. */
 export function projectLearningPayload(kind: LearningKind, payload: LearningPayload): LearningPayload {
+  if (kind === "essay") return { ...payload, scope: payload.scope === undefined ? "full" : payload.scope, stage: payload.stage === undefined ? "submitted" : payload.stage };
   if (kind !== "plan") return { ...payload };
   const { sectionMinimum: _legacyMinimum, ...rest } = payload;
   return { ...rest, targetBand: 8, sectionTargets: { ...SECTION_TARGETS }, studyBudgetMinutes: 120 };

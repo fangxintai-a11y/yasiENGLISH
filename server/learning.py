@@ -34,18 +34,25 @@ GATE_TARGETS = {
 }
 SCORE_SOURCES = frozenset(("self", "rules", "ai", "human", "official"))
 ERROR_CAUSES = frozenset(("synonym-miss", "locating-error", "spelling", "time-pressure", "word-limit", "vocab-unknown", "misread-question", "tfng-inference", "grammar", "lexical-misuse", "coherence", "task-response", "task-achievement", "fluency-pause", "pronunciation", "other"))
+WRITING_ERROR_CAUSES = frozenset(("task-achievement", "task-response", "coherence", "lexical-misuse", "grammar", "spelling", "word-limit", "time-pressure", "misread-question", "vocab-unknown", "other"))
+_WRITING_SHARED_CHECKS = {"coherence-organisation", "coherence-progression", "coherence-cohesion", "lexical-precision", "lexical-range", "lexical-collocation", "grammar-range", "grammar-accuracy", "grammar-punctuation"}
+WRITING_CHECKLIST_IDS = {
+    "task1": _WRITING_SHARED_CHECKS | {"task-achievement-coverage", "task-achievement-accuracy", "task-achievement-relevance", "task1-overview", "task1-comparison", "task1-no-opinion"},
+    "task2": _WRITING_SHARED_CHECKS | {"task-response-answer", "task-response-position", "task-response-support"},
+}
+WRITING_FEEDBACK_FIELDS = {"errorCauses", "spellingCheck", "checklist"}
 FIELDS = {
     "plan": {"startDate", "timeZone", "curriculumVersion", "studyBudgetMinutes", "targetBand", "sectionTargets", "enabled", "syllabusUnit", "materialLevel", "title", "pauseIntervals"},
     "mission": {"date", "day", "taskId", "missionId", "skill", "status", "plannedMinutes", "actualMinutes", "timeSource"},
     "attempt": {"date", "day", "taskId", "contentId", "contentVersion", "skill", "answers", "correct", "score", "total", "actualMinutes", "elapsedSeconds", "conditions", "replayed", "viewedTranscript", "firstAttempt", "isCheckpoint", "note", "questionResults"},
-    "essay": {"date", "day", "taskId", "contentId", "contentVersion", "prompt", "text", "wordCount", "parentRevisionId", "taskType"},
+    "essay": {"date", "day", "taskId", "contentId", "contentVersion", "prompt", "text", "wordCount", "parentRevisionId", "taskType", "scope", "stage", "elapsedSeconds", "conditions", "sourceRef"},
     "speaking": {"date", "day", "taskId", "contentId", "contentVersion", "prompt", "transcript", "durationSeconds", "recordingId", "recordingDevice", "parentRevisionId"},
-    "feedback": {"workId", "workRevisionId", "inputHash", "rubricVersion", "source", "sourceText", "assessedAt", "text", "bands", "taskType"},
+    "feedback": {"workId", "workRevisionId", "inputHash", "rubricVersion", "source", "sourceText", "assessedAt", "text", "bands", "taskType", "errorCauses", "spellingCheck", "checklist"},
     "assessment": {"date", "day", "kind", "source", "materialId", "score", "total", "bands", "scores", "conditions", "note", "notes", "gateId", "targets", "consecutiveIndex", "scoreSources", "weekIndex", "workId", "workRevisionId", "inputHash", "taskType", "selfBands", "machineBands", "machineSource"},
 }
 STRING_LIMITS = {
     "text": 20000, "transcript": 20000, "prompt": 8000, "note": 4000, "notes": 4000,
-    "sourceText": 1000, "title": 300, "source": 200, "rubricVersion": 120,
+    "sourceText": 1000, "sourceRef": 300, "title": 300, "source": 200, "rubricVersion": 120,
     "recordingDevice": 200, "contentVersion": 120, "materialLevel": 80,
     "timeZone": 80, "curriculumVersion": 120, "conditions": 2000,
     "kind": 80, "timeSource": 40, "status": 40, "skill": 40,
@@ -96,7 +103,7 @@ def valid_date(value):
         return False
 
 
-def safe_structure(value, depth=0):
+def safe_structure(value, depth=0, path=""):
     if depth > 6:
         reject("学习记录嵌套过深。")
     if isinstance(value, dict):
@@ -108,12 +115,12 @@ def safe_structure(value, depth=0):
             normalized = re.sub(r"[^a-z]", "", key.lower())
             if normalized in SENSITIVE or "apikey" in normalized or key in {"__proto__", "constructor", "prototype"}:
                 reject("学习记录不能包含密码或 API Key。")
-            safe_structure(item, depth + 1)
+            safe_structure(item, depth + 1, f"{path}.{key}" if path else key)
     elif isinstance(value, list):
-        if len(value) > 300:
+        if len(value) > (20000 if path == "spellingCheck.items" else 300):
             reject("学习记录条目过多。")
         for item in value:
-            safe_structure(item, depth + 1)
+            safe_structure(item, depth + 1, f"{path}[]")
     elif isinstance(value, str):
         if len(value) > 20000 or SECRET.search(value) or any(0xD800 <= ord(char) <= 0xDFFF for char in value):
             reject("学习文本过长或包含凭据。")
@@ -132,6 +139,12 @@ def validate_payload(kind, payload, record_id, deleted=False):
             reject("删除记录时请使用空内容。")
         return payload
     for key, value in payload.items():
+        if key == "sourceRef" and isinstance(value, str) and len(value.encode("utf-16-le")) // 2 > 300:
+            reject("学习文本格式或长度不正确。")
+        if kind == "essay" and key == "conditions":
+            if not isinstance(value, dict) or set(value) - {"timed", "firstAttempt", "unseen"} or any(not isinstance(item, bool) for item in value.values()):
+                reject("作答条件格式不正确。")
+            continue
         if value is None and key in {"datasetId", "parentRevisionId", "recordingId", "recordingDevice", "assessedAt"}:
             continue
         if key in STRING_LIMITS:
@@ -167,7 +180,7 @@ def validate_payload(kind, payload, record_id, deleted=False):
                 reject()
         elif key in {"durationSeconds", "elapsedSeconds"}:
             if not number(value, 0, 86400):
-                reject()
+                reject("学习记录数值超出范围。" if kind == "essay" else "学习记录格式不正确。")
         elif key in {"wordCount", "correct", "score", "total"}:
             if not number(value, 0, 100000):
                 reject()
@@ -212,10 +225,16 @@ def validate_payload(kind, payload, record_id, deleted=False):
         reject("作文缺少正文。")
     if kind == "essay" and payload.get("taskType") not in {"task1", "task2"}:
         reject("作文必须明确 task1 或 task2。")
+    if kind == "essay" and "scope" in payload and payload["scope"] not in ("full", "paragraph"):
+        reject("作文练习范围无效。")
+    if kind == "essay" and "stage" in payload and payload["stage"] not in ("draft", "submitted"):
+        reject("作文保存阶段无效。")
     if kind == "speaking" and not isinstance(payload.get("transcript"), str):
         reject("口语记录缺少转写字段。")
     if kind == "feedback" and not {"workRevisionId", "inputHash", "source", "text"}.issubset(payload):
         reject("反馈缺少原稿引用或来源。")
+    if kind == "feedback":
+        validate_writing_feedback(payload)
     if "correct" in payload and "total" in payload and payload["correct"] > payload["total"]:
         reject("正确数不能超过总题数。")
     if kind in {"feedback", "assessment"}:
@@ -247,6 +266,63 @@ def validate_payload(kind, payload, record_id, deleted=False):
     if kind == "assessment":
         validate_assessment(payload)
     return payload
+
+
+def validate_writing_feedback(payload):
+    if not WRITING_FEEDBACK_FIELDS.intersection(payload):
+        return
+    task_type = payload.get("taskType")
+    if not isinstance(task_type, str) or task_type not in WRITING_CHECKLIST_IDS:
+        reject("写作自查必须明确任务类型。")
+    if "errorCauses" in payload:
+        causes = payload["errorCauses"]
+        if not isinstance(causes, list) or any(not isinstance(cause, str) or cause not in WRITING_ERROR_CAUSES for cause in causes):
+            reject("写作错因必须使用适用的枚举编码。")
+        if len(set(causes)) != len(causes):
+            reject("写作错因不能重复。")
+        if task_type == "task1" and "task-response" in causes:
+            reject("Task 1不能使用 task-response 错因。")
+        if task_type == "task2" and "task-achievement" in causes:
+            reject("Task 2不能使用 task-achievement 错因。")
+        if "other" in causes and (not isinstance(payload.get("text"), str) or not payload["text"].strip()):
+            reject("其他错因必须在反馈正文填写说明。")
+    if "spellingCheck" in payload:
+        check = payload["spellingCheck"]
+        if not isinstance(check, dict) or set(check) != {"status", "count", "items"} or check["status"] not in ("unchecked", "checked") or not isinstance(check["items"], list):
+            reject("拼写检查格式无效。")
+        positions = set()
+        for item in check["items"]:
+            if not isinstance(item, dict) or set(item) != {"start", "end", "text", "confirmed"} or not number(item["start"], 0, 2**53-1) or int(item["start"]) != item["start"] or not number(item["end"], 0, 2**53-1) or int(item["end"]) != item["end"] or item["end"] <= item["start"] or not isinstance(item["text"], str) or not item["text"] or not isinstance(item["confirmed"], bool):
+                reject("拼写位置或片段格式无效。")
+            key = (item["start"], item["end"])
+            if key in positions:
+                reject("拼写位置不能重复。")
+            positions.add(key)
+        count = check["count"]
+        if (check["status"] == "unchecked" and count is not None) or (check["status"] == "checked" and (not number(count, 0, 2**53-1) or int(count) != count or count != sum(item["confirmed"] for item in check["items"]))):
+            reject("拼写检查数量必须匹配确认条数；未检查时为空。")
+    if "checklist" in payload:
+        checklist = payload["checklist"]
+        if not isinstance(checklist, dict) or any(key not in WRITING_CHECKLIST_IDS[task_type] or value is not None and not isinstance(value, bool) for key, value in checklist.items()):
+            reject("自查清单条目或状态无效。")
+
+
+def validate_writing_feedback_reference(feedback, work):
+    validate_writing_feedback(feedback)
+    if not WRITING_FEEDBACK_FIELDS.intersection(feedback):
+        return
+    if not isinstance(work.get("text"), str) or work.get("taskType") not in ("task1", "task2") or feedback.get("taskType") != work["taskType"]:
+        reject("写作自查任务类型与原稿不匹配。")
+    # Browser textarea selections use UTF-16 code units; stored/hash text stays UTF-8.
+    original = work["text"].encode("utf-16-le")
+    for item in feedback.get("spellingCheck", {}).get("items", []):
+        start, end = int(item["start"])*2, int(item["end"])*2
+        try:
+            actual = original[start:end].decode("utf-16-le")
+        except UnicodeDecodeError:
+            reject("拼写片段与原稿不一致。")
+        if end > len(original) or actual != item["text"]:
+            reject("拼写片段与原稿不一致。")
 
 
 def same_numbers(value, expected):
@@ -462,6 +538,10 @@ class LearningStore:
                     if ("inputHash" in payload and payload["inputHash"] != row["content_hash"]) or (payload.get("workId") and payload["workId"] != row["record_id"]):
                         reject("反馈与原稿版本不匹配。")
                     work = json.loads(row["payload"])
+                    if kind == "feedback" and WRITING_FEEDBACK_FIELDS.intersection(payload):
+                        if row["kind"] != "essay":
+                            reject("写作自查必须引用作文原稿。")
+                        validate_writing_feedback_reference(payload, work)
                     if row["kind"] == "essay" and work.get("taskType"):
                         if payload.get("taskType") != work["taskType"] and any(field in payload for field in ("bands", "selfBands", "machineBands")):
                             reject("反馈作文类型与原稿不匹配。")

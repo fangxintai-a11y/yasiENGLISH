@@ -1,0 +1,2644 @@
+{
+  "fixtureVersion": 2,
+  "purpose": "synthetic-r2-writing-wire-examples-not-user-learning-records",
+  "records": [
+    {
+      "recordId": "r2-plan",
+      "request": {
+        "schemaVersion": 2,
+        "revisionId": "62000000-0000-4000-8000-000000000001",
+        "mutationId": "63000000-0000-4000-8000-000000000001",
+        "baseRevision": null,
+        "kind": "plan",
+        "payload": {
+          "planId": "r2-plan",
+          "startDate": "2026-11-09",
+          "timeZone": "Asia/Shanghai",
+          "studyBudgetMinutes": 120,
+          "targetBand": 8,
+          "sectionTargets": {
+            "listening": 8.5,
+            "reading": 8.5,
+            "writing": 7.5,
+            "speaking": 7.5
+          },
+          "enabled": true,
+          "curriculumVersion": "2.0.0"
+        }
+      },
+      "expectedContentHash": "d3964f17b5a9522a095d086933d099dd792ca74504340b247c9a8e4d0dcca363"
+    },
+    {
+      "recordId": "r2-essay-legacy",
+      "request": {
+        "schemaVersion": 2,
+        "revisionId": "62000000-0000-4000-8000-000000000002",
+        "mutationId": "63000000-0000-4000-8000-000000000002",
+        "baseRevision": null,
+        "kind": "essay",
+        "payload": {
+          "planId": "r2-plan",
+          "taskType": "task2",
+          "text": "  A legacy draft remains exactly as stored.\n"
+        }
+      },
+      "expectedContentHash": "5e03564224e505bee6a17331fbf75475cf2ce95b7eedc49c85343b9aa3498fd5"
+    },
+    {
+      "recordId": "r2-essay-task1",
+      "request": {
+        "schemaVersion": 2,
+        "revisionId": "62000000-0000-4000-8000-000000000003",
+        "mutationId": "63000000-0000-4000-8000-000000000003",
+        "baseRevision": null,
+        "kind": "essay",
+        "payload": {
+          "planId": "r2-plan",
+          "date": "2026-11-12",
+          "taskType": "task1",
+          "text": "The table shows travel patterns in a fictional town.\nOverall, buses gained users while car use declined.",
+          "scope": "full",
+          "stage": "submitted",
+          "elapsedSeconds": 1200,
+          "conditions": {
+            "timed": true,
+            "firstAttempt": true,
+            "unseen": true
+          },
+          "sourceRef": "Self-authored synthetic table; no examination material."
+        }
+      },
+      "expectedContentHash": "84dcaeaf77d2b7fc8eab0837cc692bc551c82c8632c48b93cc65145815378a52"
+    },
+    {
+      "recordId": "r2-essay-task2",
+      "request": {
+        "schemaVersion": 2,
+        "revisionId": "62000000-0000-4000-8000-000000000004",
+        "mutationId": "63000000-0000-4000-8000-000000000004",
+        "baseRevision": null,
+        "kind": "essay",
+        "payload": {
+          "planId": "r2-plan",
+          "date": "2026-11-12",
+          "taskType": "task2",
+          "text": "A paragraph checkpoint before submission.",
+          "scope": "paragraph",
+          "stage": "draft",
+          "elapsedSeconds": 333,
+          "conditions": {
+            "timed": false,
+            "firstAttempt": false,
+            "unseen": true
+          },
+          "sourceRef": "Self-authored synthetic question."
+        }
+      },
+      "expectedContentHash": "bf679f9de2ba467eb83a38d42bea7eb5200ce5a33a52add76d24455e1910a37d"
+    },
+    {
+      "recordId": "r2-essay-task2",
+      "request": {
+        "schemaVersion": 2,
+        "revisionId": "62000000-0000-4000-8000-000000000005",
+        "mutationId": "63000000-0000-4000-8000-000000000005",
+        "baseRevision": "62000000-0000-4000-8000-000000000004",
+        "kind": "essay",
+        "payload": {
+          "planId": "r2-plan",
+          "date": "2026-11-12",
+          "taskType": "task2",
+          "text": "  📝 The enviroment needs careful protection.\r\nA second paragraph stays unchanged.  ",
+          "scope": "full",
+          "stage": "submitted",
+          "elapsedSeconds": 2400,
+          "conditions": {
+            "timed": true,
+            "firstAttempt": true,
+            "unseen": true
+          },
+          "sourceRef": "Self-authored synthetic question."
+        }
+      },
+      "expectedContentHash": "1f11ef5eec3fb7159be35a2ed3b794bc451e16e0d9e30214b669a57c483da5fb"
+    },
+    {
+      "recordId": "r2-essay-revision",
+      "request": {
+        "schemaVersion": 2,
+        "revisionId": "62000000-0000-4000-8000-000000000006",
+        "mutationId": "63000000-0000-4000-8000-000000000006",
+        "baseRevision": null,
+        "kind": "essay",
+        "payload": {
+          "planId": "r2-plan",
+          "date": "2026-11-13",
+          "taskType": "task2",
+          "text": "  📝 The environment needs careful protection.\r\nA second paragraph stays unchanged.  ",
+          "parentRevisionId": "62000000-0000-4000-8000-000000000005",
+          "scope": "full",
+          "stage": "submitted",
+          "elapsedSeconds": 1100,
+          "conditions": {
+            "timed": false,
+            "firstAttempt": false
+          }
+        }
+      },
+      "expectedContentHash": "f556028a31a8535f04c3e9bf40b241b111103fb353bd99e87ac8e8abc2eff247"
+    },
+    {
+      "recordId": "r2-feedback-unchecked",
+      "request": {
+        "schemaVersion": 2,
+        "revisionId": "62000000-0000-4000-8000-000000000007",
+        "mutationId": "63000000-0000-4000-8000-000000000007",
+        "baseRevision": null,
+        "kind": "feedback",
+        "payload": {
+          "planId": "r2-plan",
+          "workId": "r2-essay-task2",
+          "workRevisionId": "62000000-0000-4000-8000-000000000005",
+          "inputHash": "1f11ef5eec3fb7159be35a2ed3b794bc451e16e0d9e30214b669a57c483da5fb",
+          "taskType": "task2",
+          "rubricVersion": "r2-self-check-1",
+          "source": "self",
+          "text": "Synthetic self-check evidence.",
+          "bands": {
+            "taskResponse": null,
+            "coherence": null,
+            "lexical": null,
+            "grammar": null
+          },
+          "errorCauses": [
+            "grammar"
+          ],
+          "spellingCheck": {
+            "status": "unchecked",
+            "count": null,
+            "items": []
+          },
+          "checklist": {
+            "task-response-answer": null,
+            "coherence-progression": false
+          }
+        }
+      },
+      "expectedContentHash": "bcf5da455bb3c92740ff6b38310e003a525ade3a44fa221586a1f0255958c2e8"
+    },
+    {
+      "recordId": "r2-feedback-checked",
+      "request": {
+        "schemaVersion": 2,
+        "revisionId": "62000000-0000-4000-8000-000000000008",
+        "mutationId": "63000000-0000-4000-8000-000000000008",
+        "baseRevision": null,
+        "kind": "feedback",
+        "payload": {
+          "planId": "r2-plan",
+          "workId": "r2-essay-task2",
+          "workRevisionId": "62000000-0000-4000-8000-000000000005",
+          "inputHash": "1f11ef5eec3fb7159be35a2ed3b794bc451e16e0d9e30214b669a57c483da5fb",
+          "taskType": "task2",
+          "rubricVersion": "r2-self-check-1",
+          "source": "self",
+          "text": "Synthetic self-check evidence.",
+          "bands": {
+            "taskResponse": null,
+            "coherence": null,
+            "lexical": null,
+            "grammar": null
+          },
+          "errorCauses": [
+            "spelling"
+          ],
+          "spellingCheck": {
+            "status": "checked",
+            "count": 1,
+            "items": [
+              {
+                "start": 9,
+                "end": 19,
+                "text": "enviroment",
+                "confirmed": true
+              }
+            ]
+          },
+          "checklist": {
+            "task-response-answer": true,
+            "lexical-precision": false
+          }
+        }
+      },
+      "expectedContentHash": "a6097d525b891d08e2300aeba1882a11727d1f609eb52b7f2abcfccea0c53195"
+    },
+    {
+      "recordId": "r2-feedback-cancelled",
+      "request": {
+        "schemaVersion": 2,
+        "revisionId": "62000000-0000-4000-8000-000000000009",
+        "mutationId": "63000000-0000-4000-8000-000000000009",
+        "baseRevision": null,
+        "kind": "feedback",
+        "payload": {
+          "planId": "r2-plan",
+          "workId": "r2-essay-task2",
+          "workRevisionId": "62000000-0000-4000-8000-000000000005",
+          "inputHash": "1f11ef5eec3fb7159be35a2ed3b794bc451e16e0d9e30214b669a57c483da5fb",
+          "taskType": "task2",
+          "rubricVersion": "r2-self-check-1",
+          "source": "self",
+          "text": "Synthetic self-check evidence.",
+          "bands": {
+            "taskResponse": null,
+            "coherence": null,
+            "lexical": null,
+            "grammar": null
+          },
+          "errorCauses": [],
+          "spellingCheck": {
+            "status": "checked",
+            "count": 0,
+            "items": [
+              {
+                "start": 9,
+                "end": 19,
+                "text": "enviroment",
+                "confirmed": false
+              }
+            ]
+          },
+          "checklist": {}
+        }
+      },
+      "expectedContentHash": "a916891784c439b019b217fd9818f17366d4155fa529d94ee3350a46a4cde04b"
+    },
+    {
+      "recordId": "r2-feedback-task1",
+      "request": {
+        "schemaVersion": 2,
+        "revisionId": "62000000-0000-4000-8000-000000000010",
+        "mutationId": "63000000-0000-4000-8000-000000000010",
+        "baseRevision": null,
+        "kind": "feedback",
+        "payload": {
+          "planId": "r2-plan",
+          "workId": "r2-essay-task1",
+          "workRevisionId": "62000000-0000-4000-8000-000000000003",
+          "inputHash": "84dcaeaf77d2b7fc8eab0837cc692bc551c82c8632c48b93cc65145815378a52",
+          "taskType": "task1",
+          "rubricVersion": "r2-self-check-1",
+          "source": "self",
+          "text": "Synthetic self-check evidence.",
+          "bands": {
+            "taskAchievement": null,
+            "coherence": null,
+            "lexical": null,
+            "grammar": null
+          },
+          "errorCauses": [
+            "task-achievement"
+          ],
+          "spellingCheck": {
+            "status": "checked",
+            "count": 0,
+            "items": []
+          },
+          "checklist": {
+            "task-achievement-coverage": true,
+            "task1-overview": true,
+            "task1-comparison": false,
+            "task1-no-opinion": null
+          }
+        }
+      },
+      "expectedContentHash": "c3d06df14a089c0f6230611b8675939276e5c0c865f9d430026d41de5d078647"
+    },
+    {
+      "recordId": "r2-feedback-other",
+      "request": {
+        "schemaVersion": 2,
+        "revisionId": "62000000-0000-4000-8000-000000000011",
+        "mutationId": "63000000-0000-4000-8000-000000000011",
+        "baseRevision": null,
+        "kind": "feedback",
+        "payload": {
+          "planId": "r2-plan",
+          "workId": "r2-essay-task2",
+          "workRevisionId": "62000000-0000-4000-8000-000000000005",
+          "inputHash": "1f11ef5eec3fb7159be35a2ed3b794bc451e16e0d9e30214b669a57c483da5fb",
+          "taskType": "task2",
+          "rubricVersion": "r2-self-check-1",
+          "source": "self",
+          "text": "其他错因：例证与题目范围不匹配。",
+          "bands": {
+            "taskResponse": null,
+            "coherence": null,
+            "lexical": null,
+            "grammar": null
+          },
+          "errorCauses": [
+            "other"
+          ]
+        }
+      },
+      "expectedContentHash": "215e94a472ac5f07d919a56fd431803c516ca5f863893ecda3ee76635e59ce1c"
+    },
+    {
+      "recordId": "r2-feedback-rules",
+      "request": {
+        "schemaVersion": 2,
+        "revisionId": "62000000-0000-4000-8000-000000000012",
+        "mutationId": "63000000-0000-4000-8000-000000000012",
+        "baseRevision": null,
+        "kind": "feedback",
+        "payload": {
+          "planId": "r2-plan",
+          "workId": "r2-essay-task2",
+          "workRevisionId": "62000000-0000-4000-8000-000000000005",
+          "inputHash": "1f11ef5eec3fb7159be35a2ed3b794bc451e16e0d9e30214b669a57c483da5fb",
+          "taskType": "task2",
+          "rubricVersion": "r2-self-check-1",
+          "source": "rules",
+          "text": "Local evidence only; every band remains null.",
+          "bands": {
+            "taskResponse": null,
+            "coherence": null,
+            "lexical": null,
+            "grammar": null
+          }
+        }
+      },
+      "expectedContentHash": "f751137693ab06780795631ea7608328883d83e3de80ccc2c4c6eb46be6161e6"
+    },
+    {
+      "recordId": "r2-weekly-human",
+      "request": {
+        "schemaVersion": 2,
+        "revisionId": "62000000-0000-4000-8000-000000000013",
+        "mutationId": "63000000-0000-4000-8000-000000000013",
+        "baseRevision": null,
+        "kind": "assessment",
+        "payload": {
+          "planId": "r2-plan",
+          "date": "2026-11-15",
+          "kind": "weekly-calibration",
+          "source": "human",
+          "weekIndex": 1,
+          "workId": "r2-essay-task2",
+          "workRevisionId": "62000000-0000-4000-8000-000000000005",
+          "inputHash": "1f11ef5eec3fb7159be35a2ed3b794bc451e16e0d9e30214b669a57c483da5fb",
+          "taskType": "task2",
+          "bands": {
+            "taskResponse": 7,
+            "coherence": 7.5,
+            "lexical": 7,
+            "grammar": 7
+          },
+          "note": "Synthetic per-work dimensions, not a writing section score."
+        }
+      },
+      "expectedContentHash": "588fee39c6cd8675aa9733ae34d4589d7f3626b75ecb3fa9ae9582e361ede91a"
+    },
+    {
+      "recordId": "r2-essay-301",
+      "request": {
+        "schemaVersion": 2,
+        "revisionId": "62000000-0000-4000-8000-000000000014",
+        "mutationId": "63000000-0000-4000-8000-000000000014",
+        "baseRevision": null,
+        "kind": "essay",
+        "payload": {
+          "planId": "r2-plan",
+          "taskType": "task2",
+          "text": "mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell mispell ",
+          "scope": "full",
+          "stage": "submitted"
+        }
+      },
+      "expectedContentHash": "6ecfa48283c1b70f499f51bd5b558910f8d43c77d0c33b6cb0795cf19a8d5af0"
+    },
+    {
+      "recordId": "r2-feedback-checked301",
+      "request": {
+        "schemaVersion": 2,
+        "revisionId": "62000000-0000-4000-8000-000000000015",
+        "mutationId": "63000000-0000-4000-8000-000000000015",
+        "baseRevision": null,
+        "kind": "feedback",
+        "payload": {
+          "planId": "r2-plan",
+          "taskType": "task2",
+          "workId": "r2-essay-301",
+          "workRevisionId": "62000000-0000-4000-8000-000000000014",
+          "inputHash": "6ecfa48283c1b70f499f51bd5b558910f8d43c77d0c33b6cb0795cf19a8d5af0",
+          "source": "self",
+          "text": "A synthetic long proofreading list.",
+          "spellingCheck": {
+            "status": "checked",
+            "count": 301,
+            "items": [
+              {
+                "start": 0,
+                "end": 7,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 8,
+                "end": 15,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 16,
+                "end": 23,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 24,
+                "end": 31,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 32,
+                "end": 39,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 40,
+                "end": 47,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 48,
+                "end": 55,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 56,
+                "end": 63,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 64,
+                "end": 71,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 72,
+                "end": 79,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 80,
+                "end": 87,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 88,
+                "end": 95,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 96,
+                "end": 103,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 104,
+                "end": 111,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 112,
+                "end": 119,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 120,
+                "end": 127,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 128,
+                "end": 135,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 136,
+                "end": 143,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 144,
+                "end": 151,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 152,
+                "end": 159,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 160,
+                "end": 167,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 168,
+                "end": 175,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 176,
+                "end": 183,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 184,
+                "end": 191,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 192,
+                "end": 199,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 200,
+                "end": 207,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 208,
+                "end": 215,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 216,
+                "end": 223,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 224,
+                "end": 231,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 232,
+                "end": 239,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 240,
+                "end": 247,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 248,
+                "end": 255,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 256,
+                "end": 263,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 264,
+                "end": 271,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 272,
+                "end": 279,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 280,
+                "end": 287,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 288,
+                "end": 295,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 296,
+                "end": 303,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 304,
+                "end": 311,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 312,
+                "end": 319,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 320,
+                "end": 327,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 328,
+                "end": 335,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 336,
+                "end": 343,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 344,
+                "end": 351,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 352,
+                "end": 359,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 360,
+                "end": 367,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 368,
+                "end": 375,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 376,
+                "end": 383,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 384,
+                "end": 391,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 392,
+                "end": 399,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 400,
+                "end": 407,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 408,
+                "end": 415,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 416,
+                "end": 423,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 424,
+                "end": 431,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 432,
+                "end": 439,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 440,
+                "end": 447,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 448,
+                "end": 455,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 456,
+                "end": 463,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 464,
+                "end": 471,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 472,
+                "end": 479,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 480,
+                "end": 487,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 488,
+                "end": 495,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 496,
+                "end": 503,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 504,
+                "end": 511,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 512,
+                "end": 519,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 520,
+                "end": 527,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 528,
+                "end": 535,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 536,
+                "end": 543,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 544,
+                "end": 551,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 552,
+                "end": 559,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 560,
+                "end": 567,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 568,
+                "end": 575,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 576,
+                "end": 583,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 584,
+                "end": 591,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 592,
+                "end": 599,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 600,
+                "end": 607,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 608,
+                "end": 615,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 616,
+                "end": 623,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 624,
+                "end": 631,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 632,
+                "end": 639,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 640,
+                "end": 647,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 648,
+                "end": 655,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 656,
+                "end": 663,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 664,
+                "end": 671,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 672,
+                "end": 679,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 680,
+                "end": 687,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 688,
+                "end": 695,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 696,
+                "end": 703,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 704,
+                "end": 711,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 712,
+                "end": 719,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 720,
+                "end": 727,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 728,
+                "end": 735,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 736,
+                "end": 743,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 744,
+                "end": 751,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 752,
+                "end": 759,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 760,
+                "end": 767,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 768,
+                "end": 775,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 776,
+                "end": 783,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 784,
+                "end": 791,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 792,
+                "end": 799,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 800,
+                "end": 807,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 808,
+                "end": 815,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 816,
+                "end": 823,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 824,
+                "end": 831,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 832,
+                "end": 839,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 840,
+                "end": 847,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 848,
+                "end": 855,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 856,
+                "end": 863,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 864,
+                "end": 871,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 872,
+                "end": 879,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 880,
+                "end": 887,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 888,
+                "end": 895,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 896,
+                "end": 903,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 904,
+                "end": 911,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 912,
+                "end": 919,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 920,
+                "end": 927,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 928,
+                "end": 935,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 936,
+                "end": 943,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 944,
+                "end": 951,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 952,
+                "end": 959,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 960,
+                "end": 967,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 968,
+                "end": 975,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 976,
+                "end": 983,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 984,
+                "end": 991,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 992,
+                "end": 999,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1000,
+                "end": 1007,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1008,
+                "end": 1015,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1016,
+                "end": 1023,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1024,
+                "end": 1031,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1032,
+                "end": 1039,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1040,
+                "end": 1047,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1048,
+                "end": 1055,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1056,
+                "end": 1063,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1064,
+                "end": 1071,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1072,
+                "end": 1079,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1080,
+                "end": 1087,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1088,
+                "end": 1095,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1096,
+                "end": 1103,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1104,
+                "end": 1111,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1112,
+                "end": 1119,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1120,
+                "end": 1127,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1128,
+                "end": 1135,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1136,
+                "end": 1143,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1144,
+                "end": 1151,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1152,
+                "end": 1159,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1160,
+                "end": 1167,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1168,
+                "end": 1175,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1176,
+                "end": 1183,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1184,
+                "end": 1191,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1192,
+                "end": 1199,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1200,
+                "end": 1207,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1208,
+                "end": 1215,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1216,
+                "end": 1223,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1224,
+                "end": 1231,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1232,
+                "end": 1239,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1240,
+                "end": 1247,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1248,
+                "end": 1255,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1256,
+                "end": 1263,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1264,
+                "end": 1271,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1272,
+                "end": 1279,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1280,
+                "end": 1287,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1288,
+                "end": 1295,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1296,
+                "end": 1303,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1304,
+                "end": 1311,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1312,
+                "end": 1319,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1320,
+                "end": 1327,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1328,
+                "end": 1335,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1336,
+                "end": 1343,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1344,
+                "end": 1351,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1352,
+                "end": 1359,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1360,
+                "end": 1367,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1368,
+                "end": 1375,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1376,
+                "end": 1383,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1384,
+                "end": 1391,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1392,
+                "end": 1399,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1400,
+                "end": 1407,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1408,
+                "end": 1415,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1416,
+                "end": 1423,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1424,
+                "end": 1431,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1432,
+                "end": 1439,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1440,
+                "end": 1447,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1448,
+                "end": 1455,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1456,
+                "end": 1463,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1464,
+                "end": 1471,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1472,
+                "end": 1479,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1480,
+                "end": 1487,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1488,
+                "end": 1495,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1496,
+                "end": 1503,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1504,
+                "end": 1511,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1512,
+                "end": 1519,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1520,
+                "end": 1527,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1528,
+                "end": 1535,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1536,
+                "end": 1543,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1544,
+                "end": 1551,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1552,
+                "end": 1559,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1560,
+                "end": 1567,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1568,
+                "end": 1575,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1576,
+                "end": 1583,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1584,
+                "end": 1591,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1592,
+                "end": 1599,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1600,
+                "end": 1607,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1608,
+                "end": 1615,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1616,
+                "end": 1623,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1624,
+                "end": 1631,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1632,
+                "end": 1639,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1640,
+                "end": 1647,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1648,
+                "end": 1655,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1656,
+                "end": 1663,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1664,
+                "end": 1671,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1672,
+                "end": 1679,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1680,
+                "end": 1687,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1688,
+                "end": 1695,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1696,
+                "end": 1703,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1704,
+                "end": 1711,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1712,
+                "end": 1719,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1720,
+                "end": 1727,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1728,
+                "end": 1735,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1736,
+                "end": 1743,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1744,
+                "end": 1751,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1752,
+                "end": 1759,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1760,
+                "end": 1767,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1768,
+                "end": 1775,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1776,
+                "end": 1783,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1784,
+                "end": 1791,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1792,
+                "end": 1799,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1800,
+                "end": 1807,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1808,
+                "end": 1815,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1816,
+                "end": 1823,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1824,
+                "end": 1831,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1832,
+                "end": 1839,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1840,
+                "end": 1847,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1848,
+                "end": 1855,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1856,
+                "end": 1863,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1864,
+                "end": 1871,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1872,
+                "end": 1879,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1880,
+                "end": 1887,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1888,
+                "end": 1895,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1896,
+                "end": 1903,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1904,
+                "end": 1911,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1912,
+                "end": 1919,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1920,
+                "end": 1927,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1928,
+                "end": 1935,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1936,
+                "end": 1943,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1944,
+                "end": 1951,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1952,
+                "end": 1959,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1960,
+                "end": 1967,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1968,
+                "end": 1975,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1976,
+                "end": 1983,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1984,
+                "end": 1991,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 1992,
+                "end": 1999,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 2000,
+                "end": 2007,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 2008,
+                "end": 2015,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 2016,
+                "end": 2023,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 2024,
+                "end": 2031,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 2032,
+                "end": 2039,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 2040,
+                "end": 2047,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 2048,
+                "end": 2055,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 2056,
+                "end": 2063,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 2064,
+                "end": 2071,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 2072,
+                "end": 2079,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 2080,
+                "end": 2087,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 2088,
+                "end": 2095,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 2096,
+                "end": 2103,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 2104,
+                "end": 2111,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 2112,
+                "end": 2119,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 2120,
+                "end": 2127,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 2128,
+                "end": 2135,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 2136,
+                "end": 2143,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 2144,
+                "end": 2151,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 2152,
+                "end": 2159,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 2160,
+                "end": 2167,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 2168,
+                "end": 2175,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 2176,
+                "end": 2183,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 2184,
+                "end": 2191,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 2192,
+                "end": 2199,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 2200,
+                "end": 2207,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 2208,
+                "end": 2215,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 2216,
+                "end": 2223,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 2224,
+                "end": 2231,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 2232,
+                "end": 2239,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 2240,
+                "end": 2247,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 2248,
+                "end": 2255,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 2256,
+                "end": 2263,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 2264,
+                "end": 2271,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 2272,
+                "end": 2279,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 2280,
+                "end": 2287,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 2288,
+                "end": 2295,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 2296,
+                "end": 2303,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 2304,
+                "end": 2311,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 2312,
+                "end": 2319,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 2320,
+                "end": 2327,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 2328,
+                "end": 2335,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 2336,
+                "end": 2343,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 2344,
+                "end": 2351,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 2352,
+                "end": 2359,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 2360,
+                "end": 2367,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 2368,
+                "end": 2375,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 2376,
+                "end": 2383,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 2384,
+                "end": 2391,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 2392,
+                "end": 2399,
+                "text": "mispell",
+                "confirmed": true
+              },
+              {
+                "start": 2400,
+                "end": 2407,
+                "text": "mispell",
+                "confirmed": true
+              }
+            ]
+          }
+        }
+      },
+      "expectedContentHash": "c224d8baf3dba56cb10df5eb076ef68540e5484f33fbc9631c7f7a6450046aa5"
+    }
+  ],
+  "invalidCases": [
+    {
+      "recordId": "r2-essay-task2",
+      "label": "scope",
+      "path": [
+        "scope"
+      ],
+      "value": "section",
+      "error": "练习范围"
+    },
+    {
+      "recordId": "r2-essay-task2",
+      "label": "stage",
+      "path": [
+        "stage"
+      ],
+      "value": "final",
+      "error": "保存阶段"
+    },
+    {
+      "recordId": "r2-essay-task2",
+      "label": "elapsedSeconds",
+      "path": [
+        "elapsedSeconds"
+      ],
+      "value": -1,
+      "error": "数值"
+    },
+    {
+      "recordId": "r2-essay-task2",
+      "label": "sourceRef",
+      "path": [
+        "sourceRef"
+      ],
+      "value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "error": "长度"
+    },
+    {
+      "recordId": "r2-essay-task2",
+      "label": "conditions",
+      "path": [
+        "conditions"
+      ],
+      "value": "timed",
+      "error": "作答条件"
+    },
+    {
+      "recordId": "r2-essay-task2",
+      "label": "elapsedSeconds upper bound",
+      "path": [
+        "elapsedSeconds"
+      ],
+      "value": 86401,
+      "error": "数值"
+    },
+    {
+      "recordId": "r2-essay-task2",
+      "label": "elapsedSeconds boolean",
+      "path": [
+        "elapsedSeconds"
+      ],
+      "value": true,
+      "error": "数值"
+    },
+    {
+      "recordId": "r2-essay-task2",
+      "label": "sourceRef null",
+      "path": [
+        "sourceRef"
+      ],
+      "value": null,
+      "error": "长度"
+    },
+    {
+      "recordId": "r2-essay-task2",
+      "label": "conditions unknown field",
+      "path": [
+        "conditions"
+      ],
+      "value": {
+        "replayed": false
+      },
+      "error": "作答条件"
+    },
+    {
+      "recordId": "r2-essay-task2",
+      "label": "conditions nonboolean",
+      "path": [
+        "conditions"
+      ],
+      "value": {
+        "timed": "yes"
+      },
+      "error": "作答条件"
+    },
+    {
+      "recordId": "r2-feedback-checked",
+      "label": "errorCauses must be array",
+      "path": [
+        "errorCauses"
+      ],
+      "value": "grammar",
+      "error": "写作错因"
+    },
+    {
+      "recordId": "r2-feedback-checked",
+      "label": "errorCauses unknown code",
+      "path": [
+        "errorCauses"
+      ],
+      "value": [
+        "invented"
+      ],
+      "error": "写作错因"
+    },
+    {
+      "recordId": "r2-feedback-checked",
+      "label": "errorCauses speaking code",
+      "path": [
+        "errorCauses"
+      ],
+      "value": [
+        "pronunciation"
+      ],
+      "error": "写作错因"
+    },
+    {
+      "recordId": "r2-feedback-checked",
+      "label": "errorCauses duplicate",
+      "path": [
+        "errorCauses"
+      ],
+      "value": [
+        "spelling",
+        "spelling"
+      ],
+      "error": "重复"
+    },
+    {
+      "recordId": "r2-feedback-task1",
+      "label": "Task1 rejects task-response",
+      "path": [
+        "errorCauses"
+      ],
+      "value": [
+        "task-response"
+      ],
+      "error": "Task 1"
+    },
+    {
+      "recordId": "r2-feedback-checked",
+      "label": "Task2 rejects task-achievement",
+      "path": [
+        "errorCauses"
+      ],
+      "value": [
+        "task-achievement"
+      ],
+      "error": "Task 2"
+    },
+    {
+      "recordId": "r2-feedback-other",
+      "label": "other needs explanation",
+      "path": [
+        "text"
+      ],
+      "value": "   ",
+      "error": "其他错因"
+    },
+    {
+      "recordId": "r2-feedback-checked",
+      "label": "writing fields require taskType",
+      "path": [
+        "taskType"
+      ],
+      "value": null,
+      "error": "任务类型",
+      "remove": true
+    },
+    {
+      "recordId": "r2-feedback-unchecked",
+      "label": "unchecked must retain null count",
+      "path": [
+        "spellingCheck",
+        "count"
+      ],
+      "value": 0,
+      "error": "拼写检查"
+    },
+    {
+      "recordId": "r2-feedback-checked",
+      "label": "checked count matches confirmed items",
+      "path": [
+        "spellingCheck",
+        "count"
+      ],
+      "value": 0,
+      "error": "拼写检查"
+    },
+    {
+      "recordId": "r2-feedback-checked",
+      "label": "checked count is integer",
+      "path": [
+        "spellingCheck",
+        "count"
+      ],
+      "value": 1.5,
+      "error": "拼写检查"
+    },
+    {
+      "recordId": "r2-feedback-checked",
+      "label": "checked count not boolean",
+      "path": [
+        "spellingCheck",
+        "count"
+      ],
+      "value": true,
+      "error": "拼写检查"
+    },
+    {
+      "recordId": "r2-feedback-checked",
+      "label": "spelling status",
+      "path": [
+        "spellingCheck",
+        "status"
+      ],
+      "value": "pending",
+      "error": "拼写检查"
+    },
+    {
+      "recordId": "r2-feedback-checked",
+      "label": "spelling unknown field",
+      "path": [
+        "spellingCheck",
+        "extra"
+      ],
+      "value": false,
+      "error": "拼写检查"
+    },
+    {
+      "recordId": "r2-feedback-checked",
+      "label": "spelling start nonnegative",
+      "path": [
+        "spellingCheck",
+        "items",
+        0,
+        "start"
+      ],
+      "value": -1,
+      "error": "拼写"
+    },
+    {
+      "recordId": "r2-feedback-checked",
+      "label": "spelling offset integer",
+      "path": [
+        "spellingCheck",
+        "items",
+        0,
+        "start"
+      ],
+      "value": 9.5,
+      "error": "拼写"
+    },
+    {
+      "recordId": "r2-feedback-checked",
+      "label": "spelling text nonempty",
+      "path": [
+        "spellingCheck",
+        "items",
+        0,
+        "text"
+      ],
+      "value": "",
+      "error": "拼写"
+    },
+    {
+      "recordId": "r2-feedback-checked",
+      "label": "spelling confirmed boolean",
+      "path": [
+        "spellingCheck",
+        "items",
+        0,
+        "confirmed"
+      ],
+      "value": "yes",
+      "error": "拼写"
+    },
+    {
+      "recordId": "r2-feedback-checked",
+      "label": "spelling duplicate range",
+      "path": [
+        "spellingCheck",
+        "items"
+      ],
+      "value": [
+        {
+          "start": 9,
+          "end": 19,
+          "text": "enviroment",
+          "confirmed": true
+        },
+        {
+          "start": 9,
+          "end": 19,
+          "text": "enviroment",
+          "confirmed": false
+        }
+      ],
+      "error": "重复"
+    },
+    {
+      "recordId": "r2-feedback-checked",
+      "label": "spelling raw original slice",
+      "path": [
+        "spellingCheck",
+        "items",
+        0,
+        "text"
+      ],
+      "value": "environment",
+      "error": "拼写片段",
+      "reference": true
+    },
+    {
+      "recordId": "r2-feedback-checked",
+      "label": "spelling original upper bound",
+      "path": [
+        "spellingCheck",
+        "items",
+        0,
+        "end"
+      ],
+      "value": 10000,
+      "error": "拼写片段",
+      "reference": true
+    },
+    {
+      "recordId": "r2-feedback-checked",
+      "label": "checklist unknown ID",
+      "path": [
+        "checklist"
+      ],
+      "value": {
+        "invented": true
+      },
+      "error": "自查清单"
+    },
+    {
+      "recordId": "r2-feedback-checked",
+      "label": "checklist value boolean or null",
+      "path": [
+        "checklist"
+      ],
+      "value": {
+        "task-response-answer": "yes"
+      },
+      "error": "自查清单"
+    },
+    {
+      "recordId": "r2-feedback-checked",
+      "label": "Task2 rejects Task1 checklist",
+      "path": [
+        "checklist"
+      ],
+      "value": {
+        "task1-no-opinion": true
+      },
+      "error": "自查清单"
+    },
+    {
+      "recordId": "r2-feedback-task1",
+      "label": "Task1 rejects Task2 checklist",
+      "path": [
+        "checklist"
+      ],
+      "value": {
+        "task-response-answer": true
+      },
+      "error": "自查清单"
+    },
+    {
+      "recordId": "r2-essay-task2",
+      "label": "sourceRef UTF16 length",
+      "path": [
+        "sourceRef"
+      ],
+      "value": "📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝",
+      "error": "长度"
+    }
+  ]
+}
