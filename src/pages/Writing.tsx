@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { Route } from "../lib/router";
+import { go, type Route } from "../lib/router";
 import { words } from "../ielts/scoring/rules/text";
 import {
   elapsedWritingSeconds,
@@ -24,10 +24,16 @@ import {
   draftFromRevision,
   writingScope,
 } from "../study365/writingDrafts";
-import { checkpointWriting, submitWriting } from "../study365/writingWorks";
+import {
+  checkpointWriting,
+  rewriteWriting,
+  submitWriting,
+} from "../study365/writingWorks";
 import { getLearningState, type LearningState } from "../study365/repository";
 import { saveMission } from "../study365/missionRecords";
 import { WritingReview } from "../study365/ui/writing/WritingReview";
+import { WritingComparison } from "../study365/ui/writing/WritingComparison";
+import { WritingRevisionChain } from "../study365/ui/writing/WritingRevisionChain";
 
 type WritingRoute = Extract<Route, { page: "writing" }>;
 const labelOf = (draft: WritingDraft) =>
@@ -507,6 +513,40 @@ function WritingEditor({
       if (alive.current) setBusy(false);
     }
   };
+  const rewrite = async (work: Revision) => {
+    if (busyRef.current) return;
+    busyRef.current = true;
+    setBusy(true);
+    setMessage("");
+    try {
+      checkAccount();
+      const next = rewriteWriting(work);
+      const result = await checkpointWriting(next, {
+        scope,
+        expectedUserId: userId,
+      });
+      if (!alive.current) return;
+      go({
+        page: "writing",
+        work: result.work.id,
+        date: String(result.work.payload.date),
+        ...(typeof result.work.payload.day === "number"
+          ? { day: result.work.payload.day }
+          : {}),
+        ...(typeof result.work.payload.taskId === "string"
+          ? { task: result.work.payload.taskId }
+          : {}),
+      });
+    } catch (error) {
+      if (alive.current)
+        setMessage(
+          `修改稿未保存：${error instanceof Error ? error.message : "请重试，上一版原稿仍保留。"}`,
+        );
+    } finally {
+      busyRef.current = false;
+      if (alive.current) setBusy(false);
+    }
+  };
   return (
     <div className="page">
       <section
@@ -576,6 +616,61 @@ function WritingEditor({
                         )!}
                         materialSelfCheck={draft.materialSelfCheck}
                       />
+                    )}
+                    {works.find(
+                      (work) => work.revisionId === draft.submittedRevisionId,
+                    ) && (
+                      <>
+                        <button
+                          type="button"
+                          className="btn btn-primary"
+                          disabled={busy || unresolved(draft)}
+                          onClick={() => {
+                            void rewrite(
+                              works.find(
+                                (work) =>
+                                  work.revisionId === draft.submittedRevisionId,
+                              )!,
+                            );
+                          }}
+                        >
+                          写修改稿
+                        </button>
+                        <WritingRevisionChain
+                          work={works.find(
+                            (work) =>
+                              work.revisionId === draft.submittedRevisionId,
+                          )!}
+                          records={learning.records}
+                          onSelect={(work) =>
+                            go({
+                              page: "writing",
+                              work: work.id,
+                              date: String(work.payload.date),
+                              ...(typeof work.payload.day === "number"
+                                ? { day: work.payload.day }
+                                : {}),
+                              ...(typeof work.payload.taskId === "string"
+                                ? { task: work.payload.taskId }
+                                : {}),
+                            })
+                          }
+                        />
+                        {works.find(
+                          (work) => work.revisionId === draft.parentRevisionId,
+                        ) && (
+                          <WritingComparison
+                            previous={works.find(
+                              (work) =>
+                                work.revisionId === draft.parentRevisionId,
+                            )!}
+                            current={works.find(
+                              (work) =>
+                                work.revisionId === draft.submittedRevisionId,
+                            )!}
+                          />
+                        )}
+                      </>
                     )}
                   </>
                 ) : (
