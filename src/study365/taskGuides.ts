@@ -2,7 +2,7 @@ export type PhaseId = "baseline" | "phase1" | "phase2" | "phase3" | "phase4";
 const names: Record<string, string> = { vocabulary: "词汇", listening: "听力", reading: "阅读", writing: "写作", speaking: "口语", review: "复盘", "timed-section": "分科限时", "weak-skill": "弱项练习", "human-calibration-handoff": "交给真人评分", "correction-log": "订正与记录", "app-setup": "计划与工具设置" };
 const base: Record<string, string> = {
   vocabulary: "先完成到期复习，再按今日词汇预算学习新词；把词放回语境核对意思与拼写。",
-  listening: "使用未做过的材料独立作答，保留原始正确数；复盘时定位原文证据。",
+  listening: "点击开始练习，首答只播一遍，结束后检查一分钟再提交；复盘时自由回听，也可外部完成后登记。",
   reading: "点击开始练习，限时首答后判分，再查原文证据；也可在外部完成后登记。",
   writing: "在外部完成独立写作，保存原稿与题目；写作分等待真人或正式评估。",
   speaking: "在外部录音并回听，保留题目与原音频；口语分等待真人或正式评估。",

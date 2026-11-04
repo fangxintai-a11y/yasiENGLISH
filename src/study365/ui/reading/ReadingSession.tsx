@@ -1,3 +1,10 @@
+import {
+  PracticeClock,
+  practiceDraftKey,
+  readPracticeDraft,
+  savePracticeDraft,
+  clearPracticeDraft,
+} from "../../practiceDraft";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { loadLocalBank } from "../../localBank";
 import type { LocalMaterial } from "../../localBankSchema";
@@ -28,6 +35,7 @@ export function ReadingSession({
   initialMaterialId,
   skill = "reading",
   playback,
+  onAttemptSaved,
 }: {
   plan: Revision;
   context: PracticeContext;
@@ -39,7 +47,10 @@ export function ReadingSession({
     material: LocalMaterial,
     review: boolean,
     onConditions: (conditions: PlaybackConditions) => void,
+    onReady: (ready: boolean) => void,
+    evidenceVisible: boolean,
   ) => ReactNode;
+  onAttemptSaved?: (material: LocalMaterial) => void;
 }) {
   const learning = useLearning();
   const [bank, setBank] = useState<LocalMaterial[]>([]),
@@ -55,6 +66,10 @@ export function ReadingSession({
   );
   const [busy, setBusy] = useState(false),
     [pane, setPane] = useState<"passage" | "questions">("passage");
+  const [playbackReady, setPlaybackReady] = useState(skill === "reading");
+  const playbackReadyRef = useRef(skill === "reading");
+  const activeClock = useRef(new PracticeClock());
+  const submittedDraftKey = useRef<string | null>(null);
   const inFlight = useRef(false),
     alive = useRef(true),
     conditions = useRef<PlaybackConditions>({
@@ -135,6 +150,63 @@ export function ReadingSession({
       throw new Error("账号已经切换，请重新进入练习。");
     return state;
   };
+  const draftKey = material
+    ? practiceDraftKey(
+        userId,
+        plan.id,
+        material.contentHash,
+        context.date,
+        context.taskId,
+      )
+    : null;
+  useEffect(() => {
+    if (work || !material || !draftKey) return;
+    const draft = readPracticeDraft(draftKey, material.questions.length);
+    activeClock.current = new PracticeClock(draft?.activeSeconds ?? 0);
+    if (!draft) activeClock.current.pause();
+    setAnswers(draft?.answers ?? material.questions.map(() => ""));
+    setStarted(draft?.startedAt ?? null);
+    setNow(Date.now());
+    playbackReadyRef.current = skill === "reading";
+    setPlaybackReady(playbackReadyRef.current);
+    if (draft) setMessage("已恢复本机未提交答案与原始计时。");
+  }, [draftKey, work?.id]);
+  useEffect(() => {
+    if (work || !draftKey || started === null) return;
+    const checkpoint = () => {
+      if (submittedDraftKey.current === draftKey) return;
+      try {
+        savePracticeDraft(draftKey, {
+          answers,
+          startedAt: started,
+          activeSeconds: activeClock.current.value(),
+        });
+      } catch {
+        setMessage("未提交答案暂时无法写入本机，请保留当前页面完成后提交。");
+      }
+    };
+    const visibility = () => {
+      if (document.visibilityState === "hidden") activeClock.current.pause();
+      else activeClock.current.resume();
+      checkpoint();
+    };
+    const hide = () => {
+      activeClock.current.pause();
+      checkpoint();
+    };
+    activeClock.current.resume();
+    visibility();
+    const timer = window.setInterval(checkpoint, 5000);
+    document.addEventListener("visibilitychange", visibility);
+    window.addEventListener("pagehide", hide);
+    return () => {
+      activeClock.current.pause();
+      checkpoint();
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", visibility);
+      window.removeEventListener("pagehide", hide);
+    };
+  }, [draftKey, work?.id, started, answers]);
   const start = () => {
     if (context.day < 1 || context.day > 365) {
       setError("当天不在365天计划内，可以查看已有作答，或从今日进入有效任务。");
@@ -142,6 +214,10 @@ export function ReadingSession({
     }
     setError("");
     setMessage("");
+    activeClock.current = new PracticeClock();
+    submittedDraftKey.current = null;
+    playbackReadyRef.current = skill === "reading";
+    setPlaybackReady(playbackReadyRef.current);
     conditions.current = {
       replayed: false,
       transcriptViewed: false,
@@ -153,6 +229,10 @@ export function ReadingSession({
   };
   const submit = async () => {
     if (!material || started === null || inFlight.current) return;
+    if (skill === "listening" && !playbackReadyRef.current) {
+      setError("请完整听完首答音频并完成一分钟检查，再提交。");
+      return;
+    }
     inFlight.current = true;
     setBusy(true);
     setError("");
@@ -175,6 +255,7 @@ export function ReadingSession({
         seconds,
         { timed: seconds <= minutes * 60, ...conditions.current },
       );
+      payload.actualMinutes = activeClock.current.value() / 60;
       const record = await saveRecord({
         id: `attempt-${crypto.randomUUID()}`,
         kind: "attempt",
@@ -182,8 +263,16 @@ export function ReadingSession({
         baseRevision: null,
       });
       if (alive.current && getLearningState().userId === userId) {
+        submittedDraftKey.current = draftKey;
+        activeClock.current.pause();
         setActiveWorkId(record.id);
         setMessage("首答已保存。");
+        try {
+          if (draftKey) clearPracticeDraft(draftKey);
+          onAttemptSaved?.(material);
+        } catch {
+          setMessage("首答已保存；本机草稿清理未完成，请勿重复提交。");
+        }
       }
     } catch (e) {
       if (alive.current)
@@ -326,9 +415,18 @@ export function ReadingSession({
             {(started !== null || work) && (
               <>
                 {skill === "listening" &&
-                  playback?.(material, !!work, (value) => {
-                    conditions.current = value;
-                  })}
+                  playback?.(
+                    material,
+                    !!work,
+                    (value) => {
+                      conditions.current = value;
+                    },
+                    (ready) => {
+                      playbackReadyRef.current = ready;
+                      setPlaybackReady(ready);
+                    },
+                    true,
+                  )}
                 <div className="r4-mobile-switch">
                   <button
                     className="btn btn-ghost"
@@ -368,7 +466,7 @@ export function ReadingSession({
                 {!work && (
                   <button
                     className="btn btn-primary"
-                    disabled={busy}
+                    disabled={busy || (skill === "listening" && !playbackReady)}
                     onClick={() => void submit()}
                   >
                     提交首答
