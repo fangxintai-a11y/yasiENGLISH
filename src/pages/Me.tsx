@@ -11,6 +11,7 @@ import { toast } from "../ui/Toast";
 import { FeedbackPanel } from "./me/FeedbackPanel";
 import { SyncIssues } from "../study365/ui/SyncIssues";
 import { RecordingsBackup } from "../study365/ui/RecordingsBackup";
+import { LocalBankPanel } from "../study365/ui/LocalBankPanel";
 import { CalibrationStatus } from "../study365/ui/CalibrationStatus";
 import { streakOf } from "./Today";
 import { useLearning } from "../study365/repository";
@@ -147,6 +148,7 @@ export function Me({ privateAvailable, focusSync = false }: { privateAvailable: 
         <SyncIssues />
 
         <RecordingsBackup />
+        <LocalBankPanel />
 
         <CalibrationStatus />
 
