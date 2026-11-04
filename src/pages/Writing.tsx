@@ -32,6 +32,7 @@ import {
 import { getLearningState, type LearningState } from "../study365/repository";
 import { saveMission } from "../study365/missionRecords";
 import { WritingReview } from "../study365/ui/writing/WritingReview";
+import { ExternalWritingFeedback } from "../study365/ui/writing/ExternalWritingFeedback";
 import { WritingComparison } from "../study365/ui/writing/WritingComparison";
 import { WritingRevisionChain } from "../study365/ui/writing/WritingRevisionChain";
 
@@ -333,6 +334,24 @@ function WritingEditor({
       ),
     [drafts, mode],
   );
+  const activeSubmitted = useRef<WritingDraft[]>([]);
+  activeSubmitted.current = visible.filter(
+    (draft) => draft.stage === "submitted",
+  );
+  const currentSubmittedWork = (id: string) => {
+    if (!activeSubmitted.current.some((draft) => draft.recordId === id))
+      return null;
+    return (
+      getLearningState().records.find(
+        (work) =>
+          work.kind === "essay" &&
+          work.id === id &&
+          !work.deleted &&
+          !work.conflict &&
+          work.payload.stage !== "draft",
+      ) ?? null
+    );
+  };
   const update = (id: string, change: (draft: WritingDraft) => WritingDraft) =>
     setDrafts((previous) =>
       previous.map((draft) =>
@@ -615,6 +634,17 @@ function WritingEditor({
                             work.revisionId === draft.submittedRevisionId,
                         )!}
                         materialSelfCheck={draft.materialSelfCheck}
+                      />
+                    )}
+                    {works.find(
+                      (work) => work.revisionId === draft.submittedRevisionId,
+                    ) && (
+                      <ExternalWritingFeedback
+                        work={works.find(
+                          (work) =>
+                            work.revisionId === draft.submittedRevisionId,
+                        )!}
+                        currentWork={() => currentSubmittedWork(draft.recordId)}
                       />
                     )}
                     {works.find(

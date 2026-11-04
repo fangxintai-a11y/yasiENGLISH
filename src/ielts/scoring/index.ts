@@ -1,5 +1,5 @@
 import { z, type ZodType } from "zod";
-import { SECTION_TARGETS, hashPayload } from "../../study365/protocol";
+import { SECTION_TARGETS, hashPayload, isRevisionId } from "../../study365/protocol";
 import { requestStructured } from "../llm/structured";
 import { createManualPrompt, validateManualResult } from "../llm/manual";
 import { LlmError } from "../llm/types";
@@ -36,11 +36,15 @@ export function toCalibrationSidecar(result: WritingResult | SpeakingResult) {
 }
 export function needsManualFallback(result: Partial<FallbackInfo>): boolean { return result.needsManual === true; }
 function cancelled(signal?: AbortSignal): void { if (signal?.aborted) throw new LlmError("cancelled"); }
+class FeedbackContextError extends Error { constructor() { super("原稿已变化，请重新获取反馈。"); } }
 function taskInput(task: TaskId, value: unknown) {
   assertSafe(value);
   const object = z.object({}).catchall(z.unknown()).parse(value);
   const text = (key: string, maximum = 20000) => z.string().max(maximum).parse(object[key]);
-  if (task === "essay") { z.enum(["task1", "task2"]).parse(object.taskType); text("prompt", 8000); text("text"); }
+  if (task === "essay") {
+    z.enum(["task1", "task2"]).parse(object.taskType); text("prompt", 8000); text("text");
+    if (object.feedbackContext !== undefined) z.strictObject({ workRevisionId: z.string().refine(isRevisionId), inputHash: z.string().regex(/^[a-f0-9]{64}$/) }).parse(object.feedbackContext);
+  }
   if (task === "speaking") { z.union([z.literal(1), z.literal(2), z.literal(3)]).parse(object.part); text("prompt", 8000); text("transcript"); z.number().min(0).max(86400).parse(object.durationSeconds); }
   if (task === "sentence") { text("word", 200); text("zh", 2000); text("sentence", 1000); }
   if (task === "reading") z.array(z.object({ id: z.string(), word: z.string(), zh: z.string(), entry: z.unknown() })).min(5).max(50).parse(object.words);
@@ -60,7 +64,9 @@ function taskSchema(task: TaskId, input: unknown): ZodType<unknown> {
   if (task === "hack") return HackSchema;
   const original = String(task === "essay" ? value.text : value.transcript);
   const schema = task === "speaking" ? SpeakingFeedbackSchema : value.taskType === "task1" ? Task1FeedbackSchema : Task2FeedbackSchema;
-  return schema.superRefine((body, ctx) => {
+  const context = task === "essay" ? (value as unknown as WritingInput).feedbackContext : undefined;
+  const resultSchema = context ? schema.safeExtend({ workRevisionId: z.literal(context.workRevisionId), inputHash: z.literal(context.inputHash) }) : schema;
+  return resultSchema.superRefine((body, ctx) => {
     for (const [key, criterion] of Object.entries(body.criteria)) for (const [index, evidence] of criterion.evidence.entries()) {
       if (evidence.kind === "span" && original.slice(evidence.start, evidence.end) !== evidence.text)
         ctx.addIssue({ code: "custom", path: ["criteria", key, "evidence", index], message: "证据片段与当前原稿及字符位置不一致。" });
@@ -72,7 +78,12 @@ export function manualPrompt(task: TaskId, input: unknown): { text: string; sche
   return checked({ ...createManualPrompt(prompt.system, prompt.user, schema), schemaName: task === "essay" ? String((input as WritingInput).taskType) : task });
 }
 function feedbackResult(task: "essay" | "speaking", input: WritingInput | SpeakingInput, wire: unknown, inputHash: string, provider: string, fallbackTrail: FallbackEntry[], now: number): WritingResult | SpeakingResult {
-  const parsed = (task === "speaking" ? SpeakingFeedbackSchema : (input as WritingInput).taskType === "task1" ? Task1FeedbackSchema : Task2FeedbackSchema).parse(wire) as FeedbackBody;
+  let body = wire;
+  if (task === "essay" && (input as WritingInput).feedbackContext) {
+    const { workRevisionId: _revision, inputHash: _hash, ...value } = taskSchema(task, input).parse(wire) as Record<string, unknown>;
+    body = value;
+  }
+  const parsed = (task === "speaking" ? SpeakingFeedbackSchema : (input as WritingInput).taskType === "task1" ? Task1FeedbackSchema : Task2FeedbackSchema).parse(body) as FeedbackBody;
   const target = task === "essay" ? SECTION_TARGETS.writing : SECTION_TARGETS.speaking;
   const criteria = Object.fromEntries(Object.entries(parsed.criteria).map(([key, value]) => [key, { ...value, target, gap: value.band === null ? null : Math.max(0, target - value.band) } satisfies CriterionScore]));
   const bands = Object.values(criteria).map((criterion) => criterion.band);
@@ -102,10 +113,14 @@ export async function acceptManual<T>(task: TaskId, pasted: string, input: unkno
     const parsed = validateManualResult(pasted, taskSchema(task, input));
     if (!parsed.ok) return parsed;
     let hash = "";
-    if (task === "essay") hash = await hashPayload("essay", { text: (input as WritingInput).text });
+    if (task === "essay") {
+      hash = await hashPayload("essay", { text: (input as WritingInput).text });
+      const context = (input as WritingInput).feedbackContext;
+      if (context && context.inputHash !== hash) throw new FeedbackContextError();
+    }
     if (task === "speaking") hash = await hashPayload("speaking", { transcript: (input as SpeakingInput).transcript });
     return { ok: true, value: checked(wrapped(task, input, parsed.value, "manual", [], Date.now(), hash)) as T };
-  } catch (error) { return { ok: false, errors: [error instanceof ScoringPrivacyError || error instanceof CredentialPrivacyError ? error.message : "输入或结果字段不符合要求，请核对原稿与JSON内容。"] }; }
+  } catch (error) { return { ok: false, errors: [error instanceof ScoringPrivacyError || error instanceof CredentialPrivacyError || error instanceof FeedbackContextError ? error.message : "输入或结果字段不符合要求，请核对原稿与JSON内容。"] }; }
 }
 async function enhance<T extends FallbackInfo>(task: TaskId, input: unknown, context: ScoringContext, local: T, now: number, hash = ""): Promise<T> {
   cancelled(context.signal);
@@ -138,6 +153,7 @@ export async function buildHack(input: HackInput, context: ScoringContext): Prom
 }
 export async function scoreWriting(input: WritingInput, context: ScoringContext): Promise<WritingResult> {
   cancelled(context.signal); taskInput("essay", input); const now = context.now ?? Date.now(), local = await scoreWritingRules(input, now);
+  if (input.feedbackContext && input.feedbackContext.inputHash !== local.inputHash) throw new FeedbackContextError();
   return enhance("essay", input, context, local, now, local.inputHash);
 }
 export async function scoreSpeaking(input: SpeakingInput, context: ScoringContext): Promise<SpeakingResult> {
