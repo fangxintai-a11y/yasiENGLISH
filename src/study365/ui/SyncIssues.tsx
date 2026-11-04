@@ -48,7 +48,7 @@ export function SyncIssues() {
     finally { setBusy(false); }
   };
 
-  return <section className="panel" aria-label="未能同步的学习记录">
+  return <section id="learning-sync-issues" className="panel" aria-label="未能同步的学习记录">
     <h3 className="eyebrow">学习记录同步</h3>
     <p role="status">有 {learning.quarantined} 条记录未能同步，原文已保存在本机。其他记录可以继续同步。</p>
     {issues.length > 0 && <ul className="muted">

@@ -1,0 +1,11 @@
+import { useLearning } from "../repository";
+
+export function LearningLinks() {
+  const learning = useLearning();
+  return <nav className="data-actions" aria-label="学习计划入口">
+    <a className="btn btn-ghost" href="#/progress">进度与成绩本</a>
+    {learning.quarantined > 0 && <a className="btn btn-ghost" href="#/me?section=learning-sync" role="status">
+      有 {learning.quarantined} 条学习记录未同步，查看同步问题
+    </a>}
+  </nav>;
+}

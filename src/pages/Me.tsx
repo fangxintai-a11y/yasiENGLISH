@@ -1,5 +1,5 @@
 import { Download, RotateCcw, Upload } from "lucide-react";
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useAtlas } from "../atlas/context";
 import { allCards } from "../ielts/exam";
 import { isMastered } from "../store/srs";
@@ -13,13 +13,20 @@ import { SyncIssues } from "../study365/ui/SyncIssues";
 import { RecordingsBackup } from "../study365/ui/RecordingsBackup";
 import { CalibrationStatus } from "../study365/ui/CalibrationStatus";
 import { streakOf } from "./Today";
+import { useLearning } from "../study365/repository";
 
-export function Me({ privateAvailable }: { privateAvailable: boolean }) {
+export function Me({ privateAvailable, focusSync = false }: { privateAvailable: boolean; focusSync?: boolean }) {
   const atlas = useAtlas();
   const progress = useStore((s) => s.progress);
   const settings = useStore((s) => s.settings);
   const saveError = useStore((s) => s.saveError);
   const file = useRef<HTMLInputElement>(null);
+  const learning = useLearning();
+  useEffect(() => {
+    if (!focusSync || !learning.ready || !learning.quarantined) return;
+    const frame = window.requestAnimationFrame(() => document.getElementById("learning-sync-issues")?.scrollIntoView({ block: "start" }));
+    return () => window.cancelAnimationFrame(frame);
+  }, [focusSync, learning.ready, learning.quarantined]);
 
   const stats = useMemo(() => {
     const cards = allCards(progress).map(([, c]) => c);
@@ -67,6 +74,8 @@ export function Me({ privateAvailable }: { privateAvailable: boolean }) {
         <p className="eyebrow">我的</p>
         <h1 className="display">你的星空</h1>
       </header>
+
+      <p><a className="btn btn-primary" href="#/progress">进度与成绩本</a></p>
 
       <section className="stat-strip">
         <div>
