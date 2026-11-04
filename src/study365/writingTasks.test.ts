@@ -24,3 +24,9 @@ test('Sunday defaults two essays; ordinary short blocks default Task1 or paragra
   assert.deepEqual([20,35,40,60].map(defaultWritingMode), ['task1','paragraph','task2','pair']);
   assert.equal(resolveWritingContext(plan, [], { date:'2026-11-08' }).block,null);
 });
+test('reopening a historical writing task keeps its saved budget over recalculated plan and route hints', () => {
+  const mission = { id:'mission-a',kind:'mission',planId:plan.id,datasetId:null,revisionId:'00000000-0000-4000-8000-000000000001',baseRevision:null,seq:1,createdAt:1,contentHash:'a'.repeat(64),deleted:false,conflict:false,
+    payload:{planId:plan.id,date:'2026-11-12',day:4,taskId:'d4-writing',skill:'writing',status:'partial',plannedMinutes:35,actualMinutes:9,timeSource:'timer'} } as Revision;
+  const context = resolveWritingContext(plan,[mission],{date:'2026-11-12',day:4,task:'d4-writing',minutes:40});
+  assert.equal(context.plannedMinutes,35); assert.equal(context.block?.minutes,35); assert.equal(context.defaultMode,'paragraph');
+});

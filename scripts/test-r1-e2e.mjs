@@ -39,7 +39,7 @@ async function stop(child) {
 /** Read-only IndexedDB inspection: writes still pass through the learner UI. */
 async function localScope(page) {
   return page.evaluate(async () => new Promise((resolve, reject) => {
-    const request = indexedDB.open("band-learning-v1", 2);
+    const request = indexedDB.open("band-learning-v1");
     request.onerror = () => reject(request.error);
     request.onsuccess = () => {
       const db = request.result;

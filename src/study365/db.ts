@@ -6,11 +6,11 @@ function open(): Promise<IDBDatabase> {
   if (opening) return opening;
   let abandoned = false;
   const pending = new Promise<IDBDatabase>((resolve, reject) => {
-    const request = indexedDB.open(DATABASE, 2);
+    const request = indexedDB.open(DATABASE, 3);
     const clear = () => { if (opening === pending) opening = null; };
     request.onupgradeneeded = () => {
       if (abandoned) { request.transaction?.abort(); return; }
-      for (const name of ["scopes", "recordings", "recordingMetadata"])
+      for (const name of ["scopes", "recordings", "recordingMetadata", "writingDrafts"])
         if (!request.result.objectStoreNames.contains(name)) request.result.createObjectStore(name);
     };
     request.onsuccess = () => {
@@ -30,6 +30,50 @@ const transactionError = () => new Error("学习记录未能保存。请释放�
 const scopeValue = (value?: LearningScope): LearningScope => ({ ...emptyScope(), ...value, quarantine: value?.quarantine ?? [] });
 
 export const userScopeKey = (userId: string) => `account:${userId}`;
+
+/** Drafts have a separate account-scoped store and never enter learning outbox. */
+export async function readWritingDraft<T>(scope: string, id: string): Promise<T | undefined> {
+  const db = await open();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("writingDrafts");
+    const request = tx.objectStore("writingDrafts").get([scope, id]);
+    tx.oncomplete = () => resolve(request.result);
+    tx.onabort = tx.onerror = () => reject(new Error("草稿未能读取，请重试；原数据未删除。"));
+  });
+}
+export async function updateWritingDraft<T>(scope: string, id: string, change: (old: T | undefined) => T): Promise<void> {
+  const db = await open();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("writingDrafts", "readwrite");
+    const store = tx.objectStore("writingDrafts");
+    let failure: unknown;
+    const request = store.get([scope, id]);
+    request.onsuccess = () => {
+      try { store.put(change(request.result), [scope, id]); }
+      catch (error) { failure = error; tx.abort(); }
+    };
+    tx.oncomplete = () => resolve();
+    tx.onabort = tx.onerror = () => reject(failure ?? new Error("草稿未保存。请释放设备存储空间后重试，勿关闭未保存的正文。"));
+  });
+}
+export async function listWritingDraftEntries<T>(scope: string): Promise<T[]> {
+  const db = await open();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("writingDrafts");
+    const request = tx.objectStore("writingDrafts").getAll(IDBKeyRange.bound([scope, ""], [scope, "\uffff"]));
+    tx.oncomplete = () => resolve(request.result);
+    tx.onabort = tx.onerror = () => reject(new Error("草稿列表未能读取，请重试。"));
+  });
+}
+export async function deleteWritingDraftEntry(scope: string, id: string): Promise<void> {
+  const db = await open();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("writingDrafts", "readwrite");
+    tx.objectStore("writingDrafts").delete([scope, id]);
+    tx.oncomplete = () => resolve();
+    tx.onabort = tx.onerror = () => reject(new Error("草稿未删除，请重试。"));
+  });
+}
 export interface RecordingMetadata {
   recordingId: string;
   date: string | null;

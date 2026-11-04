@@ -37,9 +37,9 @@ try {
   const checks = await page.evaluate(async () => {
     const checks = [];
     const ensure = (condition, message) => { if (!condition) throw new Error(message); };
-    const transaction = async (stores, run, version = 2) => {
+    const transaction = async (stores, run, version) => {
       const db = await new Promise((resolve, reject) => {
-        const request = indexedDB.open("band-learning-v1", version);
+        const request = version === undefined ? indexedDB.open("band-learning-v1") : indexedDB.open("band-learning-v1", version);
         request.onupgradeneeded = () => { for (const name of stores) if (!request.result.objectStoreNames.contains(name)) request.result.createObjectStore(name); };
         request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error);
       });
@@ -111,6 +111,8 @@ try {
     return checks;
   });
   assert.deepEqual(errors, []);
+  const { verifyWritingDraftStorage } = await import("./test-writing-storage.mjs");
+  checks.push(...await verifyWritingDraftStorage(browser, origin));
   console.log(JSON.stringify({ success: true, checks }, null, 2));
 } finally {
   await browser?.close();

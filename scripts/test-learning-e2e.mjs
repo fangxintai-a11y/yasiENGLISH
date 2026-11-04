@@ -337,7 +337,7 @@ try {
   const cleared = await desktop.evaluate(async (userId) => {
     const scope = `account:${userId}`;
     return new Promise((resolve, reject) => {
-      const request = indexedDB.open("band-learning-v1", 2);
+      const request = indexedDB.open("band-learning-v1");
       request.onerror = () => reject(request.error);
       request.onsuccess = () => {
         const db = request.result;
