@@ -2,9 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import type { LocalMaterial } from "../../localBankSchema";
 import { getLearningState, saveRecord } from "../../repository";
 import type { Revision } from "../../protocol";
-import { gradeMaterial } from "../../readingModel";
 import {
   completeReadingReview,
+  firstReadingGrade,
   LISTENING_READING_CAUSES,
   LR_CAUSE_LABELS,
   reviewSummary,
@@ -16,6 +16,7 @@ import { ReadingQuestions } from "./ReadingQuestions";
 import { ReadingVocabulary } from "./ReadingVocabulary";
 export function ReadingReview({
   material,
+  originalMaterial,
   work,
   userId,
   onSaved,
@@ -23,6 +24,7 @@ export function ReadingReview({
   onReplay,
 }: {
   material: LocalMaterial;
+  originalMaterial?: LocalMaterial;
   work: Revision;
   userId: string | null;
   onSaved: (record: Revision) => void;
@@ -55,7 +57,7 @@ export function ReadingReview({
   useEffect(() => {
     reviewClock.current = new PracticeClock();
     if (document.visibilityState === "hidden") reviewClock.current.pause();
-    const first = gradeMaterial(material, work.payload.answers as string[]);
+    const first = firstReadingGrade(work, originalMaterial ?? material);
     setAnswers([
       ...((work.payload.reviewAnswers ?? work.payload.answers) as string[]),
     ]);
@@ -91,7 +93,7 @@ export function ReadingReview({
       (q) =>
         typeof (q as { reviewCorrect?: unknown }).reviewCorrect === "boolean",
     );
-  const first = gradeMaterial(material, work.payload.answers as string[]);
+  const first = firstReadingGrade(work, originalMaterial ?? material);
   const update = (id: string, patch: Partial<QuestionReview>) =>
     setReviews((old) => ({ ...old, [id]: { ...old[id], ...patch } }));
   const save = async (final: boolean) => {
@@ -109,7 +111,13 @@ export function ReadingReview({
       if (!current || current.revisionId !== work.revisionId)
         throw new Error("作答版本有变化，请重新打开后复盘。");
       const payload = final
-        ? completeReadingReview(work, material, answers, reviews)
+        ? completeReadingReview(
+            work,
+            originalMaterial ?? material,
+            answers,
+            reviews,
+            material,
+          )
         : withReviewAnswers(work, material, answers);
       payload.actualMinutes = Math.min(
         1440,
@@ -136,6 +144,11 @@ export function ReadingReview({
   return (
     <section aria-label="听读 A-B 复盘" data-testid="lr-review">
       <h2>{phase === "a" ? "A轮：先自己改答案" : "B轮：核对答案和证据"}</h2>
+      {!Array.isArray(work.payload.questionResults) && (
+        <p className="muted">
+          旧作答未保留逐题首答结果：以下对错按原题答案回显，原始总分保留。
+        </p>
+      )}
       {phase === "a" ? (
         <>
           <p>

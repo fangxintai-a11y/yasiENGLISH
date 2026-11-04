@@ -1,3 +1,4 @@
+import { evaluateReviewedRetest } from "../../reviewedRetests";
 import { resolvePracticeContext } from "../../listeningReadingTasks";
 import { currentAttempts } from "../../readingModel";
 import { useRef, useState } from "react";
@@ -6,7 +7,6 @@ import type { DayPlan } from "../../planEngine";
 import type { LocalMaterial } from "../../localBankSchema";
 import {
   selectRetest,
-  evaluateRetest,
   type RetestPrompt,
   type RetestContext,
 } from "../../retestSelection";
@@ -126,14 +126,15 @@ function RetestRound({
         ),
         actual = state.records.find((r) => r.id === work.id && !r.conflict);
       if (!current || !actual) throw new Error("记录已变化，请重新打开。");
-      const result = evaluateRetest(current, actual, {
+      const checked = evaluateReviewedRetest(current, actual, {
         ...context,
         records: withRevisionReferences(state.records),
         ...(questionResultsFor
           ? { questionResults: questionResultsFor(actual) }
           : {}),
       });
-      if (result.pending) throw new Error(result.pending);
+      const result = checked.evaluation;
+      if (result.pending && !(checked.recheck && checked.payloadChanged)) throw new Error(result.pending);
       if (result.nextRound) {
         if (getLearningState().userId !== userId)
           throw new Error("账号已经切换，下一轮订正保留后重试。");
@@ -199,7 +200,7 @@ function RetestRound({
           });
         }
       }
-      setMessage(
+      setMessage(result.pending ? `已按最新审校撤销旧复测结论：${result.pending}；原分、门槛和目标差距不变。` :
         `${result.outcomes.some((item) => item.status === "retested-fail") ? "复测未通过，已建立下一轮订正" : "本轮复测通过"}${result.estimate ? "（自评／机器反馈，估分）" : ""}；原分、门槛和目标差距不变。`,
       );
     } catch (e) {
@@ -239,18 +240,19 @@ function RetestRound({
         </>
       )}
       {attempts.map((work) => {
-        const result = evaluateRetest(correction, work, {
+        const checked = evaluateReviewedRetest(correction, work, {
           ...context,
           ...(questionResultsFor
             ? { questionResults: questionResultsFor(work) }
             : {}),
         });
+        const result = checked.evaluation;
         return (
           <div key={work.id} data-retest-work-id={work.id}>
             <p>
               已保存复测：{String(work.payload.date)} · {work.id}
             </p>
-            {result.pending ? (
+            {result.pending && !(checked.recheck && checked.payloadChanged) ? (
               <p>{result.pending}</p>
             ) : (
               <button
@@ -258,7 +260,7 @@ function RetestRound({
                 disabled={busy}
                 onClick={() => void evaluate(work)}
               >
-                记录本次复测结果
+                {checked.recheck ? "按最新审校复核" : "记录本次复测结果"}
               </button>
             )}
           </div>

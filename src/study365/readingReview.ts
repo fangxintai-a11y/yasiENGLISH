@@ -56,15 +56,75 @@ export function withReviewAnswers(
   validateNewListeningReadingAttempt(payload);
   return payload;
 }
+/** Correct-only rows are the creation-time snapshot: omitted IDs were wrong, without inventing a cause. */
+export function firstReadingGrade(work: Revision, material: LocalMaterial) {
+  const fallback = gradeMaterial(material, work.payload.answers as string[]);
+  const values = Array.isArray(work.payload.questionResults)
+    ? work.payload.questionResults
+    : null;
+  const saved = values?.filter(isObject) ?? [];
+  const ids = new Set(material.questions.map((question) => question.id));
+  const snapshot =
+    values !== null &&
+    saved.length === values.length &&
+    Number.isInteger(work.payload.score) &&
+    work.payload.total === material.questions.length &&
+    saved.length === work.payload.score &&
+    new Set(saved.map((result) => result.questionId)).size === saved.length &&
+    saved.every(
+      (result) =>
+        result.correct === true &&
+        result.reviewCorrect === undefined &&
+        ids.has(String(result.questionId)),
+    );
+  const byId = new Map(
+    saved.map((result) => [String(result.questionId), result]),
+  );
+  const questionResults = fallback.questionResults.map((result) => {
+    const stored = byId.get(result.questionId);
+    const correct =
+      typeof stored?.correct === "boolean"
+        ? stored.correct
+        : snapshot
+          ? false
+          : result.correct;
+    return {
+      ...result,
+      correct,
+      errorCause: correct ? null : result.errorCause,
+    };
+  });
+  return {
+    ...fallback,
+    questionResults,
+    score:
+      typeof work.payload.score === "number"
+        ? work.payload.score
+        : fallback.score,
+    correct:
+      typeof work.payload.correct === "number"
+        ? work.payload.correct
+        : fallback.correct,
+  };
+}
 export function completeReadingReview(
   work: Revision,
   material: LocalMaterial,
   answers: string[],
   reviews: Record<string, QuestionReview>,
+  effectiveMaterial: LocalMaterial = material,
 ): LearningPayload {
   const payload = withReviewAnswers(work, material, answers);
-  const first = gradeMaterial(material, payload.answers as string[]),
-    review = gradeMaterial(material, answers);
+  withReviewAnswers(work, effectiveMaterial, answers);
+  if (
+    material.questions.some(
+      (question, index) =>
+        question.id !== effectiveMaterial.questions[index]?.id,
+    )
+  )
+    throw new Error("审校材料的题序与首答原题不一致，请重新打开原题。");
+  const first = firstReadingGrade(work, material),
+    review = gradeMaterial(effectiveMaterial, answers);
   const questionResults = material.questions.map((q, i) => {
     const selected = reviews[q.id];
     if (!selected || !["sure", "unsure"].includes(selected.confidence))

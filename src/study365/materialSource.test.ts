@@ -91,3 +91,15 @@ test('R4 full-paper qualification requires a valid integer raw count and consist
     assert.equal(scoreView(payload, changed).effectiveScores.reading, null);
   }
 });
+
+test('R5 ambiguous exact-version answer review excludes a practice paper from qualification without changing stored scores', () => {
+  const payload = buildAssessment(input), raw = evidence('cambridge').map(r => ({ ...r, payload: { ...r.payload, contentVersion: '1' } }));
+  const before = JSON.stringify(raw);
+  const review = record('answerReview', { planId: plan.id, materialId: 'paper-a', contentVersion: '1', contentHash: 'b'.repeat(64), questionId: 'q1', verdict: 'ambiguous', correctedAnswers: [], note: 'Evidence permits two interpretations.', reviewer: 'self' }, 'answer-review');
+  assert.equal(assessmentMaterialEligibility(payload, [...raw, review]).reading.eligible, false);
+  assert.equal(assessmentMaterialEligibility(payload, [...raw, { ...review, payload: { ...review.payload, contentHash: 'c'.repeat(64) } }]).reading.eligible, true);
+  for (const verdict of ['key-correct', 'key-wrong']) assert.equal(assessmentMaterialEligibility(payload, [...raw, { ...review, payload: { ...review.payload, verdict, correctedAnswers: verdict === 'key-wrong' ? ['revised'] : [] } }]).reading.eligible, true);
+  const formal = buildAssessment({ ...input, kind: 'official', scoreSources: { listening: 'official', reading: 'official', writing: 'official', speaking: 'official' } });
+  assert.equal(assessmentMaterialEligibility(formal, [...raw, review]).reading.eligible, true);
+  assert.equal(JSON.stringify(raw), before);
+});

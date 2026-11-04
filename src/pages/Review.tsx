@@ -1,9 +1,11 @@
+import { AnswerReviewQueue } from "../study365/ui/review/AnswerReviewQueue";
+import { projectReviewedAttempts, reviewedOfficialTypeCalibration } from "../study365/answerReviewModel";
 import { WeeklyReview } from '../study365/ui/review/WeeklyReview';
 import { RetestPanel } from "../study365/ui/review/RetestPanel";
 import { loadPromptBank } from "../study365/promptBank";
 import { withPromptOrigins } from "../study365/promptOrigins";
 import type { RetestPrompt } from "../study365/retestSelection";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Route } from "../lib/router";
 import { useActivePlan } from "../study365/useActivePlan";
 import { loadLocalBank } from "../study365/localBank";
@@ -51,6 +53,8 @@ export function Review({
         .getElementById(`review-${route.correctionId}`)
         ?.scrollIntoView({ block: "start" });
   }, [route.correctionId, learning.records]);
+  const projection = useMemo(() => projectReviewedAttempts(learning.records, bank, plan?.id ?? ""), [learning.records, bank, plan?.id]);
+  const officialCalibration = useMemo(() => reviewedOfficialTypeCalibration(learning.records, bank, plan?.id ?? ""), [learning.records, bank, plan?.id]);
   if (!learning.ready)
     return (
       <div className="page">
@@ -79,12 +83,15 @@ export function Review({
           订正与复测
         </a>
         <a className="btn btn-ghost" href="#/review?tab=weekly">本周校准</a>
+      <a className="btn btn-ghost" href="#/review?tab=answers">答案审校</a>
       </nav>
-      {route.tab === "weekly" && <WeeklyReview plan={plan} records={learning.records} bank={bank} date={dayPlan.date} userId={learning.userId} />}
+      {route.tab === "weekly" && <WeeklyReview plan={plan} records={learning.records} bank={bank} date={dayPlan.date} userId={learning.userId} statisticsRecords={projection.records} officialCalibration={officialCalibration} />}
+      {route.tab === "answers" && <AnswerReviewQueue planId={plan.id} records={learning.records} bank={bank} userId={learning.userId} date={dayPlan.date} day={dayPlan.day} />}
       {error && <p role="alert">{error}</p>}
       {bankError && <p role="alert">{bankError}</p>}
       {(route.tab === undefined || route.tab === "corrections") && (
         <CorrectionPanel
+          issueRecords={projection.correctionRecords}
           plan={plan}
           dayPlan={dayPlan}
           records={learning.records}
@@ -94,6 +101,7 @@ export function Review({
       )}
       {(route.tab === undefined || route.tab === "corrections") && (
         <RetestPanel
+          questionResultsFor={(work) => { const rows = projection.attempts.find(item => item.work.revisionId === work.revisionId)?.questions; return rows ? Object.fromEntries(rows.map(q => [q.questionId, { correct: q.correct, excluded: q.excluded }])) : undefined; }}
           plan={plan}
           dayPlan={dayPlan}
           records={learning.records}

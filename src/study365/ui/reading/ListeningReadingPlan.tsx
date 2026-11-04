@@ -145,6 +145,7 @@ export function ListeningReadingPlan({
   skill,
   requiresFull,
   preferences,
+  officialCalibration,
   onChoose,
   disabled,
 }: {
@@ -156,6 +157,7 @@ export function ListeningReadingPlan({
   skill: "reading" | "listening";
   requiresFull: boolean;
   preferences?: AcceptedPreferences;
+  officialCalibration?: ReturnType<typeof officialTypeCalibration>;
   onChoose: (m: LocalMaterial) => void;
   disabled: boolean;
 }) {
@@ -169,7 +171,7 @@ export function ListeningReadingPlan({
       requiresFull,
       preferences,
     ),
-    calibration = officialTypeCalibration(records, bank, planId).filter(
+    calibration = (officialCalibration ?? officialTypeCalibration(records, bank, planId)).filter(
       (item) => item.skill === skill,
     );
   return (

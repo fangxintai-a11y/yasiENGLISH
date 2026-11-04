@@ -1,3 +1,4 @@
+import { applyAnswerReviewsToMaterial, projectReviewedAttempts, reviewedAttempt, reviewedOfficialTypeCalibration } from "../../answerReviewModel";
 import { acceptedMaterialPreferences } from '../../weeklyReview';
 import { calibrationWeekIndex } from '../../writingCalibration';
 import { assertRetestMaterialEligible, selectRetest, estimatedRetestMinutes } from '../../retestSelection';
@@ -331,7 +332,7 @@ export function ReadingSession({
         Math.max(0, (Date.now() - started) / 1000),
       );
       const payload = attemptPayload(
-        material,
+        applyAnswerReviewsToMaterial(material, state.records, plan.id),
         material.questions.map((_, i) => answers[i] ?? ""),
         {
           planId: plan.id,
@@ -352,6 +353,9 @@ export function ReadingSession({
             )
           : undefined,
       );
+      // Persist only known-correct first outcomes; wrong answers acquire a real cause in B review.
+      payload.questionResults = gradeMaterial(applyAnswerReviewsToMaterial(material, state.records, plan.id), payload.answers as string[]).questionResults
+        .filter(q => q.correct).map(q => ({ questionId: q.questionId, correct: true, confidence: "unsure", errorCause: null }));
       if (workflow?.retestOf && workflow.correctionId) Object.assign(payload, { retestOf: workflow.retestOf, correctionId: workflow.correctionId });
       payload.actualMinutes = activeClock.current.value() / 60;
       const record = await saveRecord({
@@ -459,6 +463,10 @@ export function ReadingSession({
       (q) =>
         typeof (q as { reviewCorrect?: unknown }).reviewCorrect === "boolean",
     );
+  const effectiveMaterial = material ? applyAnswerReviewsToMaterial(material, learning.records, plan.id) : null;
+  const reviewed = material && work ? reviewedAttempt(work, material, learning.records, plan.id) : null;
+  const projection = useMemo(() => projectReviewedAttempts(learning.records, bank, plan.id), [learning.records, bank, plan.id]);
+  const officialCalibration = useMemo(() => reviewedOfficialTypeCalibration(learning.records, bank, plan.id), [learning.records, bank, plan.id]);
   const result =
     material && work
       ? gradeMaterial(material, work.payload.answers as string[])
@@ -493,6 +501,7 @@ export function ReadingSession({
             skill={skill}
             requiresFull={context.requiresFull}
             preferences={preferences}
+            officialCalibration={officialCalibration}
             disabled={started !== null || !!work || busy}
             onChoose={(m) => {
               if (started !== null || work || busy) return;
@@ -702,6 +711,7 @@ export function ReadingSession({
                       首答 {work.payload.score as number}/
                       {work.payload.total as number}
                     </h2>
+                    {reviewed?.questions.some(q => q.verdict) && <p role="status">原分 {reviewed.originalScore}/{reviewed.originalTotal} · 校正后 {reviewed.correctedScore}/{reviewed.total} · 排除 {reviewed.excluded} 题；首答原分保留。<a href="#/review?tab=answers">查看答案审校与补选错因</a></p>}
                     <p>
                       {work.payload.firstAttempt
                         ? "新材料首答"
@@ -742,7 +752,8 @@ export function ReadingSession({
                       )}
                     <ReadingReview
                       key={work.id}
-                      material={material}
+                      material={effectiveMaterial ?? material}
+                      originalMaterial={material}
                       work={work}
                       userId={userId}
                       onSaved={(record) => setActiveWorkId(record.id)}
@@ -843,7 +854,7 @@ export function ReadingSession({
           ))}
       </section>
       <ReadingErrorBook
-        records={learning.records}
+        records={projection.records}
         planId={plan.id}
         bank={bank}
         today={context.date}

@@ -37,6 +37,7 @@ interface Props {
   plan: Revision;
   dayPlan: DayPlan;
   records: readonly Revision[];
+  issueRecords?: readonly Revision[];
   bank: readonly LocalMaterial[];
   userId: string | null;
 }
@@ -48,6 +49,7 @@ function assertAccount(userId: string | null) {
 }
 export function CorrectionPanel(props: Props) {
   const { plan, dayPlan, records, userId } = props;
+  const issueRecords = props.issueRecords ?? records;
   const [busy, setBusy] = useState(false),
     [message, setMessage] = useState(""),
     [error, setError] = useState("");
@@ -62,7 +64,7 @@ export function CorrectionPanel(props: Props) {
   ), preferences);
   const drafts = useMemo(
     () =>
-      records
+      issueRecords
         .filter(
           (r) =>
             r.planId === plan.id &&
@@ -85,7 +87,7 @@ export function CorrectionPanel(props: Props) {
             return [];
           }
         }),
-    [plan.id, dayPlan.date, dayPlan.day, records],
+    [plan.id, dayPlan.date, dayPlan.day, records, issueRecords],
   );
   const pending = corrections.reduce(
     (sum, r) =>

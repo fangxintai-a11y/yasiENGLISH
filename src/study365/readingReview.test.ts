@@ -303,3 +303,195 @@ test("dispute totals and error statistics use latest current heads without count
     0,
   );
 });
+
+test("a corrected key before a new first answer preserves the two-way swapped first snapshot through B", async () => {
+  const raw = { ...material, questions: material.questions.slice(0, 2) },
+    effective = {
+      ...raw,
+      questions: raw.questions.map((q, i) => ({
+        ...q,
+        answer: { ...q.answer, accepted: [i === 0 ? "B" : "A"] },
+      })),
+    };
+  for (const [answers, firstCorrect] of [
+    [
+      ["B", "B"],
+      [true, false],
+    ],
+    [
+      ["A", "A"],
+      [false, true],
+    ],
+  ] as [string[], boolean[]][]) {
+    const original = await work();
+    original.payload = {
+      ...original.payload,
+      answers: [...answers],
+      score: 1,
+      correct: 1,
+      total: 2,
+      questionResults: raw.questions.flatMap((q, i) =>
+        firstCorrect[i]
+          ? [
+              {
+                questionId: q.id,
+                correct: true,
+                confidence: "unsure",
+                errorCause: null,
+              },
+            ]
+          : [],
+      ),
+    };
+    original.contentHash = await hashPayload("attempt", original.payload);
+    const before = JSON.stringify(original),
+      reviews = Object.fromEntries(
+        raw.questions.map((q, i) => [
+          q.id,
+          {
+            confidence: "sure" as const,
+            errorCause: firstCorrect[i] ? null : "vocab-unknown",
+          },
+        ]),
+      );
+    const payload = completeReadingReview(
+      original,
+      raw,
+      ["B", "A"],
+      reviews,
+      effective,
+    );
+    assert.deepEqual(
+      (payload.questionResults as Record<string, unknown>[]).map(
+        (q) => q.correct,
+      ),
+      firstCorrect,
+    );
+    assert.deepEqual(
+      (payload.questionResults as Record<string, unknown>[]).map(
+        (q) => q.reviewCorrect,
+      ),
+      [true, true],
+    );
+    assert.deepEqual(
+      (payload.questionResults as Record<string, unknown>[]).map(
+        (q) => q.errorCause,
+      ),
+      firstCorrect.map((ok) => (ok ? null : "vocab-unknown")),
+    );
+    assert.equal(payload.score, 1);
+    assert.equal(payload.correct, 1);
+    assert.deepEqual(payload.answers, answers);
+    assert.equal(JSON.stringify(original), before);
+    const wrong = raw.questions.find((_q, i) => !firstCorrect[i])!;
+    reviews[wrong.id].errorCause = null;
+    assert.throws(
+      () =>
+        completeReadingReview(original, raw, ["B", "A"], reviews, effective),
+      new RegExp(`第${wrong.number}题请选择错因`),
+    );
+  }
+});
+test("an empty correct-only snapshot means a real all-wrong first answer and never regrades it from the old key", async () => {
+  const raw = { ...material, questions: material.questions.slice(0, 2) },
+    effective = {
+      ...raw,
+      questions: raw.questions.map((q, i) => ({
+        ...q,
+        answer: { ...q.answer, accepted: [i === 0 ? "B" : "A"] },
+      })),
+    },
+    original = await work();
+  original.payload = {
+    ...original.payload,
+    answers: ["A", "B"],
+    score: 0,
+    correct: 0,
+    total: 2,
+    questionResults: [],
+  };
+  original.contentHash = await hashPayload("attempt", original.payload);
+  const payload = completeReadingReview(
+    original,
+    raw,
+    ["B", "A"],
+    {
+      q1: { confidence: "sure", errorCause: "synonym-miss" },
+      q2: { confidence: "sure", errorCause: "vocab-unknown" },
+    },
+    effective,
+  );
+  assert.equal(payload.score, 0);
+  assert.equal(payload.correct, 0);
+  assert.deepEqual(
+    (payload.questionResults as Record<string, unknown>[]).map(
+      (q) => q.correct,
+    ),
+    [false, false],
+  );
+  assert.deepEqual(
+    (payload.questionResults as Record<string, unknown>[]).map(
+      (q) => q.reviewCorrect,
+    ),
+    [true, true],
+  );
+});
+test("completed stored first judgments survive later answer-key changes while only reviewCorrect follows the current key", async () => {
+  const raw = { ...material, questions: material.questions.slice(0, 2) },
+    effective = {
+      ...raw,
+      questions: raw.questions.map((q, i) => ({
+        ...q,
+        answer: { ...q.answer, accepted: [i === 0 ? "B" : "A"] },
+      })),
+    },
+    original = await work();
+  original.payload = {
+    ...original.payload,
+    answers: ["B", "B"],
+    score: 1,
+    correct: 1,
+    total: 2,
+    questionResults: [
+      {
+        questionId: "q1",
+        correct: true,
+        reviewCorrect: true,
+        confidence: "sure",
+        errorCause: null,
+      },
+      {
+        questionId: "q2",
+        correct: false,
+        reviewCorrect: false,
+        confidence: "sure",
+        errorCause: "vocab-unknown",
+      },
+    ],
+  };
+  original.contentHash = await hashPayload("attempt", original.payload);
+  const payload = completeReadingReview(
+    original,
+    raw,
+    ["B", "B"],
+    {
+      q1: { confidence: "sure", errorCause: null },
+      q2: { confidence: "sure", errorCause: "vocab-unknown" },
+    },
+    effective,
+  );
+  assert.deepEqual(
+    (payload.questionResults as Record<string, unknown>[]).map(
+      (q) => q.correct,
+    ),
+    [true, false],
+  );
+  assert.deepEqual(
+    (payload.questionResults as Record<string, unknown>[]).map(
+      (q) => q.reviewCorrect,
+    ),
+    [true, false],
+  );
+  assert.equal(payload.score, 1);
+  assert.equal(payload.correct, 1);
+});

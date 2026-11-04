@@ -1,3 +1,4 @@
+import { hasAmbiguousAnswerReview } from "./answerReviewModel";
 import { isObject, readAttemptMaterialSource, validatePayload, type LearningPayload, type MaterialSource, type Revision } from './protocol';
 export type ListeningReadingSkill = 'listening' | 'reading';
 /** A verified formal result is exam evidence; it does not require retaining the exam paper. */
@@ -30,7 +31,7 @@ export function assessmentMaterialEligibility(payload: LearningPayload, records:
     const source = attempt ? readAttemptMaterialSource(attempt.payload) : null;
     let valid = false;
     if (attempt) { try { validatePayload('attempt', attempt.payload); valid = true; } catch { /* An invalid imported record cannot provide qualification. */ } }
-    result[skill] = { eligible: valid && !!attempt && completeFullAttempt(attempt.payload) && (source === 'official' || source === 'cambridge'), materialSource: source };
+    result[skill] = { eligible: valid && !!attempt && completeFullAttempt(attempt.payload) && !hasAmbiguousAnswerReview(attempt.payload, records) && (source === 'official' || source === 'cambridge'), materialSource: source };
   }
   return result;
 }
