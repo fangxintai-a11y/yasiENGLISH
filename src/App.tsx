@@ -16,6 +16,7 @@ import { Ielts } from "./pages/Ielts";
 import { loadTags } from "./ielts/tags";
 import { loadConfusables } from "./ielts/confusables";
 import { Today } from "./pages/Today";
+import { Speaking } from "./pages/Speaking";
 import { Writing } from "./pages/Writing";
 import { Progress } from "./pages/Progress";
 import { cue } from "./lib/sound";
@@ -184,6 +185,7 @@ function Shell({ privateAvailable }: { privateAvailable: boolean }) {
         {route.page === "practice" && <Practice />}
         {route.page === "shadow" && <Shadow run={!!route.run} />}
         {route.page === "ielts" && <Ielts route={route} />}
+        {route.page === "speaking" && <Speaking route={route} />}
         {route.page === "writing" && <Writing route={route} />}
         {route.page === "progress" && <Progress />}
         {route.page === "me" && <Me privateAvailable={privateAvailable} focusSync={route.section === "learning-sync"} />}

@@ -10,6 +10,7 @@ export type Route =
   | { page: "shadow"; run?: boolean }
   | { page: "ielts"; tab?: string }
   | { page: "writing"; task?: string; date?: string; day?: number; minutes?: number; work?: string }
+  | { page: "speaking"; task?: string; date?: string; day?: number; minutes?: number; work?: string }
   | { page: "progress" }
   | { page: "me"; section?: "learning-sync" }
   | { page: "about" };
@@ -34,6 +35,8 @@ function parse(hash: string): Location {
   else if (seg[0] === "ielts") route = { page: "ielts", tab: params.get("tab") || undefined };
   else if (seg[0] === "writing") route = { page: "writing", task: params.get("task") || undefined, date: params.get("date") || undefined,
     day: params.has("day") ? Number(params.get("day")) : undefined, minutes: params.has("minutes") ? Number(params.get("minutes")) : undefined, work: params.get("work") || undefined };
+  else if (seg[0] === "speaking") route = { page: "speaking", task: params.get("task") || undefined, date: params.get("date") || undefined,
+    day: params.has("day") ? Number(params.get("day")) : undefined, minutes: params.has("minutes") ? Number(params.get("minutes")) : undefined, work: params.get("work") || undefined };
   else if (seg[0] === "progress") route = { page: "progress" };
   else if (seg[0] === "me") route = { page: "me", ...(params.get("section") === "learning-sync" ? { section: "learning-sync" as const } : {}) };
   else if (seg[0] === "about") route = { page: "about" };
@@ -49,7 +52,7 @@ export function href(route: Route, word?: string | null) {
     if (route.q) params.set("q", route.q);
     if (route.view) params.set("view", route.view);
   }
-  if (route.page === "writing") {
+  if (route.page === "writing" || route.page === "speaking") {
     for (const key of ["task", "date", "day", "minutes", "work"] as const) if (route[key] !== undefined) params.set(key, String(route[key]));
   }
   if (route.page === "ielts" && route.tab) params.set("tab", route.tab);
