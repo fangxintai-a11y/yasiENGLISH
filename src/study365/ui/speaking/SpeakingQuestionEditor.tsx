@@ -6,6 +6,7 @@ import {
 } from "../../speakingTasks";
 import { RecordingPlayer } from "./RecordingPlayer";
 import { SpeakingReview } from "./SpeakingReview";
+import { ExternalSpeakingFeedback } from "./ExternalSpeakingFeedback";
 import {
   useSpeakingAnswer,
   type SpeakingAnswerOptions,
@@ -307,6 +308,12 @@ export function SpeakingQuestionEditor(
           work={reviewWork}
           currentWork={answer.currentWork}
           materialSelfCheck={material?.reviewChecklist}
+        />
+      )}
+      {reviewWork && (
+        <ExternalSpeakingFeedback
+          work={reviewWork}
+          currentWork={answer.currentWork}
         />
       )}
     </article>

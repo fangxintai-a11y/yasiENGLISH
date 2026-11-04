@@ -45,7 +45,13 @@ function taskInput(task: TaskId, value: unknown) {
     z.enum(["task1", "task2"]).parse(object.taskType); text("prompt", 8000); text("text");
     if (object.feedbackContext !== undefined) z.strictObject({ workRevisionId: z.string().refine(isRevisionId), inputHash: z.string().regex(/^[a-f0-9]{64}$/) }).parse(object.feedbackContext);
   }
-  if (task === "speaking") { z.union([z.literal(1), z.literal(2), z.literal(3)]).parse(object.part); text("prompt", 8000); text("transcript"); z.number().min(0).max(86400).parse(object.durationSeconds); }
+  if (task === "speaking") {
+    z.union([z.literal(1), z.literal(2), z.literal(3)]).parse(object.part); text("prompt", 8000); text("transcript"); z.number().min(0).max(86400).parse(object.durationSeconds);
+    if (object.feedbackContext !== undefined) z.strictObject({
+      part: z.union([z.literal(1), z.literal(2), z.literal(3)]), prompt: z.string().max(8000), transcript: z.string().max(20000).refine(value => !!value.trim(), "请先填写转写。"), durationSeconds: z.number().min(0).max(86400),
+      feedbackContext: z.strictObject({ workRevisionId: z.string().refine(isRevisionId), inputHash: z.string().regex(/^[a-f0-9]{64}$/) }),
+    }).parse(object);
+  }
   if (task === "sentence") { text("word", 200); text("zh", 2000); text("sentence", 1000); }
   if (task === "reading") z.array(z.object({ id: z.string(), word: z.string(), zh: z.string(), entry: z.unknown() })).min(5).max(50).parse(object.words);
   if (task === "hack") { text("word", 120); text("ipa", 200); text("zh", 2000); }
@@ -63,8 +69,12 @@ function taskSchema(task: TaskId, input: unknown): ZodType<unknown> {
   if (task === "reading") return ReadingSchema;
   if (task === "hack") return HackSchema;
   const original = String(task === "essay" ? value.text : value.transcript);
-  const schema = task === "speaking" ? SpeakingFeedbackSchema : value.taskType === "task1" ? Task1FeedbackSchema : Task2FeedbackSchema;
-  const context = task === "essay" ? (value as unknown as WritingInput).feedbackContext : undefined;
+  const context = (value as unknown as WritingInput | SpeakingInput).feedbackContext;
+  const speakingSchema = context ? SpeakingFeedbackSchema.safeExtend({ criteria: SpeakingFeedbackSchema.shape.criteria.safeExtend({
+    fluency: SpeakingFeedbackSchema.shape.criteria.shape.fluency.safeExtend({ band: z.null(), confidence: z.literal(0) }),
+    pronunciation: SpeakingFeedbackSchema.shape.criteria.shape.pronunciation.safeExtend({ band: z.null(), confidence: z.literal(0) }),
+  }) }) : SpeakingFeedbackSchema;
+  const schema = task === "speaking" ? speakingSchema : value.taskType === "task1" ? Task1FeedbackSchema : Task2FeedbackSchema;
   const resultSchema = context ? schema.safeExtend({ workRevisionId: z.literal(context.workRevisionId), inputHash: z.literal(context.inputHash) }) : schema;
   return resultSchema.superRefine((body, ctx) => {
     for (const [key, criterion] of Object.entries(body.criteria)) for (const [index, evidence] of criterion.evidence.entries()) {
@@ -79,7 +89,7 @@ export function manualPrompt(task: TaskId, input: unknown): { text: string; sche
 }
 function feedbackResult(task: "essay" | "speaking", input: WritingInput | SpeakingInput, wire: unknown, inputHash: string, provider: string, fallbackTrail: FallbackEntry[], now: number): WritingResult | SpeakingResult {
   let body = wire;
-  if (task === "essay" && (input as WritingInput).feedbackContext) {
+  if (input.feedbackContext) {
     const { workRevisionId: _revision, inputHash: _hash, ...value } = taskSchema(task, input).parse(wire) as Record<string, unknown>;
     body = value;
   }
@@ -118,7 +128,11 @@ export async function acceptManual<T>(task: TaskId, pasted: string, input: unkno
       const context = (input as WritingInput).feedbackContext;
       if (context && context.inputHash !== hash) throw new FeedbackContextError();
     }
-    if (task === "speaking") hash = await hashPayload("speaking", { transcript: (input as SpeakingInput).transcript });
+    if (task === "speaking") {
+      hash = await hashPayload("speaking", { transcript: (input as SpeakingInput).transcript });
+      const context = (input as SpeakingInput).feedbackContext;
+      if (context && context.inputHash !== hash) throw new FeedbackContextError();
+    }
     return { ok: true, value: checked(wrapped(task, input, parsed.value, "manual", [], Date.now(), hash)) as T };
   } catch (error) { return { ok: false, errors: [error instanceof ScoringPrivacyError || error instanceof CredentialPrivacyError || error instanceof FeedbackContextError ? error.message : "输入或结果字段不符合要求，请核对原稿与JSON内容。"] }; }
 }
@@ -158,5 +172,6 @@ export async function scoreWriting(input: WritingInput, context: ScoringContext)
 }
 export async function scoreSpeaking(input: SpeakingInput, context: ScoringContext): Promise<SpeakingResult> {
   cancelled(context.signal); taskInput("speaking", input); const now = context.now ?? Date.now(), local = await scoreSpeakingRules(input, now);
+  if (input.feedbackContext && input.feedbackContext.inputHash !== local.inputHash) throw new FeedbackContextError();
   return enhance("speaking", input, context, local, now, local.inputHash);
 }
