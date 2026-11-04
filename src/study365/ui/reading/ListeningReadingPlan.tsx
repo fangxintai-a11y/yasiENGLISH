@@ -79,7 +79,9 @@ export function practiceSelection(
   preferences?: AcceptedPreferences,
 ) {
   const originals = bank.filter(
-    (material) => !isListeningSequenceMaterial(material),
+    (material) =>
+      !isListeningSequenceMaterial(material) &&
+      !isHeldOutListeningReading(material, bank),
   );
   const schedule = buildListeningReadingSchedule(originals),
     attempts = currentAttempts(records, planId);
@@ -95,7 +97,7 @@ export function practiceSelection(
       { id: string; version: string; contentHash: string } | null | undefined,
   ) =>
     ref
-      ? (bank.find(
+      ? (originals.find(
           (m) =>
             m.id === ref.id &&
             m.version === ref.version &&

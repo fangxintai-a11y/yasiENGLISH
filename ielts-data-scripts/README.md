@@ -2,12 +2,14 @@
 
 | 文件 | 作用 |
 |---|---|
-| fetch-ielts-data.sh | 一键抓取（同 /workspace/fetch-ielts-data.sh）。放在本目录的上一级或本目录均可，它会在 `./ielts-data-scripts/` 或自身目录找 MANIFEST.json 与 parse 脚本 |
+| ../fetch-ielts-data.sh | 一键抓取脚本唯一保留在仓库根目录，从 `./ielts-data-scripts/` 读取 MANIFEST.json 与解析脚本 |
 | MANIFEST.json | 盒子上的基准：各 repo 固定 commit、单文件 sha256/bytes |
 | parse_lincoh.py | lincoh `data.js` + `content/*.html` → `structured/cam-lincoh/C{book}-T{n}-{L|R}.json`（剑桥 1/2/3/19/20），含 `<ol><li>` 答案回退；题图 URL 写入 json 的 `images` |
 | parse_taro.py | taroflink 剑 16–20 PDF → `structured/cam-taro/*.json`（20 套听力×40 答案）|
 
 ## 用法
+
+从仓库根目录执行以下命令（脚本仅供资料接手任务，应用不会自动运行）：
 ```bash
 bash fetch-ielts-data.sh --core --dry-run            # 先看计划
 bash fetch-ielts-data.sh --core ./local-content/ielts-data

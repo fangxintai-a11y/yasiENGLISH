@@ -1,0 +1,360 @@
+{
+  "fixtureVersion": 1,
+  "purpose": "Self-authored extra originals imported only after the main 80-question matrix and phone assertions. Both entries share exactly the same original; the practice alias must not leak a reserved holdout into normal training.",
+  "materials": [
+    {
+      "id": "r5-ui-heldout-reading",
+      "version": "1",
+      "skill": "reading",
+      "title": "R5 self-authored reserved article",
+      "deliveryMode": "local-import",
+      "scope": "section",
+      "pool": "holdout",
+      "frequency": "high",
+      "passageNumber": 1,
+      "estimatedMinutes": 20,
+      "source": {
+        "materialSource": "official",
+        "sourceRef": "synthetic:r5-heldout-reading",
+        "rights": "Self-authored engineering fixture for the independent holdout boundary.",
+        "answerVerified": false
+      },
+      "passage": "The willow project opened in the spring. Volunteers met every Monday at the willow office. The first survey recorded ten public routes near the willow. The team stored its paper notes in a locked cupboard marked willow. An independent editor checked each willow report before publication. The willow project closed on Sundays. The willow coordinator trained new volunteers in pairs. Each willow route was checked twice before the map was released. The printed willow maps were distributed free of charge. A local library preserved the final willow report. The willow team treated its archive as a record of decisions rather than a list of isolated observations. Members described where each note had come from, checked the date against the shared timetable, and asked a second reader to inspect unclear entries. This routine made the eventual report easier to trace. Visitors could compare the summary with the original notebooks and understand why a route appeared on the map. When an entry was incomplete, the group left a clear gap instead of filling it with an assumption. The next visit then addressed that gap with a specific question. The willow team treated its archive as a record of decisions rather than a list of isolated observations. Members described where each note had come from, checked the date against the shared timetable, and asked a second reader to inspect unclear entries. This routine made the eventual report easier to trace. Visitors could compare the summary with the original notebooks and understand why a route appeared on the map. When an entry was incomplete, the group left a clear gap instead of filling it with an assumption. The next visit then addressed that gap with a specific question. The willow team treated its archive as a record of decisions rather than a list of isolated observations. Members described where each note had come from, checked the date against the shared timetable, and asked a second reader to inspect unclear entries. This routine made the eventual report easier to trace. Visitors could compare the summary with the original notebooks and understand why a route appeared on the map. When an entry was incomplete, the group left a clear gap instead of filling it with an assumption. The next visit then addressed that gap with a specific question. The willow team treated its archive as a record of decisions rather than a list of isolated observations. Members described where each note had come from, checked the date against the shared timetable, and asked a second reader to inspect unclear entries. This routine made the eventual report easier to trace. Visitors could compare the summary with the original notebooks and understand why a route appeared on the map. When an entry was incomplete, the group left a clear gap instead of filling it with an assumption. The next visit then addressed that gap with a specific question. The willow team treated its archive as a record of decisions rather than a list of isolated observations. Members described where each note had come from, checked the date against the shared timetable, and asked a second reader to inspect unclear entries. This routine made the eventual report easier to trace. Visitors could compare the summary with the original notebooks and understand why a route appeared on the map. When an entry was incomplete, the group left a clear gap instead of filling it with an assumption. The next visit then addressed that gap with a specific question. The willow team treated its archive as a record of decisions rather than a list of isolated observations. Members described where each note had come from, checked the date against the shared timetable, and asked a second reader to inspect unclear entries. This routine made the eventual report easier to trace. Visitors could compare the summary with the original notebooks and understand why a route appeared on the map. When an entry was incomplete, the group left a clear gap instead of filling it with an assumption. The next visit then addressed that gap with a specific question. The willow team treated its archive as a record of decisions rather than a list of isolated observations. Members described where each note had come from, checked the date against the shared timetable, and asked a second reader to inspect unclear entries. This routine made the eventual report easier to trace. Visitors could compare the summary with the original notebooks and understand why a route appeared on the map. When an entry was incomplete, the group left a clear gap instead of filling it with an assumption. The next visit then addressed that gap with a specific question. The willow team treated its archive as a record of decisions rather than a list of isolated observations. Members described where each note had come from, checked the date against the shared timetable, and asked a second reader to inspect unclear entries. This routine made the eventual report easier to trace. Visitors could compare the summary with the original notebooks and understand why a route appeared on the map. When an entry was incomplete, the group",
+      "paragraphs": [
+        {
+          "id": "p1",
+          "text": "The willow project opened in the spring. Volunteers met every Monday at the willow office. The first survey recorded ten public routes near the willow. The team stored its paper notes in a locked cupboard marked willow. An independent editor checked each willow report before publication. The willow project closed on Sundays. The willow coordinator trained new volunteers in pairs. Each willow route was checked twice before the map was released. The printed willow maps were distributed free of charge. A local library preserved the final willow report. The willow team treated its archive as a record of decisions rather than a list of isolated observations. Members described where each note had come from, checked the date against the shared timetable, and asked a second reader to inspect unclear entries. This routine made the eventual report easier to trace. Visitors could compare the summary with the original notebooks and understand why a route appeared on the map. When an entry was incomplete, the group left a clear gap instead of filling it with an assumption. The next visit then addressed that gap with a specific question. The willow team treated its archive as a record of decisions rather than a list of isolated observations. Members described where each note had come from, checked the date against the shared timetable, and asked a second reader to inspect unclear entries. This routine made the eventual report easier to trace. Visitors could compare the summary with the original notebooks and understand why a route appeared on the map. When an entry was incomplete, the group left a clear gap instead of filling it with an assumption. The next visit then addressed that gap with a specific question. The willow team treated its archive as a record of decisions rather than a list of isolated observations. Members described where each note had come from, checked the date against the shared timetable, and asked a second reader to inspect unclear entries. This routine made the eventual report easier to trace. Visitors could compare the summary with the original notebooks and understand why a route appeared on the map. When an entry was incomplete, the group left a clear gap instead of filling it with an assumption. The next visit then addressed that gap with a specific question. The willow team treated its archive as a record of decisions rather than a list of isolated observations. Members described where each note had come from, checked the date against the shared timetable, and asked a second reader to inspect unclear entries. This routine made the eventual report easier to trace. Visitors could compare the summary with the original notebooks and understand why a route appeared on the map. When an entry was incomplete, the group left a clear gap instead of filling it with an assumption. The next visit then addressed that gap with a specific question. The willow team treated its archive as a record of decisions rather than a list of isolated observations. Members described where each note had come from, checked the date against the shared timetable, and asked a second reader to inspect unclear entries. This routine made the eventual report easier to trace. Visitors could compare the summary with the original notebooks and understand why a route appeared on the map. When an entry was incomplete, the group left a clear gap instead of filling it with an assumption. The next visit then addressed that gap with a specific question. The willow team treated its archive as a record of decisions rather than a list of isolated observations. Members described where each note had come from, checked the date against the shared timetable, and asked a second reader to inspect unclear entries. This routine made the eventual report easier to trace. Visitors could compare the summary with the original notebooks and understand why a route appeared on the map. When an entry was incomplete, the group left a clear gap instead of filling it with an assumption. The next visit then addressed that gap with a specific question. The willow team treated its archive as a record of decisions rather than a list of isolated observations. Members described where each note had come from, checked the date against the shared timetable, and asked a second reader to inspect unclear entries. This routine made the eventual report easier to trace. Visitors could compare the summary with the original notebooks and understand why a route appeared on the map. When an entry was incomplete, the group left a clear gap instead of filling it with an assumption. The next visit then addressed that gap with a specific question. The willow team treated its archive as a record of decisions rather than a list of isolated observations. Members described where each note had come from, checked the date against the shared timetable, and asked a second reader to inspect unclear entries. This routine made the eventual report easier to trace. Visitors could compare the summary with the original notebooks and understand why a route appeared on the map. When an entry was incomplete, the group"
+        }
+      ],
+      "questions": [
+        {
+          "id": "holdout-q1",
+          "number": 1,
+          "type": "sentence-completion",
+          "prompt": "What word identifies the project in statement 1? ____",
+          "answer": {
+            "accepted": ["willow"],
+            "maxWords": 1
+          },
+          "evidence": {
+            "paragraphId": "p1",
+            "quote": "The willow project opened in the spring."
+          },
+          "answerVerified": false
+        },
+        {
+          "id": "holdout-q2",
+          "number": 2,
+          "type": "sentence-completion",
+          "prompt": "What word identifies the project in statement 2? ____",
+          "answer": {
+            "accepted": ["willow"],
+            "maxWords": 1
+          },
+          "evidence": {
+            "paragraphId": "p1",
+            "quote": "Volunteers met every Monday at the willow office."
+          },
+          "answerVerified": false
+        },
+        {
+          "id": "holdout-q3",
+          "number": 3,
+          "type": "sentence-completion",
+          "prompt": "What word identifies the project in statement 3? ____",
+          "answer": {
+            "accepted": ["willow"],
+            "maxWords": 1
+          },
+          "evidence": {
+            "paragraphId": "p1",
+            "quote": "The first survey recorded ten public routes near the willow."
+          },
+          "answerVerified": false
+        },
+        {
+          "id": "holdout-q4",
+          "number": 4,
+          "type": "sentence-completion",
+          "prompt": "What word identifies the project in statement 4? ____",
+          "answer": {
+            "accepted": ["willow"],
+            "maxWords": 1
+          },
+          "evidence": {
+            "paragraphId": "p1",
+            "quote": "The team stored its paper notes in a locked cupboard marked willow."
+          },
+          "answerVerified": false
+        },
+        {
+          "id": "holdout-q5",
+          "number": 5,
+          "type": "sentence-completion",
+          "prompt": "What word identifies the project in statement 5? ____",
+          "answer": {
+            "accepted": ["willow"],
+            "maxWords": 1
+          },
+          "evidence": {
+            "paragraphId": "p1",
+            "quote": "An independent editor checked each willow report before publication."
+          },
+          "answerVerified": false
+        },
+        {
+          "id": "holdout-q6",
+          "number": 6,
+          "type": "sentence-completion",
+          "prompt": "What word identifies the project in statement 6? ____",
+          "answer": {
+            "accepted": ["willow"],
+            "maxWords": 1
+          },
+          "evidence": {
+            "paragraphId": "p1",
+            "quote": "The willow project closed on Sundays."
+          },
+          "answerVerified": false
+        },
+        {
+          "id": "holdout-q7",
+          "number": 7,
+          "type": "sentence-completion",
+          "prompt": "What word identifies the project in statement 7? ____",
+          "answer": {
+            "accepted": ["willow"],
+            "maxWords": 1
+          },
+          "evidence": {
+            "paragraphId": "p1",
+            "quote": "The willow coordinator trained new volunteers in pairs."
+          },
+          "answerVerified": false
+        },
+        {
+          "id": "holdout-q8",
+          "number": 8,
+          "type": "sentence-completion",
+          "prompt": "What word identifies the project in statement 8? ____",
+          "answer": {
+            "accepted": ["willow"],
+            "maxWords": 1
+          },
+          "evidence": {
+            "paragraphId": "p1",
+            "quote": "Each willow route was checked twice before the map was released."
+          },
+          "answerVerified": false
+        },
+        {
+          "id": "holdout-q9",
+          "number": 9,
+          "type": "sentence-completion",
+          "prompt": "What word identifies the project in statement 9? ____",
+          "answer": {
+            "accepted": ["willow"],
+            "maxWords": 1
+          },
+          "evidence": {
+            "paragraphId": "p1",
+            "quote": "The printed willow maps were distributed free of charge."
+          },
+          "answerVerified": false
+        },
+        {
+          "id": "holdout-q10",
+          "number": 10,
+          "type": "sentence-completion",
+          "prompt": "What word identifies the project in statement 10? ____",
+          "answer": {
+            "accepted": ["willow"],
+            "maxWords": 1
+          },
+          "evidence": {
+            "paragraphId": "p1",
+            "quote": "A local library preserved the final willow report."
+          },
+          "answerVerified": false
+        }
+      ]
+    },
+    {
+      "id": "r5-ui-heldout-practice-alias",
+      "version": "1",
+      "skill": "reading",
+      "title": "R5 renamed practice copy of reserved original",
+      "deliveryMode": "local-import",
+      "scope": "section",
+      "pool": "practice",
+      "frequency": "high",
+      "passageNumber": 1,
+      "estimatedMinutes": 20,
+      "source": {
+        "materialSource": "official",
+        "sourceRef": "synthetic:r5-heldout-practice-alias",
+        "rights": "Self-authored engineering fixture for the independent holdout boundary.",
+        "answerVerified": false
+      },
+      "passage": "The willow project opened in the spring. Volunteers met every Monday at the willow office. The first survey recorded ten public routes near the willow. The team stored its paper notes in a locked cupboard marked willow. An independent editor checked each willow report before publication. The willow project closed on Sundays. The willow coordinator trained new volunteers in pairs. Each willow route was checked twice before the map was released. The printed willow maps were distributed free of charge. A local library preserved the final willow report. The willow team treated its archive as a record of decisions rather than a list of isolated observations. Members described where each note had come from, checked the date against the shared timetable, and asked a second reader to inspect unclear entries. This routine made the eventual report easier to trace. Visitors could compare the summary with the original notebooks and understand why a route appeared on the map. When an entry was incomplete, the group left a clear gap instead of filling it with an assumption. The next visit then addressed that gap with a specific question. The willow team treated its archive as a record of decisions rather than a list of isolated observations. Members described where each note had come from, checked the date against the shared timetable, and asked a second reader to inspect unclear entries. This routine made the eventual report easier to trace. Visitors could compare the summary with the original notebooks and understand why a route appeared on the map. When an entry was incomplete, the group left a clear gap instead of filling it with an assumption. The next visit then addressed that gap with a specific question. The willow team treated its archive as a record of decisions rather than a list of isolated observations. Members described where each note had come from, checked the date against the shared timetable, and asked a second reader to inspect unclear entries. This routine made the eventual report easier to trace. Visitors could compare the summary with the original notebooks and understand why a route appeared on the map. When an entry was incomplete, the group left a clear gap instead of filling it with an assumption. The next visit then addressed that gap with a specific question. The willow team treated its archive as a record of decisions rather than a list of isolated observations. Members described where each note had come from, checked the date against the shared timetable, and asked a second reader to inspect unclear entries. This routine made the eventual report easier to trace. Visitors could compare the summary with the original notebooks and understand why a route appeared on the map. When an entry was incomplete, the group left a clear gap instead of filling it with an assumption. The next visit then addressed that gap with a specific question. The willow team treated its archive as a record of decisions rather than a list of isolated observations. Members described where each note had come from, checked the date against the shared timetable, and asked a second reader to inspect unclear entries. This routine made the eventual report easier to trace. Visitors could compare the summary with the original notebooks and understand why a route appeared on the map. When an entry was incomplete, the group left a clear gap instead of filling it with an assumption. The next visit then addressed that gap with a specific question. The willow team treated its archive as a record of decisions rather than a list of isolated observations. Members described where each note had come from, checked the date against the shared timetable, and asked a second reader to inspect unclear entries. This routine made the eventual report easier to trace. Visitors could compare the summary with the original notebooks and understand why a route appeared on the map. When an entry was incomplete, the group left a clear gap instead of filling it with an assumption. The next visit then addressed that gap with a specific question. The willow team treated its archive as a record of decisions rather than a list of isolated observations. Members described where each note had come from, checked the date against the shared timetable, and asked a second reader to inspect unclear entries. This routine made the eventual report easier to trace. Visitors could compare the summary with the original notebooks and understand why a route appeared on the map. When an entry was incomplete, the group left a clear gap instead of filling it with an assumption. The next visit then addressed that gap with a specific question. The willow team treated its archive as a record of decisions rather than a list of isolated observations. Members described where each note had come from, checked the date against the shared timetable, and asked a second reader to inspect unclear entries. This routine made the eventual report easier to trace. Visitors could compare the summary with the original notebooks and understand why a route appeared on the map. When an entry was incomplete, the group",
+      "paragraphs": [
+        {
+          "id": "p1",
+          "text": "The willow project opened in the spring. Volunteers met every Monday at the willow office. The first survey recorded ten public routes near the willow. The team stored its paper notes in a locked cupboard marked willow. An independent editor checked each willow report before publication. The willow project closed on Sundays. The willow coordinator trained new volunteers in pairs. Each willow route was checked twice before the map was released. The printed willow maps were distributed free of charge. A local library preserved the final willow report. The willow team treated its archive as a record of decisions rather than a list of isolated observations. Members described where each note had come from, checked the date against the shared timetable, and asked a second reader to inspect unclear entries. This routine made the eventual report easier to trace. Visitors could compare the summary with the original notebooks and understand why a route appeared on the map. When an entry was incomplete, the group left a clear gap instead of filling it with an assumption. The next visit then addressed that gap with a specific question. The willow team treated its archive as a record of decisions rather than a list of isolated observations. Members described where each note had come from, checked the date against the shared timetable, and asked a second reader to inspect unclear entries. This routine made the eventual report easier to trace. Visitors could compare the summary with the original notebooks and understand why a route appeared on the map. When an entry was incomplete, the group left a clear gap instead of filling it with an assumption. The next visit then addressed that gap with a specific question. The willow team treated its archive as a record of decisions rather than a list of isolated observations. Members described where each note had come from, checked the date against the shared timetable, and asked a second reader to inspect unclear entries. This routine made the eventual report easier to trace. Visitors could compare the summary with the original notebooks and understand why a route appeared on the map. When an entry was incomplete, the group left a clear gap instead of filling it with an assumption. The next visit then addressed that gap with a specific question. The willow team treated its archive as a record of decisions rather than a list of isolated observations. Members described where each note had come from, checked the date against the shared timetable, and asked a second reader to inspect unclear entries. This routine made the eventual report easier to trace. Visitors could compare the summary with the original notebooks and understand why a route appeared on the map. When an entry was incomplete, the group left a clear gap instead of filling it with an assumption. The next visit then addressed that gap with a specific question. The willow team treated its archive as a record of decisions rather than a list of isolated observations. Members described where each note had come from, checked the date against the shared timetable, and asked a second reader to inspect unclear entries. This routine made the eventual report easier to trace. Visitors could compare the summary with the original notebooks and understand why a route appeared on the map. When an entry was incomplete, the group left a clear gap instead of filling it with an assumption. The next visit then addressed that gap with a specific question. The willow team treated its archive as a record of decisions rather than a list of isolated observations. Members described where each note had come from, checked the date against the shared timetable, and asked a second reader to inspect unclear entries. This routine made the eventual report easier to trace. Visitors could compare the summary with the original notebooks and understand why a route appeared on the map. When an entry was incomplete, the group left a clear gap instead of filling it with an assumption. The next visit then addressed that gap with a specific question. The willow team treated its archive as a record of decisions rather than a list of isolated observations. Members described where each note had come from, checked the date against the shared timetable, and asked a second reader to inspect unclear entries. This routine made the eventual report easier to trace. Visitors could compare the summary with the original notebooks and understand why a route appeared on the map. When an entry was incomplete, the group left a clear gap instead of filling it with an assumption. The next visit then addressed that gap with a specific question. The willow team treated its archive as a record of decisions rather than a list of isolated observations. Members described where each note had come from, checked the date against the shared timetable, and asked a second reader to inspect unclear entries. This routine made the eventual report easier to trace. Visitors could compare the summary with the original notebooks and understand why a route appeared on the map. When an entry was incomplete, the group"
+        }
+      ],
+      "questions": [
+        {
+          "id": "alias-q1",
+          "number": 1,
+          "type": "sentence-completion",
+          "prompt": "What word identifies the project in statement 1? ____",
+          "answer": {
+            "accepted": ["willow"],
+            "maxWords": 1
+          },
+          "evidence": {
+            "paragraphId": "p1",
+            "quote": "The willow project opened in the spring."
+          },
+          "answerVerified": false
+        },
+        {
+          "id": "alias-q2",
+          "number": 2,
+          "type": "sentence-completion",
+          "prompt": "What word identifies the project in statement 2? ____",
+          "answer": {
+            "accepted": ["willow"],
+            "maxWords": 1
+          },
+          "evidence": {
+            "paragraphId": "p1",
+            "quote": "Volunteers met every Monday at the willow office."
+          },
+          "answerVerified": false
+        },
+        {
+          "id": "alias-q3",
+          "number": 3,
+          "type": "sentence-completion",
+          "prompt": "What word identifies the project in statement 3? ____",
+          "answer": {
+            "accepted": ["willow"],
+            "maxWords": 1
+          },
+          "evidence": {
+            "paragraphId": "p1",
+            "quote": "The first survey recorded ten public routes near the willow."
+          },
+          "answerVerified": false
+        },
+        {
+          "id": "alias-q4",
+          "number": 4,
+          "type": "sentence-completion",
+          "prompt": "What word identifies the project in statement 4? ____",
+          "answer": {
+            "accepted": ["willow"],
+            "maxWords": 1
+          },
+          "evidence": {
+            "paragraphId": "p1",
+            "quote": "The team stored its paper notes in a locked cupboard marked willow."
+          },
+          "answerVerified": false
+        },
+        {
+          "id": "alias-q5",
+          "number": 5,
+          "type": "sentence-completion",
+          "prompt": "What word identifies the project in statement 5? ____",
+          "answer": {
+            "accepted": ["willow"],
+            "maxWords": 1
+          },
+          "evidence": {
+            "paragraphId": "p1",
+            "quote": "An independent editor checked each willow report before publication."
+          },
+          "answerVerified": false
+        },
+        {
+          "id": "alias-q6",
+          "number": 6,
+          "type": "sentence-completion",
+          "prompt": "What word identifies the project in statement 6? ____",
+          "answer": {
+            "accepted": ["willow"],
+            "maxWords": 1
+          },
+          "evidence": {
+            "paragraphId": "p1",
+            "quote": "The willow project closed on Sundays."
+          },
+          "answerVerified": false
+        },
+        {
+          "id": "alias-q7",
+          "number": 7,
+          "type": "sentence-completion",
+          "prompt": "What word identifies the project in statement 7? ____",
+          "answer": {
+            "accepted": ["willow"],
+            "maxWords": 1
+          },
+          "evidence": {
+            "paragraphId": "p1",
+            "quote": "The willow coordinator trained new volunteers in pairs."
+          },
+          "answerVerified": false
+        },
+        {
+          "id": "alias-q8",
+          "number": 8,
+          "type": "sentence-completion",
+          "prompt": "What word identifies the project in statement 8? ____",
+          "answer": {
+            "accepted": ["willow"],
+            "maxWords": 1
+          },
+          "evidence": {
+            "paragraphId": "p1",
+            "quote": "Each willow route was checked twice before the map was released."
+          },
+          "answerVerified": false
+        },
+        {
+          "id": "alias-q9",
+          "number": 9,
+          "type": "sentence-completion",
+          "prompt": "What word identifies the project in statement 9? ____",
+          "answer": {
+            "accepted": ["willow"],
+            "maxWords": 1
+          },
+          "evidence": {
+            "paragraphId": "p1",
+            "quote": "The printed willow maps were distributed free of charge."
+          },
+          "answerVerified": false
+        },
+        {
+          "id": "alias-q10",
+          "number": 10,
+          "type": "sentence-completion",
+          "prompt": "What word identifies the project in statement 10? ____",
+          "answer": {
+            "accepted": ["willow"],
+            "maxWords": 1
+          },
+          "evidence": {
+            "paragraphId": "p1",
+            "quote": "A local library preserved the final willow report."
+          },
+          "answerVerified": false
+        }
+      ]
+    }
+  ]
+}

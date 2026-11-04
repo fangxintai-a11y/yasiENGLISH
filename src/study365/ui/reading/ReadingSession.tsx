@@ -12,6 +12,7 @@ import {
 import { acceptedMaterialPreferences } from "../../weeklyReview";
 import { calibrationWeekIndex } from "../../writingCalibration";
 import {
+  isHeldOutListeningReading,
   assertRetestMaterialEligible,
   selectRetest,
   estimatedRetestMinutes,
@@ -165,7 +166,7 @@ export function ReadingSession({
   const materials = bank.filter(
     (m) =>
       m.skill === skill &&
-      ((holdout ? m.pool === "holdout" : m.pool !== "holdout") ||
+      ((holdout ? m.pool === "holdout" : !isHeldOutListeningReading(m, bank)) ||
         m.id === work?.payload.contentId),
   );
   const materialKey = (m: LocalMaterial) =>
@@ -315,7 +316,14 @@ export function ReadingSession({
     };
   }, [draftKey, work?.id, started, answers]);
   const assertRetest = () => {
-    if (!workflow?.retestOf) return;
+    if (!material) throw new Error("材料不在当前可选题库，请重新选题。");
+    if (!workflow?.retestOf) {
+      if (!holdout && isHeldOutListeningReading(material, bank))
+        throw new Error(
+          "这是独立检查池的原件或别名；日常练习请选其他材料，检查测评请明确打开独立检查池。",
+        );
+      return;
+    }
     if (!material || !workflow.correctionId)
       throw new Error("复测关联不完整，请从订正页重新进入。");
     const state = liveAccount(),

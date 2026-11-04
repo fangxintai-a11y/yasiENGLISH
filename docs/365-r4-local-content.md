@@ -60,7 +60,7 @@ XiaHua读取HTML中`script#test-data`的JSON，保留原题组、答案键、原
 
 ## 抓取脚本与当前边界
 
-当前按用户要求已停止材料抓取。仓库提供的脚本用于之后经授权的接手任务，不会随应用启动执行：`fetch-ielts-data.sh`及`ielts-data-scripts/`保留用户提供的来源清单和本地结构化解析器；`scripts/fetch-official-samples.sh`读取`official-samples.json`明确URL清单，支持`.part`断点、已存在SHA跳过和逐项失败日志。可先用`--dry-run`查看；没有在停止指令后运行任何实际网络下载。
+当前按用户要求已停止材料抓取。仓库提供的脚本用于之后经授权的接手任务，不会随应用启动执行：仓库根目录唯一的`fetch-ielts-data.sh`及`ielts-data-scripts/`保留用户提供的来源清单和本地结构化解析器；`scripts/fetch-official-samples.sh`读取`official-samples.json`明确URL清单，支持`.part`断点、已存在SHA跳过和逐项失败日志。可先用`--dry-run`查看；没有在停止指令后运行任何实际网络下载。
 
 官方PDF解析需要系统`pdftotext -layout`，可通过`PDFTOTEXT`指定绝对可执行路径，不新增npm PDF依赖。完整题干可忠实还原时才导入type-drill；只有原文/答案而没有题本的IELTS资源仅导入short对照或记缺口，缺图或未知布局不会伪造。实际题文、PDF、音频、解析输出和review.md均留在Git忽略目录。
 
