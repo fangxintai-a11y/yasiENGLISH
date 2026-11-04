@@ -544,4 +544,8 @@ try {
 if (success) {
   const { runR1LearningE2E } = await import("./test-r1-e2e.mjs");
   if (!(await runR1LearningE2E()).success) process.exitCode = 1;
+  else {
+    const { runR2LearningE2E } = await import("./test-r2-e2e.mjs");
+    if (!(await runR2LearningE2E()).success) process.exitCode = 1;
+  }
 }

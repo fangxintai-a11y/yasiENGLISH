@@ -3,7 +3,7 @@ import { MaterialSchema, type Material } from './contentSchemas';
 import { bundledInventory, bundledRules } from './planData';
 import { buildDayPlan, selectLatestBaseline, todayInTimeZone, type DayBlock } from './planEngine';
 import { missionTaskId, selectMission } from './missionRecords';
-import { latestEffectiveBySkill } from './scoresModel';
+import { latestAssessment, scoreView } from './scoresModel';
 import type { Revision } from './protocol';
 
 export type WritingMaterial = Extract<Material, { skill: 'writing' }>;
@@ -26,8 +26,7 @@ export function defaultWritingMode(minutes: number): WritingMode {
 /** A route carries context; the plan and saved mission own its date and budget. */
 export function resolveWritingContext(plan: Revision, records: readonly Revision[], route: { date?: string; day?: number; task?: string; minutes?: number }, now = Date.now()): WritingContext {
   const date = route.date ?? todayInTimeZone(now, String(plan.payload.timeZone));
-  const bySkill = latestEffectiveBySkill(records, plan.id);
-  const scores = Object.fromEntries(Object.entries(bySkill).map(([skill, value]) => [skill, value?.score ?? null])) as { listening: number | null; reading: number | null; writing: number | null; speaking: number | null };
+  const scores = scoreView(latestAssessment(records, plan.id)?.payload ?? {}).effectiveScores;
   const dayPlan = buildDayPlan(bundledRules, plan.payload, date, selectLatestBaseline(records, plan.id), { scores });
   if (route.day !== undefined && route.day !== dayPlan.day) throw new Error('写作任务日期与计划日不一致，请从今日任务重新进入。');
   const selected = route.task ? dayPlan.blocks.find(block => missionTaskId(dayPlan.day, block.id) === route.task) : dayPlan.blocks.find(block => block.skill === 'writing');

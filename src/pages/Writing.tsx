@@ -6,7 +6,7 @@ import {
   newWritingDraft,
   type WritingDraft,
 } from "../study365/writingModel";
-import type { Revision } from "../study365/protocol";
+import { isObject, type Revision } from "../study365/protocol";
 import { useActivePlan } from "../study365/useActivePlan";
 import {
   availableWritingMaterials,
@@ -29,13 +29,28 @@ import {
   rewriteWriting,
   submitWriting,
 } from "../study365/writingWorks";
-import { getLearningState, type LearningState } from "../study365/repository";
+import {
+  getLearningState,
+  listRevisions,
+  resolveConflict,
+  type LearningState,
+} from "../study365/repository";
 import { saveMission } from "../study365/missionRecords";
 import { WritingReview } from "../study365/ui/writing/WritingReview";
 import { ExternalWritingFeedback } from "../study365/ui/writing/ExternalWritingFeedback";
 import { WritingHumanCalibration } from "../study365/ui/writing/WritingHumanCalibration";
 import { WritingComparison } from "../study365/ui/writing/WritingComparison";
 import { WritingRevisionChain } from "../study365/ui/writing/WritingRevisionChain";
+
+import {
+  adoptCommittedWritingHead,
+  recoverWritingDraft,
+  restoredWritingMode,
+  unresolvedWritingConflicts,
+} from "../study365/writingRecovery";
+import { feedbackForWork } from "../study365/writingReview";
+import { writingCauseOptions } from "../study365/writingRubric";
+import { calibrationForWork } from "../study365/writingCalibration";
 
 type WritingRoute = Extract<Route, { page: "writing" }>;
 const labelOf = (draft: WritingDraft) =>
@@ -158,6 +173,9 @@ function WritingEditor({
     busyRef = useRef(false),
     queue = useRef<Promise<void>>(Promise.resolve()),
     autoTimer = useRef<number | undefined>(undefined);
+  const [histories, setHistories] = useState<Record<string, Revision[]>>({});
+  const [historyWork, setHistoryWork] = useState<string | null>(null);
+  const [localArchive, setLocalArchive] = useState<WritingDraft[]>([]);
   draftsRef.current = drafts;
   const works = learning.records
     .filter(
@@ -167,7 +185,14 @@ function WritingEditor({
         !record.deleted &&
         !record.conflict,
     )
-    .sort((a, b) => b.createdAt - a.createdAt || b.seq - a.seq);
+    .sort(
+      (a, b) =>
+        String(b.payload.date ?? "").localeCompare(
+          String(a.payload.date ?? ""),
+        ) ||
+        b.createdAt - a.createdAt ||
+        b.seq - a.seq,
+    );
   const selected = works.find((work) => work.id === selectedWorkId);
   const checkAccount = () => {
     const state = getLearningState();
@@ -185,112 +210,173 @@ function WritingEditor({
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, []);
+  const mergeArchive = (values: WritingDraft[]) =>
+    setLocalArchive((previous) => {
+      const next = new Map(previous.map((draft) => [draft.id, draft]));
+      for (const draft of values) next.set(draft.id, draft);
+      return [...next.values()];
+    });
+  const withTaskTimer = (draft: WritingDraft): WritingDraft =>
+    draft.scope === "paragraph" && context.plannedMinutes > 0
+      ? {
+          ...draft,
+          timer: { ...draft.timer, limitSeconds: context.plannedMinutes * 60 },
+        }
+      : draft;
+  const rememberHistory = (id: string, values: Revision[]) => {
+    if (alive.current)
+      setHistories((previous) => ({ ...previous, [id]: values }));
+  };
   useEffect(() => {
-    if (busyRef.current) return;
     let active = true;
     setLoaded(false);
-    void listWritingDrafts(scope)
-      .then((all) => {
-        if (!active) return;
-        let restored: WritingDraft[] = [];
-        if (selectedWorkId) {
-          const local = all.find(
-            (draft) =>
-              draft.planId === plan.id && draft.recordId === selectedWorkId,
-          );
-          if (local) {
-            const head = selected;
-            restored = [
-              head &&
-              head.payload.stage !== "draft" &&
-              head.payload.text === local.text
-                ? {
-                    ...draftFromRevision(head),
-                    outline: local.outline,
-                    materialSelfCheck: local.materialSelfCheck,
-                  }
-                : local,
-            ];
-          } else if (selected) restored = [draftFromRevision(selected)];
-          if (!restored.length) {
+    void (async () => {
+      const all = (await listWritingDrafts(scope)).filter(
+        (draft) => draft.planId === plan.id,
+      );
+      if (!active) return;
+      setLocalArchive(all);
+      const reconcile = async (local: WritingDraft) => {
+        const head = works.find((work) => work.id === local.recordId);
+        if (!head || head.revisionId === local.baseRevision) return local;
+        const history = await listRevisions(head.id);
+        if (!active) return local;
+        rememberHistory(head.id, history);
+        return withTaskTimer(
+          adoptCommittedWritingHead(local, head) ??
+            recoverWritingDraft(local, head, history),
+        );
+      };
+      let restored: WritingDraft[] = [];
+      if (selectedWorkId) {
+        const local = all.find((draft) => draft.recordId === selectedWorkId);
+        if (local) restored = [await reconcile(local)];
+        else if (selected)
+          restored = [withTaskTimer(draftFromRevision(selected))];
+        if (!restored.length) {
+          if (active) {
             setMessage(
               "本机尚未读到这份作品，请联网同步后从作品列表重新打开。",
             );
             setDrafts([]);
             setLoaded(true);
-            return;
           }
-          setMode(
-            restored[0].scope === "paragraph"
-              ? "paragraph"
-              : restored[0].taskType,
-          );
-        } else {
-          const candidates = all.filter(
-            (draft) =>
-              draft.planId === plan.id &&
-              draft.date === context.date &&
-              draft.taskId === context.taskId,
-          );
-          const byType = new Map<string, WritingDraft>();
-          for (const draft of candidates)
-            if (!byType.has(`${draft.taskType}:${draft.scope}`))
-              byType.set(`${draft.taskType}:${draft.scope}`, draft);
-          restored = [...byType.values()].map((local) => {
-            const head = works.find((work) => work.id === local.recordId);
-            return head &&
-              head.payload.stage !== "draft" &&
-              head.payload.text === local.text
-              ? {
-                  ...draftFromRevision(head),
-                  outline: local.outline,
-                  materialSelfCheck: local.materialSelfCheck,
-                }
-              : local;
-          });
-          if (restored.length)
-            setMode(
-              restored[0].scope === "paragraph"
-                ? "paragraph"
-                : restored[0].taskType,
-            );
-          if (!restored.length && context.block)
-            restored =
-              context.defaultMode === "pair"
-                ? [
-                    createDraft(plan, context, "task1"),
-                    createDraft(plan, context, "task2"),
-                  ]
-                : [
-                    createDraft(
-                      plan,
-                      context,
-                      context.defaultMode === "task1" ? "task1" : "task2",
-                      context.defaultMode === "paragraph",
-                    ),
-                  ];
+          return;
         }
-        setDrafts(restored);
-        setLoaded(true);
-        setLocalStatus(
-          restored.every((draft) => draft.stage === "submitted")
-            ? "已提交原稿只读。"
-            : "草稿已恢复，修改后自动保存在本机。",
+      } else {
+        const candidates = all.filter(
+          (draft) =>
+            draft.date === context.date && draft.taskId === context.taskId,
         );
-      })
-      .catch((error) => {
-        if (active) {
-          setLoaded(true);
-          setDrafts(context.block ? [createDraft(plan, context, "task1")] : []);
-          setLocalStatus(
-            `草稿未保存：${error instanceof Error ? error.message : "读取失败，请保留正文。"}`,
-          );
-        }
-      });
+        const byType = new Map<string, WritingDraft>();
+        for (const draft of candidates)
+          if (!byType.has(`${draft.taskType}:${draft.scope}`))
+            byType.set(`${draft.taskType}:${draft.scope}`, draft);
+        restored = await Promise.all([...byType.values()].map(reconcile));
+        if (!restored.length && context.block)
+          restored =
+            context.defaultMode === "pair"
+              ? [
+                  createDraft(plan, context, "task1"),
+                  createDraft(plan, context, "task2"),
+                ]
+              : [
+                  createDraft(
+                    plan,
+                    context,
+                    context.defaultMode === "task1" ? "task1" : "task2",
+                    context.defaultMode === "paragraph",
+                  ),
+                ];
+      }
+      if (!active) return;
+      setMode(
+        restoredWritingMode(
+          restored,
+          selectedWorkId ? restored[0].taskType : context.defaultMode,
+        ),
+      );
+      setDrafts(restored);
+      setLoaded(true);
+      setLocalStatus(
+        restored.every((draft) => draft.stage === "submitted")
+          ? "已提交原稿只读。"
+          : "草稿已恢复，修改后自动保存在本机。",
+      );
+    })().catch((error) => {
+      if (active) {
+        setLoaded(true);
+        setDrafts(context.block ? [createDraft(plan, context, "task1")] : []);
+        setLocalStatus(
+          `草稿未保存：${error instanceof Error ? error.message : "读取失败，请保留正文。"}`,
+        );
+      }
+    });
     return () => {
       active = false;
     };
-  }, [scope, selectedWorkId, selected?.revisionId]);
+  }, [scope, selectedWorkId]);
+  // Remote heads are reconciled against the latest in-memory text, including
+  // keystrokes still inside the 300ms local-save window. Never reload over it.
+  const remoteHeadsKey = works
+    .map((work) => `${work.id}:${work.revisionId}`)
+    .join("|");
+  useEffect(() => {
+    if (!loaded || busyRef.current) return;
+    let active = true;
+    const ids = selectedWorkId
+      ? [selectedWorkId]
+      : draftsRef.current.map((draft) => draft.recordId);
+    void (async () => {
+      for (const id of [...new Set(ids)]) {
+        const head = works.find((work) => work.id === id);
+        if (!head) continue;
+        const history = await listRevisions(id);
+        if (!active || getLearningState().userId !== userId) return;
+        rememberHistory(id, history);
+        const current = draftsRef.current.find(
+          (draft) => draft.recordId === id,
+        );
+        if (!current) {
+          if (selectedWorkId === id) {
+            const restored = withTaskTimer(draftFromRevision(head));
+            setDrafts([restored]);
+            setMode(restoredWritingMode([restored], context.defaultMode));
+            setMessage("");
+          }
+          continue;
+        }
+        if (current.baseRevision === head.revisionId) continue;
+        const recovered = withTaskTimer(
+          adoptCommittedWritingHead(current, head) ??
+            recoverWritingDraft(current, head, history),
+        );
+        if (
+          recovered === current ||
+          recovered.baseRevision === current.baseRevision
+        ) {
+          setMessage("云端有新版本，当前未保存编辑及原修订基准已保留。");
+          continue;
+        }
+        setDrafts((previous) =>
+          previous.map((draft) =>
+            draft.id === current.id && draft === current ? recovered : draft,
+          ),
+        );
+        setLocalStatus("已读取更新的检查点，本机提纲保留。");
+      }
+    })().catch((error) => {
+      if (active)
+        setMessage(
+          error instanceof Error
+            ? error.message
+            : "历史暂时未读全，当前正文保持不变。",
+        );
+    });
+    return () => {
+      active = false;
+    };
+  }, [remoteHeadsKey, loaded, selectedWorkId]);
   useEffect(() => {
     if (
       !loaded ||
@@ -312,8 +398,11 @@ function WritingEditor({
       queue.current = task;
       void task
         .then(() => {
-          if (alive.current && draftsRef.current === snapshot)
-            setLocalStatus("草稿已保存在本机。");
+          if (alive.current) {
+            mergeArchive(snapshot);
+            if (draftsRef.current === snapshot)
+              setLocalStatus("草稿已保存在本机。");
+          }
         })
         .catch((error) => {
           if (alive.current)
@@ -357,7 +446,10 @@ function WritingEditor({
     setDrafts((previous) =>
       previous.map((draft) =>
         draft.id === id && draft.stage !== "submitted"
-          ? { ...change(draft), updatedAt: Date.now() }
+          ? {
+              ...change(draft),
+              updatedAt: Math.max(Date.now(), draft.updatedAt + 1),
+            }
           : draft,
       ),
     );
@@ -393,7 +485,7 @@ function WritingEditor({
                 runningSince: draft.id === id ? at : null,
                 timed: draft.id === id ? true : draft.timer.timed,
               },
-              updatedAt: at,
+              updatedAt: Math.max(at, draft.updatedAt + 1),
             },
       ),
     );
@@ -408,15 +500,29 @@ function WritingEditor({
         runningSince: null,
       },
     }));
-  const unresolved = (draft: WritingDraft) => {
-    const head = works.find((work) => work.id === draft.recordId);
-    return learning.conflicts.some(
-      (conflict) =>
-        conflict.kind === "essay" &&
-        conflict.id === draft.recordId &&
-        (!head || head.seq <= conflict.seq),
+  const allRevisions = useMemo(() => {
+    const merged = new Map<string, Revision>();
+    for (const record of [
+      ...learning.records,
+      ...learning.conflicts,
+      ...Object.values(histories).flat(),
+    ]) {
+      const old = merged.get(record.revisionId);
+      if (
+        !old ||
+        record.seq > old.seq ||
+        (record.seq === old.seq && record.conflict && !old.conflict)
+      )
+        merged.set(record.revisionId, record);
+    }
+    return [...merged.values()];
+  }, [learning.records, learning.conflicts, histories]);
+  const unresolvedFor = (draft: WritingDraft) =>
+    unresolvedWritingConflicts(
+      works.find((work) => work.id === draft.recordId),
+      allRevisions,
     );
-  };
+  const unresolved = (draft: WritingDraft) => unresolvedFor(draft).length > 0;
   const updateMission = async () => {
     if (!context.block) return;
     checkAccount();
@@ -455,6 +561,140 @@ function WritingEditor({
       expectedUserId: userId,
     });
   };
+  const loadHistory = async (id: string, show = false) => {
+    try {
+      checkAccount();
+      const values = await listRevisions(id);
+      checkAccount();
+      if (!alive.current) return;
+      rememberHistory(id, values);
+      if (show) setHistoryWork(id);
+    } catch (error) {
+      if (alive.current)
+        setMessage(
+          error instanceof Error
+            ? error.message
+            : "历史读取失败，原记录仍保留。",
+        );
+    }
+  };
+  const newWork = async () => {
+    if (busyRef.current || !context.block) return;
+    busyRef.current = true;
+    setBusy(true);
+    window.clearTimeout(autoTimer.current);
+    try {
+      checkAccount();
+      await queue.current.catch(() => {});
+      const at = Date.now();
+      const paused = draftsRef.current.map((draft) =>
+        draft.stage === "submitted"
+          ? draft
+          : {
+              ...draft,
+              timer: {
+                ...draft.timer,
+                elapsedSeconds: elapsedWritingSeconds(draft, at),
+                runningSince: null,
+              },
+              updatedAt: Math.max(at, draft.updatedAt + 1),
+            },
+      );
+      for (const draft of paused.filter((draft) => draft.stage === "draft"))
+        await saveWritingDraft(scope, draft);
+      checkAccount();
+      const next =
+        context.defaultMode === "pair"
+          ? [
+              createDraft(plan, context, "task1"),
+              createDraft(plan, context, "task2"),
+            ]
+          : [
+              createDraft(
+                plan,
+                context,
+                context.defaultMode === "task1" ? "task1" : "task2",
+                context.defaultMode === "paragraph",
+              ),
+            ];
+      const newest =
+        Math.max(
+          at,
+          ...localArchive.map((draft) => draft.updatedAt),
+          ...paused.map((draft) => draft.updatedAt),
+        ) + 1;
+      next.forEach((draft, index) => {
+        draft.updatedAt = newest + index;
+      });
+      for (const draft of next) await saveWritingDraft(scope, draft);
+      checkAccount();
+      if (!alive.current) return;
+      mergeArchive([...paused, ...next]);
+      setDrafts(next);
+      setMode(context.defaultMode);
+      setMessage("新草稿已保存在本机，原作品与历史保留。");
+      setHistoryWork(null);
+      if (selectedWorkId)
+        go({
+          page: "writing",
+          date: context.date,
+          day: context.day,
+          task: context.taskId,
+        });
+    } catch (error) {
+      if (alive.current)
+        setMessage(
+          `新草稿未保存：${error instanceof Error ? error.message : "请先保留当前正文。"}`,
+        );
+    } finally {
+      busyRef.current = false;
+      if (alive.current) setBusy(false);
+    }
+  };
+  const chooseVersion = async (draft: WritingDraft, revision: Revision) => {
+    if (busyRef.current) return;
+    busyRef.current = true;
+    setBusy(true);
+    window.clearTimeout(autoTimer.current);
+    let chosen = false;
+    try {
+      checkAccount();
+      await queue.current.catch(() => {});
+      checkAccount();
+      const result = await resolveConflict(draft.recordId, revision.revisionId);
+      chosen = true;
+      checkAccount();
+      if (!alive.current) return;
+      const next = withTaskTimer({
+        ...draftFromRevision(result),
+        id: crypto.randomUUID(),
+        outline: result.payload.text === draft.text ? draft.outline : "",
+        updatedAt: Math.max(Date.now(), draft.updatedAt + 1),
+      });
+      rememberHistory(result.id, [
+        ...(histories[result.id] ?? []),
+        ...allRevisions.filter((record) => record.id === result.id),
+        result,
+      ]);
+      setDrafts((previous) =>
+        previous.map((value) => (value.recordId === result.id ? next : value)),
+      );
+      await saveWritingDraft(scope, next);
+      checkAccount();
+      if (!alive.current) return;
+      mergeArchive([next]);
+      setMessage("已选择这一版并生成新修订，两份原文仍在历史中。");
+      setLocalStatus("选定版本已保存在本机，联网后自动同步。");
+    } catch (error) {
+      if (alive.current)
+        setMessage(
+          `${chosen ? "版本已选定；本机草稿未保存：" : "暂未能选择版本："}${error instanceof Error ? error.message : "请重试，历史仍保留。"}`,
+        );
+    } finally {
+      busyRef.current = false;
+      if (alive.current) setBusy(false);
+    }
+  };
   const publish = async (draft: WritingDraft, submit: boolean) => {
     if (busyRef.current) return;
     busyRef.current = true;
@@ -476,6 +716,7 @@ function WritingEditor({
       setDrafts((previous) =>
         previous.map((value) => (value.id === draft.id ? result.draft : value)),
       );
+      mergeArchive([result.draft]);
       setLocalStatus(
         submit
           ? "这版原稿已提交，正文只读。"
@@ -508,24 +749,17 @@ function WritingEditor({
             work.id === draft.recordId &&
             work.kind === "essay" &&
             !work.deleted &&
-            !work.conflict &&
-            work.payload.stage === "submitted" &&
-            work.payload.text === draft.text,
+            !work.conflict,
         );
-        if (head)
+        const adopted = adoptCommittedWritingHead(draft, head);
+        if (adopted)
           setDrafts((previous) =>
             previous.map((value) =>
-              value.id === draft.id
-                ? {
-                    ...draftFromRevision(head),
-                    outline: draft.outline,
-                    materialSelfCheck: draft.materialSelfCheck,
-                  }
-                : value,
+              value.id === draft.id ? withTaskTimer(adopted) : value,
             ),
           );
         setMessage(
-          `${head ? "作品已提交；本机草稿未保存：" : "未保存："}${error instanceof Error ? error.message : "请保留正文并重试。"}`,
+          `${adopted ? (adopted.stage === "submitted" ? "作品已提交；本机草稿未保存：" : "检查点已创建，修订基准已恢复；本机草稿未保存：") : "未保存："}${error instanceof Error ? error.message : "请保留正文并重试。"}`,
         );
       }
     } finally {
@@ -619,10 +853,69 @@ function WritingEditor({
                   />
                 </fieldset>
                 {unresolved(draft) && (
-                  <p role="alert">
-                    有两个版本，请先在冲突区选择一份。原稿和两个版本均已保留。
-                  </p>
+                  <section
+                    className="panel"
+                    aria-label="写作版本冲突"
+                    data-testid="writing-conflicts"
+                  >
+                    <h3>有两个版本，请选择一份继续</h3>
+                    <p>两份原文会保留，选择后生成新修订。</p>
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns:
+                          "repeat(auto-fit,minmax(260px,1fr))",
+                        gap: 16,
+                      }}
+                    >
+                      {[
+                        works.find((work) => work.id === draft.recordId),
+                        ...unresolvedFor(draft),
+                      ]
+                        .filter((work): work is Revision => !!work)
+                        .map((work) => (
+                          <article
+                            key={work.revisionId}
+                            data-revision-id={work.revisionId}
+                          >
+                            <h4>
+                              {work.conflict ? "另一设备版本" : "当前版本"}
+                            </h4>
+                            <small>{work.revisionId}</small>
+                            <pre
+                              style={{
+                                whiteSpace: "pre-wrap",
+                                overflowWrap: "anywhere",
+                                font: "inherit",
+                              }}
+                            >
+                              {String(work.payload.text ?? "")}
+                            </pre>
+                            <button
+                              type="button"
+                              className="btn btn-primary"
+                              disabled={busy}
+                              onClick={() => {
+                                void chooseVersion(draft, work);
+                              }}
+                            >
+                              选择此版本
+                            </button>
+                          </article>
+                        ))}
+                    </div>
+                  </section>
                 )}
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  disabled={busy}
+                  onClick={() => {
+                    void loadHistory(draft.recordId, true);
+                  }}
+                >
+                  查看修订历史
+                </button>
                 {draft.stage === "submitted" ? (
                   <>
                     <p role="status">这版原稿已提交，只读。</p>
@@ -634,7 +927,16 @@ function WritingEditor({
                           (work) =>
                             work.revisionId === draft.submittedRevisionId,
                         )!}
-                        materialSelfCheck={draft.materialSelfCheck}
+                        materialSelfCheck={
+                          draft.materialSelfCheck ??
+                          availableWritingMaterials(
+                            draft.day ?? context.day,
+                          ).find(
+                            (item) =>
+                              item.id === draft.contentId &&
+                              item.version === draft.contentVersion,
+                          )?.selfCheck
+                        }
                       />
                     )}
                     {works.find(
@@ -684,7 +986,7 @@ function WritingEditor({
                             (work) =>
                               work.revisionId === draft.submittedRevisionId,
                           )!}
-                          records={learning.records}
+                          records={allRevisions}
                           onSelect={(work) =>
                             go({
                               page: "writing",
@@ -757,32 +1059,136 @@ function WritingEditor({
         data-testid="writing-work-list"
       >
         <h2>我的作品</h2>
-        {!works.length ? (
-          <p>暂无已保存作品。</p>
-        ) : (
-          <ul>
-            {works.map((work) => (
-              <li key={work.id}>
-                <a
-                  data-work-id={work.id}
-                  data-revision-id={work.revisionId}
-                  href={`#/writing?work=${encodeURIComponent(work.id)}&date=${String(work.payload.date ?? context.date)}${work.payload.day ? `&day=${work.payload.day}` : ""}${work.payload.taskId ? `&task=${work.payload.taskId}` : ""}`}
-                >
-                  {String(work.payload.date ?? "日期未记录")} ·{" "}
-                  {work.payload.taskType === "task1" ? "Task 1" : "Task 2"}
-                  {work.payload.scope === "paragraph" ? "段落" : ""} ·{" "}
-                  {work.payload.stage === "draft" ? "检查点" : "已提交"} ·{" "}
-                  {Number(
-                    work.payload.wordCount ??
-                      words(String(work.payload.text ?? "")).length,
-                  )}
-                  词
-                </a>
-              </li>
-            ))}
-          </ul>
+        {context.block && (
+          <button
+            type="button"
+            className="btn btn-ghost"
+            disabled={busy || !loaded}
+            onClick={() => {
+              void newWork();
+            }}
+          >
+            新写一篇
+          </button>
         )}
+        {!works.length && !localArchive.length && <p>暂无已保存作品。</p>}
+        {works.map((work) => {
+          const self = feedbackForWork(learning.records, work).find(
+            (record) => record.payload.source === "self",
+          );
+          const spelling = self?.payload.spellingCheck;
+          const causes = Array.isArray(self?.payload.errorCauses)
+            ? self.payload.errorCauses
+            : [];
+          const labels = writingCauseOptions(
+            work.payload.taskType === "task1" ? "task1" : "task2",
+          );
+          const human = calibrationForWork(learning.records, work).length > 0;
+          const pending = learning.records.some(
+            (record) =>
+              record.id === `writing-handoff:${work.revisionId}` &&
+              !record.deleted &&
+              !record.conflict &&
+              record.payload.status === "in_progress",
+          );
+          return (
+            <article key={work.id} className="panel">
+              <a
+                data-work-id={work.id}
+                data-revision-id={work.revisionId}
+                href={`#/writing?work=${encodeURIComponent(work.id)}&date=${String(work.payload.date ?? context.date)}${work.payload.day ? `&day=${work.payload.day}` : ""}${work.payload.taskId ? `&task=${work.payload.taskId}` : ""}`}
+              >
+                {String(work.payload.date ?? "日期未记录")} ·{" "}
+                {work.payload.taskType === "task1"
+                  ? "Task 1"
+                  : work.payload.taskType === "task2"
+                    ? "Task 2"
+                    : "任务类型未记录"}{" "}
+                · {work.payload.scope === "paragraph" ? "段落练习" : "整篇"} ·{" "}
+                {work.payload.parentRevisionId ? "修改稿" : "首稿"} ·{" "}
+                {work.payload.stage === "draft" ? "检查点" : "已提交"}
+              </a>
+              <p>
+                {Number(
+                  work.payload.wordCount ??
+                    words(String(work.payload.text ?? "")).length,
+                )}
+                词 ·{" "}
+                {typeof work.payload.elapsedSeconds === "number"
+                  ? `用时 ${formatTime(work.payload.elapsedSeconds)}`
+                  : "用时未记录"}
+              </p>
+              <p>
+                错因：
+                {causes.length
+                  ? causes
+                      .map(
+                        (cause) =>
+                          labels.find((label) => label.id === cause)?.label ??
+                          String(cause),
+                      )
+                      .join("、")
+                  : "未标注"}{" "}
+                ·{" "}
+                {isObject(spelling) && spelling.status === "checked"
+                  ? `拼写错误：${spelling.count}处`
+                  : "拼写：未检查"}{" "}
+                ·{" "}
+                {human
+                  ? "已有真人评分"
+                  : pending
+                    ? "待评阅"
+                    : "尚未交付真人评阅"}
+              </p>
+            </article>
+          );
+        })}
+        {localArchive
+          .filter((draft) => !works.some((work) => work.id === draft.recordId))
+          .sort(
+            (a, b) => b.date.localeCompare(a.date) || b.updatedAt - a.updatedAt,
+          )
+          .map((draft) => (
+            <article key={draft.id}>
+              <a
+                data-work-id={draft.recordId}
+                href={`#/writing?work=${encodeURIComponent(draft.recordId)}&date=${draft.date}${draft.day ? `&day=${draft.day}` : ""}${draft.taskId ? `&task=${draft.taskId}` : ""}`}
+              >
+                {draft.date} ·{" "}
+                {draft.taskType === "task1" ? "Task 1" : "Task 2"} ·{" "}
+                {draft.scope === "paragraph" ? "段落练习" : "整篇"} · 本机草稿 ·{" "}
+                {words(draft.text).length}词
+              </a>
+            </article>
+          ))}
       </section>
+      {historyWork && (
+        <section className="panel" aria-label="写作修订历史">
+          <h2>修订历史</h2>
+          <p className="muted">原始修订只读，包含冲突版本。</p>
+          {(histories[historyWork] ?? [])
+            .slice()
+            .sort((a, b) => b.seq - a.seq || b.createdAt - a.createdAt)
+            .map((work) => (
+              <article key={work.revisionId} data-revision-id={work.revisionId}>
+                <h3>
+                  {work.payload.stage === "draft" ? "检查点" : "提交稿"}
+                  {work.conflict ? " · 冲突版本" : ""}
+                </h3>
+                <small>{work.revisionId}</small>
+                <pre
+                  style={{
+                    whiteSpace: "pre-wrap",
+                    font: "inherit",
+                    overflowWrap: "anywhere",
+                  }}
+                >
+                  {String(work.payload.text ?? "")}
+                </pre>
+              </article>
+            ))}
+        </section>
+      )}
     </div>
   );
 }
