@@ -203,9 +203,10 @@ export class LearningSyncEngine {
       if (!scope.outbox.length) break;
       const mutation = scope.outbox[0], payload = mutation.body.payload;
       const planId = typeof payload.planId === "string" ? payload.planId : mutation.local.planId;
-      const references = [mutation.body.baseRevision, payload.workRevisionId, payload.parentRevisionId];
+      const references = [mutation.body.baseRevision, payload.workRevisionId, payload.parentRevisionId, payload.sourceRevisionId, payload.retestOf];
       const blocked = blockedRecords.has(mutation.recordId) || (typeof planId === "string" && blockedPlans.has(planId))
         || (typeof payload.workId === "string" && blockedRecords.has(payload.workId))
+        || (typeof payload.correctionId === "string" && blockedRecords.has(payload.correctionId))
         || references.some((value) => typeof value === "string" && blockedRevisions.has(value));
       if (blocked) {
         await this.quarantine(mutation, new LearningApiError(422, "依赖的计划或原稿尚未同步，原文已保留；请先修复依赖后重试。", "dependency_blocked"));
@@ -223,6 +224,7 @@ export class LearningSyncEngine {
         blockedRecords.add(mutation.recordId); blockedRevisions.add(mutation.body.revisionId);
         if (mutation.body.kind === "plan") blockedPlans.add(mutation.recordId);
         if (isObject(error.body)) {
+          if (typeof error.body.missingRecordId === "string") blockedRecords.add(error.body.missingRecordId);
           if (typeof error.body.missingPlanId === "string") blockedPlans.add(error.body.missingPlanId);
           if (typeof error.body.missingRevisionId === "string") blockedRevisions.add(error.body.missingRevisionId);
         }

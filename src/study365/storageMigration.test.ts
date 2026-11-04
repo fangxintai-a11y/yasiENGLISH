@@ -51,3 +51,19 @@ test("clock skew cannot queue feedback before its original work and plan", () =>
   assert.deepEqual(orderMutations([f, e, p]).map((item) => item.recordId), [plan.id, essay.id, f.recordId]);
   assert.equal(f.body.mutationId, "mutation-feedback-a");
 });
+
+test("R5: source revisions and correction creation precede retests despite local clock skew", () => {
+  const make = (id: string, kind: Revision['kind'], at: number, payload: Record<string, unknown>, baseRevision: string | null = null) => {
+    const local = { ...revision(id, 'bank-a', 0), kind, planId: 'plan-a', revisionId: `r5-${id}-${at}`, baseRevision, payload };
+    return { recordId: id, body: { schemaVersion: 2 as const, revisionId: local.revisionId, mutationId: `m-${id}-${at}`, baseRevision, kind, payload }, local, createdAt: at };
+  };
+  const plan = make('plan-a', 'plan', 600, { planId: 'plan-a' });
+  const original = make('source', 'essay', 500, { planId: 'plan-a' });
+  const feedback = make('feedback', 'feedback', 400, { planId: 'plan-a', workRevisionId: original.body.revisionId });
+  const correction = make('correction', 'correction' as Revision['kind'], 300, { planId: 'plan-a', sourceRevisionId: feedback.body.revisionId });
+  const retest = make('retest', 'essay', 100, { planId: 'plan-a', retestOf: original.body.revisionId, correctionId: correction.recordId });
+  const updated = make('correction', 'correction' as Revision['kind'], 700, correction.body.payload, correction.body.revisionId);
+  const queued = [retest, feedback, updated, original, correction, plan], before = structuredClone(queued);
+  assert.deepEqual(orderMutations(queued).map(item => item.body.mutationId), [plan, original, feedback, correction, retest, updated].map(item => item.body.mutationId));
+  assert.deepEqual(queued, before, 'ordering cannot rewrite immutable payloads, IDs, or requests');
+});

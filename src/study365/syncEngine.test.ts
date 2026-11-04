@@ -521,3 +521,43 @@ test("a changed vocabulary bank does not hide records or stop queued work in the
   assert.equal(device.scope.outbox.length, 0);
   assert.equal(device.status, "synced");
 });
+
+for (const field of ['sourceRevisionId', 'retestOf', 'correctionId'] as const) {
+  test(`R5: a quarantined origin blocks ${field} dependents before transport, without blocking unrelated work`, async () => {
+    const server = new Server(), device = new Device(server), origin = queued('r5-rejected-origin', 'Original'), dependent = queued('r5-dependent', 'Retest'), independent = queued('r5-unrelated', 'Unrelated');
+    const payload: LearningPayload = { ...dependent.body.payload, [field]: field === 'correctionId' ? origin.recordId : origin.body.revisionId };
+    if (field === 'sourceRevisionId') {
+      Object.assign(payload, { date: '2026-11-05', day: 4, skill: 'writing', sourceKind: 'essay', sourceId: origin.recordId,
+        items: [{ dimension: 'grammar', errorCause: 'grammar', action: 'rewrite-paragraph', status: 'open' }] });
+      delete payload.text; delete payload.taskType; dependent.body.kind = 'correction' as LearningKind; dependent.local.kind = dependent.body.kind;
+    }
+    dependent.body.payload = payload; dependent.local.payload = payload; dependent.local.contentHash = fingerprint(dependent.body.kind, payload);
+    [origin, dependent, independent].forEach(item => device.edit(item));
+    device.beforeRequest = (method, path) => {
+      if (method === 'PUT' && path.endsWith('/r5-rejected-origin')) throw new LearningApiError(400, 'Synthetic rejected origin', 'invalid_learning_record');
+      if (method === 'PUT' && path.endsWith('/r5-dependent')) assert.fail('dependent must be isolated before making a transport request');
+    };
+    await device.engine.sync();
+    assert.equal(server.heads.has(independent.recordId), true);
+    assert.deepEqual(device.scope.quarantine.map(item => item.code), ['invalid_learning_record', 'dependency_blocked']);
+    assert.equal(device.requests.some(item => item.method === 'PUT' && item.path.endsWith('/r5-dependent')), false);
+    assert.deepEqual(device.scope.quarantine[1].body, dependent.body);
+  });
+}
+
+test('R5: a missing correction record blocks other references to that record without blocking unrelated work', async () => {
+  const server = new Server(), device = new Device(server), first = queued('r5-first-retest', 'First'), second = queued('r5-second-retest', 'Second'), independent = queued('r5-other-work', 'Other');
+  for (const item of [first, second]) {
+    item.body.payload = { ...item.body.payload, correctionId: 'r5-missing-correction' };
+    item.local.payload = item.body.payload; item.local.contentHash = fingerprint(item.body.kind, item.body.payload);
+  }
+  [first, second, independent].forEach(item => device.edit(item));
+  device.beforeRequest = (method, path) => {
+    if (method === 'PUT' && path.endsWith('/r5-first-retest')) throw new LearningApiError(422, 'Synthetic missing correction', 'missing_dependency', { missingRecordId: 'r5-missing-correction' });
+    if (method === 'PUT' && path.endsWith('/r5-second-retest')) assert.fail('same missing correction must be recognized before transport');
+  };
+  await device.engine.sync();
+  assert.equal(server.heads.has(independent.recordId), true);
+  assert.deepEqual(device.scope.quarantine.map(item => item.code), ['missing_dependency', 'dependency_blocked']);
+  assert.equal(device.requests.some(item => item.method === 'PUT' && item.path.endsWith('/r5-second-retest')), false);
+});

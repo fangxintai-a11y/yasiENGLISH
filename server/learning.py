@@ -19,7 +19,7 @@ from urllib.parse import parse_qs, unquote
 
 MAX_WRITE = 128 * 1024
 MAX_PAGE = 1024 * 1024
-KINDS = frozenset(("plan", "mission", "attempt", "essay", "speaking", "feedback", "assessment"))
+KINDS = frozenset(("plan", "mission", "attempt", "essay", "speaking", "feedback", "assessment", "correction", "answerReview", "adjustment"))
 IDENTIFIER = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,159}\Z")
 SECRET = re.compile(r"\b(?:sk-ant-|sk-proj-|ghp_|gho_)[A-Za-z0-9_-]{10,}")
 SENSITIVE = frozenset(("apikey", "aikey", "token", "accesstoken", "refreshtoken", "password", "secret", "authorization", "cookie"))
@@ -36,6 +36,11 @@ GATE_TARGETS = {
 }
 SCORE_SOURCES = frozenset(("self", "rules", "ai", "human", "official"))
 ERROR_CAUSES = frozenset(("synonym-miss", "locating-error", "spelling", "time-pressure", "word-limit", "vocab-unknown", "misread-question", "tfng-inference", "grammar", "lexical-misuse", "coherence", "task-response", "task-achievement", "fluency-pause", "pronunciation", "other"))
+CORRECTION_ACTIONS = frozenset(("rephrase-pair", "locate-evidence", "vocab-review", "explain-judgment", "rewrite-paragraph", "rerecord-segment", "review-timing", "review-instructions", "review-error"))
+CORRECTION_STATUSES = frozenset(("open", "corrected", "retested-pass", "retested-fail", "dropped"))
+ADJUSTMENT_ACTIONS = frozenset(("prefer-question-type", "prioritize-error-cause", "request-human-calibration", "review-original"))
+LISTENING_QUESTION_TYPES = frozenset(("multiple-choice", "matching", "map-labeling", "form-completion", "note-completion", "table-completion", "flow-chart-completion", "summary-completion", "sentence-completion", "short-answer"))
+READING_QUESTION_TYPES = frozenset(("multiple-choice", "true-false-not-given", "yes-no-not-given", "matching-headings", "matching-information", "matching-features", "matching-sentence-endings", "summary-completion", "note-completion", "table-completion", "flow-chart-completion", "diagram-label-completion", "sentence-completion", "short-answer"))
 WRITING_ERROR_CAUSES = frozenset(("task-achievement", "task-response", "coherence", "lexical-misuse", "grammar", "spelling", "word-limit", "time-pressure", "misread-question", "vocab-unknown", "other"))
 _WRITING_SHARED_CHECKS = {"coherence-organisation", "coherence-progression", "coherence-cohesion", "lexical-precision", "lexical-range", "lexical-collocation", "grammar-range", "grammar-accuracy", "grammar-punctuation"}
 WRITING_CHECKLIST_IDS = {
@@ -52,11 +57,14 @@ SPEAKING_CHECKLIST_IDS = frozenset((
 FIELDS = {
     "plan": {"startDate", "timeZone", "curriculumVersion", "studyBudgetMinutes", "targetBand", "sectionTargets", "enabled", "syllabusUnit", "materialLevel", "title", "pauseIntervals"},
     "mission": {"date", "day", "taskId", "missionId", "skill", "status", "plannedMinutes", "actualMinutes", "timeSource"},
-    "attempt": {"date", "day", "taskId", "contentId", "contentVersion", "skill", "answers", "correct", "score", "total", "actualMinutes", "elapsedSeconds", "conditions", "replayed", "viewedTranscript", "firstAttempt", "isCheckpoint", "note", "questionResults", "materialSource", "sourceRef", "contentHash", "scope", "coverage", "reviewAnswers"},
-    "essay": {"date", "day", "taskId", "contentId", "contentVersion", "prompt", "text", "wordCount", "parentRevisionId", "taskType", "scope", "stage", "elapsedSeconds", "conditions", "sourceRef"},
-    "speaking": {"date", "day", "taskId", "contentId", "contentVersion", "prompt", "transcript", "durationSeconds", "recordingId", "recordingDevice", "parentRevisionId", "part", "prepSeconds", "conditions", "sourceRef", "recordingStatus"},
+    "attempt": {"date", "day", "taskId", "contentId", "contentVersion", "skill", "answers", "correct", "score", "total", "actualMinutes", "elapsedSeconds", "conditions", "replayed", "viewedTranscript", "firstAttempt", "isCheckpoint", "note", "questionResults", "materialSource", "sourceRef", "contentHash", "scope", "coverage", "reviewAnswers", "retestOf", "correctionId"},
+    "essay": {"date", "day", "taskId", "contentId", "contentVersion", "prompt", "text", "wordCount", "parentRevisionId", "taskType", "scope", "stage", "elapsedSeconds", "conditions", "sourceRef", "retestOf", "correctionId"},
+    "speaking": {"date", "day", "taskId", "contentId", "contentVersion", "prompt", "transcript", "durationSeconds", "recordingId", "recordingDevice", "parentRevisionId", "part", "prepSeconds", "conditions", "sourceRef", "recordingStatus", "retestOf", "correctionId"},
     "feedback": {"workId", "workRevisionId", "inputHash", "rubricVersion", "source", "sourceText", "assessedAt", "text", "bands", "taskType", "errorCauses", "spellingCheck", "checklist"},
     "assessment": {"date", "day", "kind", "source", "materialId", "score", "total", "bands", "scores", "conditions", "note", "notes", "gateId", "targets", "consecutiveIndex", "scoreSources", "weekIndex", "workId", "workRevisionId", "inputHash", "taskType", "selfBands", "machineBands", "machineSource"},
+    "correction": {"date", "day", "skill", "sourceKind", "sourceRevisionId", "sourceId", "items"},
+    "answerReview": {"materialId", "contentVersion", "contentHash", "questionId", "verdict", "correctedAnswers", "note", "reviewer"},
+    "adjustment": {"weekIndex", "date", "suggestions", "decision", "decidedAt"},
 }
 STRING_LIMITS = {
     "text": 20000, "transcript": 20000, "prompt": 8000, "note": 4000, "notes": 4000,
@@ -157,7 +165,7 @@ def validate_payload(kind, payload, record_id, deleted=False):
             continue
         if key in STRING_LIMITS:
             if key == "conditions" and isinstance(value, dict):
-                if set(value) - {"replays", "transcriptViewed", "replayed", "viewedTranscript", "firstAttempt", "unseen", "timed"}:
+                if set(value) - ({"replays", "transcriptViewed", "replayed", "viewedTranscript", "firstAttempt", "unseen", "timed"} | ({"sequential"} if kind == "attempt" else set())):
                     reject("作答条件包含不支持字段。")
                 for label, item in value.items():
                     if label == "replays":
@@ -167,9 +175,9 @@ def validate_payload(kind, payload, record_id, deleted=False):
                         reject()
             elif not isinstance(value, str) or len(value) > STRING_LIMITS[key]:
                 reject("学习文本格式或长度不正确。")
-        elif key in {"datasetId", "planId", "taskId", "missionId", "contentId", "materialId", "recordingId", "workId"}:
+        elif key in {"datasetId", "planId", "taskId", "missionId", "contentId", "materialId", "recordingId", "workId", "sourceId", "correctionId"}:
             identifier(value)
-        elif key in {"workRevisionId", "parentRevisionId"}:
+        elif key in {"workRevisionId", "parentRevisionId", "sourceRevisionId", "retestOf"}:
             revision_id(value)
         elif key == "inputHash":
             if not isinstance(value, str) or not re.fullmatch(r"[0-9a-f]{64}", value):
@@ -250,6 +258,8 @@ def validate_payload(kind, payload, record_id, deleted=False):
             validate_writing_feedback(payload)
     if kind == "attempt":
         validate_attempt_fields(payload)
+    if kind in {"correction", "answerReview", "adjustment"}:
+        validate_r5_record(kind, payload)
     if "correct" in payload and "total" in payload and payload["correct"] > payload["total"]:
         reject("正确数不能超过总题数。")
     if kind in {"feedback", "assessment"}:
@@ -287,6 +297,80 @@ def validate_payload(kind, payload, record_id, deleted=False):
     if kind == "assessment":
         validate_assessment(payload)
     return payload
+
+
+def validate_r5_record(kind, payload):
+    """Strict additive lifecycles, without projecting or mutating historical payloads."""
+    def text(value, maximum, required=True):
+        return isinstance(value, str) and len(value.encode('utf-16-le')) // 2 <= maximum and (not required or bool(value.strip()))
+    def enum(value, options):
+        return isinstance(value, str) and value in options
+    def only(value, keys):
+        return isinstance(value, dict) and not set(value) - set(keys)
+    skills = {'listening', 'reading', 'writing', 'speaking'}
+    if kind == 'correction':
+        if not valid_date(payload.get('date')) or not number(payload.get('day'), 1, 365) or int(payload['day']) != payload['day'] or not enum(payload.get('skill'), skills) or not enum(payload.get('sourceKind'), {'attempt', 'essay', 'speaking', 'feedback'}):
+            reject('订正缺少有效日期、科目或来源修订。')
+        revision_id(payload.get('sourceRevisionId')); identifier(payload.get('sourceId'))
+        expected = {'listening', 'reading'} if payload['sourceKind'] == 'attempt' else {'writing'} if payload['sourceKind'] == 'essay' else {'speaking'} if payload['sourceKind'] == 'speaking' else {'writing', 'speaking'}
+        if payload['skill'] not in expected:
+            reject('订正科目与来源类型不匹配。')
+        items = payload.get('items')
+        if not isinstance(items, list) or not 1 <= len(items) <= 50:
+            reject('每轮订正须有1至50项。')
+        targets = set()
+        for item in items:
+            if not only(item, {'questionId', 'dimension', 'errorCause', 'action', 'status', 'note'}) or ('questionId' in item) + ('dimension' in item) != 1 or not enum(item.get('errorCause'), ERROR_CAUSES) or not enum(item.get('action'), CORRECTION_ACTIONS) or not enum(item.get('status'), CORRECTION_STATUSES):
+                reject('订正项目、动作或状态无效。')
+            target = identifier(item.get('questionId', item.get('dimension')))
+            if ('questionId' not in item if payload['skill'] in {'listening', 'reading'} else 'dimension' not in item):
+                reject('听读订正须标题号，写说订正须标维度。')
+            if 'note' in item and not text(item['note'], 2000, False):
+                reject('订正说明最多2000字符。')
+            if item['status'] == 'dropped' and not text(item.get('note'), 2000):
+                reject('放弃订正必须填写本项说明。')
+            key = (target, item['errorCause'])
+            if key in targets:
+                reject('同一问题的订正项目不能重复。')
+            targets.add(key)
+    if kind == 'answerReview':
+        identifier(payload.get('materialId')); identifier(payload.get('questionId'))
+        if not text(payload.get('contentVersion'), 120) or not isinstance(payload.get('contentHash'), str) or not re.fullmatch(r'[a-f0-9]{64}', payload['contentHash']) or not enum(payload.get('verdict'), {'key-correct', 'key-wrong', 'ambiguous'}) or not enum(payload.get('reviewer'), {'self', 'human'}) or not text(payload.get('note'), 2000):
+            reject('答案审校须有材料版本、题号、审校者和有效说明。')
+        answers = payload.get('correctedAnswers')
+        if not isinstance(answers, list) or len(answers) > 12 or any(not text(value, 120) for value in answers) or len(set(answers)) != len(answers) or payload['verdict'] == 'key-wrong' and not answers:
+            reject('答案有误时必须提供有效更正答案，最多12种。')
+    if kind == 'adjustment':
+        if not valid_date(payload.get('date')) or not number(payload.get('weekIndex'), 1, 52) or int(payload['weekIndex']) != payload['weekIndex'] or not enum(payload.get('decision'), {'accepted', 'rejected', 'pending'}):
+            reject('调整建议的计划周、日期或决定无效。')
+        decided_at = payload.get('decidedAt')
+        if ('decidedAt' in payload if payload['decision'] == 'pending' else not number(decided_at, 0, 8640000000000000) or int(decided_at) != decided_at):
+            reject('待决建议不能带决定时间；已决建议须保存有效决定时间。')
+        items = payload.get('suggestions')
+        if not isinstance(items, list) or not 1 <= len(items) <= 50:
+            reject('调整建议须有1至50项。')
+        ids = set()
+        for item in items:
+            if not only(item, {'id', 'skill', 'questionType', 'dimension', 'reason', 'evidence', 'action'}) or not enum(item.get('skill'), skills) or not text(item.get('reason'), 2000) or not enum(item.get('action'), ADJUSTMENT_ACTIONS) or ('questionType' in item) + ('dimension' in item) != 1:
+                reject('调整建议缺少有效目标、理由或选材动作。')
+            item_id = identifier(item.get('id'))
+            types = READING_QUESTION_TYPES if item['skill'] == 'reading' else LISTENING_QUESTION_TYPES if item['skill'] == 'listening' else set()
+            if 'questionType' in item and not enum(item['questionType'], types):
+                reject('调整建议题型与科目不匹配。')
+            if 'dimension' in item:
+                identifier(item['dimension'])
+            if item['action'] == 'prefer-question-type' and 'questionType' not in item or item['action'] == 'prioritize-error-cause' and not enum(item.get('dimension'), ERROR_CAUSES):
+                reject('题型偏重或错因排序必须明确相应目标。')
+            evidence = item.get('evidence')
+            if not only(evidence, {'recordIds', 'metric', 'value', 'threshold'}) or not isinstance(evidence.get('recordIds'), list) or not evidence['recordIds'] or not text(evidence.get('metric'), 120):
+                reject('每条建议须有记录标识、指标、数值和阈值证据。')
+            for source_id in evidence['recordIds']:
+                identifier(source_id)
+            if len(set(evidence['recordIds'])) != len(evidence['recordIds']) or any(not isinstance(evidence.get(field), (int, float)) or isinstance(evidence[field], bool) or not math.isfinite(evidence[field]) for field in ('value', 'threshold')):
+                reject('每条建议须有记录标识、指标、数值和阈值证据。')
+            if item_id in ids:
+                reject('同一批调整建议标识不能重复。')
+            ids.add(item_id)
 
 
 def validate_attempt_fields(payload):
@@ -617,6 +701,39 @@ class LearningStore:
                      "conflict": cls.item(db, user_id, receipt["conflict_revision_id"]), "applied": False}
 
     @staticmethod
+    def r5_references(db, user_id, kind, payload, plan_id):
+        """Only the new fields add dependencies; existing work/base semantics stay intact."""
+        def revision(ref):
+            row = db.execute("""SELECT v.payload,v.deleted,v.record_id,r.kind,r.plan_id FROM learning_revisions v
+                                JOIN learning_records r ON r.user_id=v.user_id AND r.id=v.record_id
+                                WHERE v.user_id=? AND v.revision_id=?""", (user_id, ref)).fetchone()
+            if row is None or row['plan_id'] != plan_id or row['deleted']:
+                raise LearningError(422, '订正或复测的来源修订尚未同步。', 'missing_dependency', missingRevisionId=ref)
+            return row
+        if kind == 'correction':
+            ref = payload['sourceRevisionId']; source = revision(ref)
+            if source['kind'] != payload['sourceKind'] or source['record_id'] != payload['sourceId']:
+                reject('订正引用的来源类型或记录不匹配。')
+            value = json.loads(source['payload'])
+            skill = value.get('skill') if source['kind'] == 'attempt' else 'writing' if source['kind'] == 'essay' else 'speaking' if source['kind'] == 'speaking' or value.get('taskType') == 'speaking' else 'writing'
+            if payload['skill'] != skill:
+                reject('订正科目与来源修订不匹配。')
+        if 'retestOf' in payload:
+            ref = payload['retestOf']; source = revision(ref)
+            if source['kind'] not in {'attempt', 'essay', 'speaking'} or source['kind'] != kind or kind == 'attempt' and json.loads(source['payload']).get('skill') != payload['skill']:
+                reject('复测必须引用同科目的原始作答或作品。')
+        if 'correctionId' in payload:
+            ref = payload['correctionId']
+            row = db.execute("""SELECT r.kind,r.plan_id,v.payload,v.deleted FROM learning_records r
+                                JOIN learning_revisions v ON v.user_id=r.user_id AND v.revision_id=r.current_revision_id
+                                WHERE r.user_id=? AND r.id=?""", (user_id, ref)).fetchone()
+            if row is None or row['kind'] != 'correction' or row['plan_id'] != plan_id or row['deleted']:
+                raise LearningError(422, '所属订正记录尚未同步或引用不正确。', 'missing_dependency', missingRecordId=ref)
+            skill = payload.get('skill') if kind == 'attempt' else 'writing' if kind == 'essay' else 'speaking'
+            if json.loads(row['payload']).get('skill') != skill:
+                reject('订正记录与作品科目不匹配。')
+
+    @staticmethod
     def references(db, user_id, kind, payload, base, record_id):
         if base:
             row = db.execute("SELECT record_id FROM learning_revisions WHERE user_id=? AND revision_id=?", (user_id, base)).fetchone()
@@ -627,6 +744,7 @@ class LearningStore:
             plan = db.execute("SELECT kind,deleted_at FROM learning_records WHERE user_id=? AND id=?", (user_id, plan_id)).fetchone()
             if plan is None or plan["kind"] != "plan" or plan["deleted_at"] is not None:
                 raise LearningError(422, "请先同步所属计划。", "missing_dependency", missingPlanId=plan_id)
+        LearningStore.r5_references(db, user_id, kind, payload, plan_id)
         for field in ("workRevisionId", "parentRevisionId"):
             ref = payload.get(field)
             if ref:

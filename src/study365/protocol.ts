@@ -1,7 +1,8 @@
 /** Independent learning records. Never add these fields to the vocabulary snapshot. */
 import { WRITING_ERROR_CAUSES, writingChecklistIds } from "./writingChecklist";
 import { SPEAKING_CHECKLIST_IDS, SPEAKING_ERROR_CAUSES } from "./speakingChecklist";
-export const LEARNING_KINDS = ["plan", "mission", "attempt", "essay", "speaking", "feedback", "assessment"] as const;
+import { LISTENING_QUESTION_TYPES, READING_QUESTION_TYPES } from "./contentSchemas";
+export const LEARNING_KINDS = ["plan", "mission", "attempt", "essay", "speaking", "feedback", "assessment", "correction", "answerReview", "adjustment"] as const;
 export type LearningKind = (typeof LEARNING_KINDS)[number];
 export type LearningPayload = Record<string, unknown>;
 export const LEARNING_PROTOCOL = 2;
@@ -18,6 +19,12 @@ export const GATE_TARGETS = Object.freeze({
 });
 export const SCORE_SOURCES = ["self", "rules", "ai", "human", "official"] as const;
 export const ERROR_CAUSES = ["synonym-miss", "locating-error", "spelling", "time-pressure", "word-limit", "vocab-unknown", "misread-question", "tfng-inference", "grammar", "lexical-misuse", "coherence", "task-response", "task-achievement", "fluency-pause", "pronunciation", "other"] as const;
+export const CORRECTION_ACTIONS = ["rephrase-pair", "locate-evidence", "vocab-review", "explain-judgment", "rewrite-paragraph", "rerecord-segment", "review-timing", "review-instructions", "review-error"] as const;
+export type CorrectionAction = typeof CORRECTION_ACTIONS[number];
+export const CORRECTION_STATUSES = ["open", "corrected", "retested-pass", "retested-fail", "dropped"] as const;
+export type CorrectionStatus = typeof CORRECTION_STATUSES[number];
+export const ADJUSTMENT_ACTIONS = ["prefer-question-type", "prioritize-error-cause", "request-human-calibration", "review-original"] as const;
+export type AdjustmentAction = typeof ADJUSTMENT_ACTIONS[number];
 
 export interface Revision {
   id: string;
@@ -65,11 +72,14 @@ const common = ["datasetId", "planId"];
 const fields: Record<LearningKind, readonly string[]> = {
   plan: ["startDate", "timeZone", "curriculumVersion", "studyBudgetMinutes", "targetBand", "sectionTargets", "enabled", "syllabusUnit", "materialLevel", "title", "pauseIntervals"],
   mission: ["date", "day", "taskId", "missionId", "skill", "status", "plannedMinutes", "actualMinutes", "timeSource"],
-  attempt: ["date", "day", "taskId", "contentId", "contentVersion", "skill", "answers", "correct", "score", "total", "actualMinutes", "elapsedSeconds", "conditions", "replayed", "viewedTranscript", "firstAttempt", "isCheckpoint", "note", "questionResults", "materialSource", "sourceRef", "contentHash", "scope", "coverage", "reviewAnswers"],
-  essay: ["date", "day", "taskId", "contentId", "contentVersion", "prompt", "text", "wordCount", "parentRevisionId", "taskType", "scope", "stage", "elapsedSeconds", "conditions", "sourceRef"],
-  speaking: ["date", "day", "taskId", "contentId", "contentVersion", "prompt", "transcript", "durationSeconds", "recordingId", "recordingDevice", "parentRevisionId", "part", "prepSeconds", "conditions", "sourceRef", "recordingStatus"],
+  attempt: ["date", "day", "taskId", "contentId", "contentVersion", "skill", "answers", "correct", "score", "total", "actualMinutes", "elapsedSeconds", "conditions", "replayed", "viewedTranscript", "firstAttempt", "isCheckpoint", "note", "questionResults", "materialSource", "sourceRef", "contentHash", "scope", "coverage", "reviewAnswers", "retestOf", "correctionId"],
+  essay: ["date", "day", "taskId", "contentId", "contentVersion", "prompt", "text", "wordCount", "parentRevisionId", "taskType", "scope", "stage", "elapsedSeconds", "conditions", "sourceRef", "retestOf", "correctionId"],
+  speaking: ["date", "day", "taskId", "contentId", "contentVersion", "prompt", "transcript", "durationSeconds", "recordingId", "recordingDevice", "parentRevisionId", "part", "prepSeconds", "conditions", "sourceRef", "recordingStatus", "retestOf", "correctionId"],
   feedback: ["workId", "workRevisionId", "inputHash", "rubricVersion", "source", "sourceText", "assessedAt", "text", "bands", "taskType", "errorCauses", "spellingCheck", "checklist"],
   assessment: ["date", "day", "kind", "source", "materialId", "score", "total", "bands", "scores", "conditions", "note", "notes", "gateId", "targets", "consecutiveIndex", "scoreSources", "weekIndex", "workId", "workRevisionId", "inputHash", "taskType", "selfBands", "machineBands", "machineSource"],
+  correction: ["date", "day", "skill", "sourceKind", "sourceRevisionId", "sourceId", "items"],
+  answerReview: ["materialId", "contentVersion", "contentHash", "questionId", "verdict", "correctedAnswers", "note", "reviewer"],
+  adjustment: ["weekIndex", "date", "suggestions", "decision", "decidedAt"],
 };
 const sensitive = /^(?:apikey|aikey|token|accesstoken|refreshtoken|password|secret|authorization|cookie)$/;
 const secret = /\b(?:sk-ant-|sk-proj-|ghp_|gho_)[A-Za-z0-9_-]{10,}/;
@@ -114,8 +124,8 @@ function validate(kind: LearningKind, payload: LearningPayload, deleted = false,
   for (const [key, value] of Object.entries(payload)) {
     if (value === null && nullable.has(key)) continue;
     if (key in textLimits && !(key === "conditions" && isObject(value)) && (typeof value !== "string" || value.length > textLimits[key])) throw new Error("学习文本的格式或长度不正确。");
-    if (["datasetId", "planId", "taskId", "missionId", "contentId", "materialId", "recordingId", "workId"].includes(key) && !isIdentifier(value)) throw new Error("学习记录标识无效。");
-    if (["workRevisionId", "parentRevisionId"].includes(key) && !isRevisionId(value)) throw new Error("作品修订标识无效。");
+    if (["datasetId", "planId", "taskId", "missionId", "contentId", "materialId", "recordingId", "workId", "sourceId", "correctionId"].includes(key) && !isIdentifier(value)) throw new Error("学习记录标识无效。");
+    if (["workRevisionId", "parentRevisionId", "sourceRevisionId", "retestOf"].includes(key) && !isRevisionId(value)) throw new Error("作品修订标识无效。");
     if (key === "inputHash" && (typeof value !== "string" || !/^[a-f0-9]{64}$/.test(value))) throw new Error("作品校验值无效。");
     if (["date", "startDate"].includes(key)) {
       if (!validDate(value)) throw new Error("学习日期无效。");
@@ -126,7 +136,7 @@ function validate(kind: LearningKind, payload: LearningPayload, deleted = false,
     if (key === "timeZone") { try { new Intl.DateTimeFormat("en", { timeZone: String(value) }); } catch { throw new Error("计划时区无效。"); } }
     if (key === "answers" && (!Array.isArray(value) || value.some((a) => a !== null && typeof a !== "string" && typeof a !== "number"))) throw new Error("作答格式不正确。");
     if (key === "conditions") {
-      if (kind === "essay" || kind === "speaking" ? !isObject(value) || Object.entries(value).some(([key, item]) => !["timed", "firstAttempt", "unseen"].includes(key) || typeof item !== "boolean") : typeof value === "string" ? value.length > 2000 : !isObject(value) || Object.entries(value).some(([k, v]) => k === "replays" ? !Number.isInteger(v) || Number(v) < 0 || Number(v) > 1000 : !["transcriptViewed", "replayed", "viewedTranscript", "firstAttempt", "unseen", "timed"].includes(k) || typeof v !== "boolean")) throw new Error("作答条件格式不正确。");
+      if (kind === "essay" || kind === "speaking" ? !isObject(value) || Object.entries(value).some(([key, item]) => !["timed", "firstAttempt", "unseen"].includes(key) || typeof item !== "boolean") : typeof value === "string" ? value.length > 2000 : !isObject(value) || Object.entries(value).some(([k, v]) => k === "replays" ? !Number.isInteger(v) || Number(v) < 0 || Number(v) > 1000 : !["transcriptViewed", "replayed", "viewedTranscript", "firstAttempt", "unseen", "timed", ...(kind === "attempt" ? ["sequential"] : [])].includes(k) || typeof v !== "boolean")) throw new Error("作答条件格式不正确。");
     }
     if (["bands", "scores", "selfBands", "machineBands"].includes(key)) validateBands(value, legacy);
     if (key === "pauseIntervals" && (!Array.isArray(value) || value.some((v) => !isObject(v) || Object.keys(v).sort().join() !== "end,start" || !validDate(v.start) || !validDate(v.end) || v.end < v.start))) throw new Error("暂停日期格式不正确。");
@@ -148,6 +158,7 @@ function validate(kind: LearningKind, payload: LearningPayload, deleted = false,
   if (kind === "mission" && (!isIdentifier(payload.taskId ?? payload.missionId) || !["not_started", "in_progress", "completed", "partial", "minimum", "skipped"].includes(String(payload.status)))) throw new Error("任务标识或状态不正确。");
   if (kind === "attempt" && (!isIdentifier(payload.contentId) || !Array.isArray(payload.answers) || typeof payload.skill !== "string")) throw new Error("练习缺少材料或作答。");
   if (kind === "attempt") validateAttemptFields(payload);
+  if (kind === "correction" || kind === "answerReview" || kind === "adjustment") validateR5Record(kind, payload);
   if (typeof payload.correct === "number" && typeof payload.total === "number" && payload.correct > payload.total) throw new Error("正确数不能超过总题数。");
   if (kind === "feedback") {
     if (payload.taskType === "speaking") validateSpeakingFeedback(payload);
@@ -175,6 +186,66 @@ function validate(kind: LearningKind, payload: LearningPayload, deleted = false,
     }
   }
   if (kind === "assessment") validateAssessment(payload);
+}
+
+/** New R5 lifecycles use their own strict payloads; raw historical records are untouched. */
+function validateR5Record(kind: LearningKind, payload: LearningPayload): void {
+  const skills = ['listening', 'reading', 'writing', 'speaking'];
+  const enumValue = (value: unknown, options: readonly string[]) => typeof value === 'string' && options.includes(value);
+  const text = (value: unknown, maximum: number, required = true) => typeof value === 'string' && value.length <= maximum && (!required || !!value.trim());
+  const only = (value: LearningPayload, keys: readonly string[]) => Object.keys(value).every(key => keys.includes(key));
+  const target = (value: LearningPayload) => Number(Object.hasOwn(value, 'questionId')) + Number(Object.hasOwn(value, 'dimension')) === 1
+    && (Object.hasOwn(value, 'questionId') ? isIdentifier(value.questionId) : isIdentifier(value.dimension));
+  if (kind === 'correction') {
+    if (!validDate(payload.date) || !Number.isInteger(payload.day) || Number(payload.day) < 1 || Number(payload.day) > 365
+      || !enumValue(payload.skill, skills) || !enumValue(payload.sourceKind, ['attempt', 'essay', 'speaking', 'feedback'])
+      || !isRevisionId(payload.sourceRevisionId) || !isIdentifier(payload.sourceId)) throw new Error('订正缺少有效日期、科目或来源修订。');
+    const expected = payload.sourceKind === 'attempt' ? ['listening', 'reading'] : payload.sourceKind === 'essay' ? ['writing'] : payload.sourceKind === 'speaking' ? ['speaking'] : ['writing', 'speaking'];
+    if (!enumValue(payload.skill, expected)) throw new Error('订正科目与来源类型不匹配。');
+    if (!Array.isArray(payload.items) || !payload.items.length || payload.items.length > 50) throw new Error('每轮订正须有1至50项。');
+    const targets = new Set<string>();
+    for (const item of payload.items) {
+      if (!isObject(item) || !only(item, ['questionId', 'dimension', 'errorCause', 'action', 'status', 'note']) || !target(item)
+        || !ERROR_CAUSES.includes(item.errorCause as typeof ERROR_CAUSES[number]) || !CORRECTION_ACTIONS.includes(item.action as CorrectionAction)
+        || !CORRECTION_STATUSES.includes(item.status as CorrectionStatus)) throw new Error('订正项目、动作或状态无效。');
+      if (['listening', 'reading'].includes(String(payload.skill)) ? !Object.hasOwn(item, 'questionId') : !Object.hasOwn(item, 'dimension')) throw new Error('听读订正须标题号，写说订正须标维度。');
+      if (item.note !== undefined && !text(item.note, 2000, false)) throw new Error('订正说明最多2000字符。');
+      if (item.status === 'dropped' && !text(item.note, 2000)) throw new Error('放弃订正必须填写本项说明。');
+      const key = JSON.stringify([item.questionId ?? item.dimension, item.errorCause]);
+      if (targets.has(key)) throw new Error('同一问题的订正项目不能重复。');
+      targets.add(key);
+    }
+  }
+  if (kind === 'answerReview') {
+    if (!isIdentifier(payload.materialId) || !text(payload.contentVersion, 120) || typeof payload.contentHash !== 'string' || !/^[a-f0-9]{64}$/.test(payload.contentHash)
+      || !isIdentifier(payload.questionId) || !enumValue(payload.verdict, ['key-correct', 'key-wrong', 'ambiguous'])
+      || !enumValue(payload.reviewer, ['self', 'human']) || !text(payload.note, 2000)) throw new Error('答案审校须有材料版本、题号、审校者和有效说明。');
+    if (!Array.isArray(payload.correctedAnswers) || payload.correctedAnswers.length > 12 || payload.correctedAnswers.some(value => !text(value, 120))
+      || new Set(payload.correctedAnswers).size !== payload.correctedAnswers.length
+      || payload.verdict === 'key-wrong' && !payload.correctedAnswers.length) throw new Error('答案有误时必须提供有效更正答案，最多12种。');
+  }
+  if (kind === 'adjustment') {
+    if (!validDate(payload.date) || !Number.isInteger(payload.weekIndex) || Number(payload.weekIndex) < 1 || Number(payload.weekIndex) > 52
+      || !enumValue(payload.decision, ['accepted', 'rejected', 'pending'])) throw new Error('调整建议的计划周、日期或决定无效。');
+    if (payload.decision === 'pending' ? payload.decidedAt !== undefined : !Number.isSafeInteger(payload.decidedAt) || Number(payload.decidedAt) < 0 || Number(payload.decidedAt) > 8640000000000000) throw new Error('待决建议不能带决定时间；已决建议须保存有效决定时间。');
+    if (!Array.isArray(payload.suggestions) || !payload.suggestions.length || payload.suggestions.length > 50) throw new Error('调整建议须有1至50项。');
+    const ids = new Set<string>();
+    for (const item of payload.suggestions) {
+      if (!isObject(item) || !only(item, ['id', 'skill', 'questionType', 'dimension', 'reason', 'evidence', 'action']) || !isIdentifier(item.id)
+        || !enumValue(item.skill, skills) || !text(item.reason, 2000) || !ADJUSTMENT_ACTIONS.includes(item.action as AdjustmentAction)
+        || Number(Object.hasOwn(item, 'questionType')) + Number(Object.hasOwn(item, 'dimension')) !== 1) throw new Error('调整建议缺少有效目标、理由或选材动作。');
+      const questionTypes: readonly string[] = item.skill === 'reading' ? READING_QUESTION_TYPES : item.skill === 'listening' ? LISTENING_QUESTION_TYPES : [];
+      if (item.questionType !== undefined && !enumValue(item.questionType, questionTypes)) throw new Error('调整建议题型与科目不匹配。');
+      if (item.dimension !== undefined && !isIdentifier(item.dimension)) throw new Error('调整建议维度无效。');
+      if (item.action === 'prefer-question-type' && item.questionType === undefined || item.action === 'prioritize-error-cause' && !ERROR_CAUSES.includes(item.dimension as typeof ERROR_CAUSES[number])) throw new Error('题型偏重或错因排序必须明确相应目标。');
+      const evidence = item.evidence;
+      if (!isObject(evidence) || !only(evidence, ['recordIds', 'metric', 'value', 'threshold']) || !Array.isArray(evidence.recordIds) || !evidence.recordIds.length
+        || evidence.recordIds.some(id => !isIdentifier(id)) || new Set(evidence.recordIds).size !== evidence.recordIds.length || !text(evidence.metric, 120)
+        || typeof evidence.value !== 'number' || !Number.isFinite(evidence.value) || typeof evidence.threshold !== 'number' || !Number.isFinite(evidence.threshold)) throw new Error('每条建议须有记录标识、指标、数值和阈值证据。');
+      if (ids.has(item.id)) throw new Error('同一批调整建议标识不能重复。');
+      ids.add(item.id);
+    }
+  }
 }
 
 /** Optional wire fields preserve old attempts and durable pending requests. */

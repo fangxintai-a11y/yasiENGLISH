@@ -89,13 +89,17 @@ export function orderMutations(items: QueuedMutation[]): QueuedMutation[] {
   const remaining = [...items].sort((a, b) => a.createdAt - b.createdAt), output: QueuedMutation[] = [];
   const byRevision = new Map(items.map((item) => [item.body.revisionId, item]));
   const plans = new Map<string, QueuedMutation>();
+  const correctionCreations = new Map<string, QueuedMutation>();
   for (const item of remaining) if (item.body.kind === "plan" && !plans.has(item.recordId)) plans.set(item.recordId, item);
+  for (const item of remaining) if (item.body.kind === "correction" && item.body.baseRevision === null && !correctionCreations.has(item.recordId)) correctionCreations.set(item.recordId, item);
   const done = new Set<string>();
   while (remaining.length) {
     const index = remaining.findIndex((item) => {
       const payload = item.body.payload;
-      const dependencies = [item.body.baseRevision, payload.workRevisionId, payload.parentRevisionId]
+      const dependencies = [item.body.baseRevision, payload.workRevisionId, payload.parentRevisionId, payload.sourceRevisionId, payload.retestOf]
         .flatMap((id) => typeof id === "string" && byRevision.has(id) ? [byRevision.get(id)!] : []);
+      const correction = correctionCreations.get(String(payload.correctionId));
+      if (correction) dependencies.push(correction);
       const plan = plans.get(String(payload.planId ?? item.local.planId));
       if (item.body.kind !== "plan" && plan) dependencies.push(plan);
       return dependencies.every((dependency) => dependency === item || done.has(dependency.body.mutationId));

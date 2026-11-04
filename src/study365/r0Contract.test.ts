@@ -22,7 +22,9 @@ const revision = (item: FixtureRecord, index: number): Revision => ({ id: item.r
 test("R0 schema v2 synthetic examples cover the seven record kinds without importing user progress", () => {
   assert.equal(fixture.fixtureVersion, 2);
   assert.equal(fixture.purpose, "synthetic-wire-examples-not-user-learning-records");
-  assert.deepEqual([...new Set(fixture.records.map((item) => item.request.kind))].sort(), [...LEARNING_KINDS].sort());
+  const legacyKinds = ["plan", "mission", "attempt", "essay", "speaking", "feedback", "assessment"] as const;
+  assert.deepEqual([...new Set(fixture.records.map((item) => item.request.kind))].sort(), [...legacyKinds].sort());
+  assert.ok(legacyKinds.every(kind => LEARNING_KINDS.includes(kind)));
   for (const key of ["recordId", "revisionId", "mutationId"] as const) {
     const values = fixture.records.map((item) => key === "recordId" ? item.recordId : item.request[key]);
     assert.equal(new Set(values).size, fixture.records.length, `duplicate ${key}`);

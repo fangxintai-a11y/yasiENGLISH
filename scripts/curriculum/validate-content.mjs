@@ -209,7 +209,9 @@ export async function checkRecordReferences(fixture, catalog) {
   const byId = new Map(catalog.materials.map((material) => [material.id, material]));
   equal(fixture.fixtureVersion, 2, "fixture.fixtureVersion");
   equal(fixture.purpose, "synthetic-wire-examples-not-user-learning-records", "fixture.purpose");
-  equal([...new Set(fixture.records.map((item) => item.request.kind))].sort(), [...LEARNING_KINDS].sort(), "fixture.records.kinds");
+  const legacyKinds = ["plan", "mission", "attempt", "essay", "speaking", "feedback", "assessment"];
+  equal([...new Set(fixture.records.map((item) => item.request.kind))].sort(), [...legacyKinds].sort(), "fixture.records.kinds");
+  if (legacyKinds.some(kind => !LEARNING_KINDS.includes(kind))) fail("fixture.records.kinds", "all R0 kinds must remain supported");
   const seen = { recordId: new Set(), revisionId: new Set(), mutationId: new Set() };
   for (const [index, item] of fixture.records.entries()) {
     const at = `fixture.records[${index}]`, { request } = item, payload = request.payload;
