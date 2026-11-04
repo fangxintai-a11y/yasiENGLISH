@@ -5,6 +5,10 @@ export const LEARNING_KINDS = ["plan", "mission", "attempt", "essay", "speaking"
 export type LearningKind = (typeof LEARNING_KINDS)[number];
 export type LearningPayload = Record<string, unknown>;
 export const LEARNING_PROTOCOL = 2;
+export const MATERIAL_SOURCES = ["official", "cambridge", "publisher", "unofficial"] as const;
+export type MaterialSource = typeof MATERIAL_SOURCES[number];
+export const ATTEMPT_SCOPES = ["full", "section", "type-drill", "short"] as const;
+export type AttemptScope = typeof ATTEMPT_SCOPES[number];
 export const SECTION_TARGETS = Object.freeze({ listening: 8.5, reading: 8.5, writing: 7.5, speaking: 7.5 });
 export const GATE_TARGETS = Object.freeze({
   G1: { overall: 6.5, listening: 7, reading: 7, writing: 6, speaking: 6 },
@@ -61,7 +65,7 @@ const common = ["datasetId", "planId"];
 const fields: Record<LearningKind, readonly string[]> = {
   plan: ["startDate", "timeZone", "curriculumVersion", "studyBudgetMinutes", "targetBand", "sectionTargets", "enabled", "syllabusUnit", "materialLevel", "title", "pauseIntervals"],
   mission: ["date", "day", "taskId", "missionId", "skill", "status", "plannedMinutes", "actualMinutes", "timeSource"],
-  attempt: ["date", "day", "taskId", "contentId", "contentVersion", "skill", "answers", "correct", "score", "total", "actualMinutes", "elapsedSeconds", "conditions", "replayed", "viewedTranscript", "firstAttempt", "isCheckpoint", "note", "questionResults"],
+  attempt: ["date", "day", "taskId", "contentId", "contentVersion", "skill", "answers", "correct", "score", "total", "actualMinutes", "elapsedSeconds", "conditions", "replayed", "viewedTranscript", "firstAttempt", "isCheckpoint", "note", "questionResults", "materialSource", "sourceRef", "contentHash", "scope", "coverage", "reviewAnswers"],
   essay: ["date", "day", "taskId", "contentId", "contentVersion", "prompt", "text", "wordCount", "parentRevisionId", "taskType", "scope", "stage", "elapsedSeconds", "conditions", "sourceRef"],
   speaking: ["date", "day", "taskId", "contentId", "contentVersion", "prompt", "transcript", "durationSeconds", "recordingId", "recordingDevice", "parentRevisionId", "part", "prepSeconds", "conditions", "sourceRef", "recordingStatus"],
   feedback: ["workId", "workRevisionId", "inputHash", "rubricVersion", "source", "sourceText", "assessedAt", "text", "bands", "taskType", "errorCauses", "spellingCheck", "checklist"],
@@ -143,6 +147,7 @@ function validate(kind: LearningKind, payload: LearningPayload, deleted = false,
   if (kind === "feedback" && (!isRevisionId(payload.workRevisionId) || typeof payload.inputHash !== "string" || typeof payload.text !== "string" || typeof payload.source !== "string")) throw new Error("反馈缺少原稿引用或来源。");
   if (kind === "mission" && (!isIdentifier(payload.taskId ?? payload.missionId) || !["not_started", "in_progress", "completed", "partial", "minimum", "skipped"].includes(String(payload.status)))) throw new Error("任务标识或状态不正确。");
   if (kind === "attempt" && (!isIdentifier(payload.contentId) || !Array.isArray(payload.answers) || typeof payload.skill !== "string")) throw new Error("练习缺少材料或作答。");
+  if (kind === "attempt") validateAttemptFields(payload);
   if (typeof payload.correct === "number" && typeof payload.total === "number" && payload.correct > payload.total) throw new Error("正确数不能超过总题数。");
   if (kind === "feedback") {
     if (payload.taskType === "speaking") validateSpeakingFeedback(payload);
@@ -158,15 +163,56 @@ function validate(kind: LearningKind, payload: LearningPayload, deleted = false,
     if (!Array.isArray(payload.questionResults)) throw new Error("逐题错因格式无效。");
     const ids = new Set<string>();
     for (const result of payload.questionResults) {
-      if (!isObject(result) || Object.keys(result).some((key) => !["questionId", "correct", "confidence", "errorCause", "note"].includes(key)) || !isIdentifier(result.questionId) || typeof result.correct !== "boolean" || !["sure", "unsure"].includes(String(result.confidence))) throw new Error("逐题错因格式无效。");
+      if (!isObject(result) || Object.keys(result).some((key) => !["questionId", "correct", "confidence", "errorCause", "note", "reviewCorrect", "answerDisputed"].includes(key)) || !isIdentifier(result.questionId) || typeof result.correct !== "boolean" || !["sure", "unsure"].includes(String(result.confidence))) throw new Error("逐题错因格式无效。");
       if (ids.has(result.questionId)) throw new Error("逐题错因题号不能重复。");
       ids.add(result.questionId);
-      if (result.correct ? result.errorCause !== null : !ERROR_CAUSES.includes(result.errorCause as typeof ERROR_CAUSES[number])) throw new Error("错因必须使用枚举编码，正确答案的错因为空。");
+      if (result.reviewCorrect !== undefined && typeof result.reviewCorrect !== "boolean") throw new Error("复盘正确状态必须为布尔值。");
+      if (result.answerDisputed !== undefined && typeof result.answerDisputed !== "boolean") throw new Error("答案存疑状态必须为布尔值。");
+      if (result.answerDisputed === true && (typeof result.note !== "string" || !result.note.trim())) throw new Error("答案存疑必须在本题填写说明。");
+      if (result.correct ? result.errorCause !== null : !(result.answerDisputed === true && result.errorCause === null) && !ERROR_CAUSES.includes(result.errorCause as typeof ERROR_CAUSES[number])) throw new Error("错因必须使用枚举编码，正确答案的错因为空。");
       if (result.note !== undefined && (typeof result.note !== "string" || result.note.length > 4000)) throw new Error("错因说明格式无效。");
       if (result.errorCause === "other" && !String(result.note ?? payload.note ?? "").trim()) throw new Error("其他错因必须填写说明。");
     }
   }
   if (kind === "assessment") validateAssessment(payload);
+}
+
+/** Optional wire fields preserve old attempts and durable pending requests. */
+function validateAttemptFields(payload: LearningPayload): void {
+  if (payload.materialSource !== undefined && !(MATERIAL_SOURCES as readonly unknown[]).includes(payload.materialSource)) throw new Error("材料来源必须为official、cambridge、publisher或unofficial。");
+  if (payload.scope !== undefined && !(ATTEMPT_SCOPES as readonly unknown[]).includes(payload.scope)) throw new Error("听读练习范围必须为full、section、type-drill或short。");
+  if (payload.contentHash !== undefined && (typeof payload.contentHash !== "string" || !/^[a-f0-9]{64}$/.test(payload.contentHash))) throw new Error("材料校验值无效。");
+  if (payload.reviewAnswers !== undefined) {
+    if (!Array.isArray(payload.reviewAnswers) || payload.reviewAnswers.some(value => value !== null && typeof value !== "string" && typeof value !== "number")) throw new Error("复盘作答格式不正确。");
+    if (!Array.isArray(payload.answers) || payload.reviewAnswers.length !== payload.answers.length) throw new Error("复盘答案数必须与首答一致。");
+  }
+  if (payload.coverage === undefined) return;
+  const coverage = payload.coverage;
+  if (!isObject(coverage) || Object.keys(coverage).sort().join() !== "coveredWordIds,matcherVersion,requestedWordIds,uncoveredWordIds") throw new Error("词汇覆盖格式无效。");
+  const groups = [coverage.requestedWordIds, coverage.coveredWordIds, coverage.uncoveredWordIds];
+  for (const group of groups) {
+    if (!Array.isArray(group)) throw new Error("词汇覆盖格式无效。");
+    if (group.length > 50) throw new Error("词汇覆盖词条最多50个。");
+    if (group.some(id => !isIdentifier(id))) throw new Error("词汇覆盖词条标识无效。");
+    if (new Set(group).size !== group.length) throw new Error("词汇覆盖词条不能重复。");
+  }
+  if (typeof coverage.matcherVersion !== "string" || !coverage.matcherVersion.trim() || coverage.matcherVersion.length > 120) throw new Error("词汇覆盖匹配器版本无效。");
+  const [requested, covered, uncovered] = groups as string[][];
+  const union = [...covered, ...uncovered];
+  if (new Set(union).size !== union.length || union.length !== requested.length || union.some(id => !requested.includes(id))) throw new Error("词汇覆盖分区必须完整对应目标词。");
+}
+/** Business read only: absent sources stay unknown, never written back to a revision. */
+export function readAttemptMaterialSource(payload: LearningPayload): MaterialSource | null {
+  return (MATERIAL_SOURCES as readonly unknown[]).includes(payload.materialSource) ? payload.materialSource as MaterialSource : null;
+}
+/** R4 creation boundary; the compatible wire cannot distinguish old schema-2 records by age. */
+export function validateNewListeningReadingAttempt(payload: LearningPayload): void {
+  validatePayload("attempt", payload);
+  if (payload.skill !== "listening" && payload.skill !== "reading") throw new Error("新听读记录必须明确听力或阅读科目。");
+  if (readAttemptMaterialSource(payload) === null) throw new Error("新听读记录必须选择材料来源。");
+  if (typeof payload.sourceRef !== "string" || !payload.sourceRef.trim()) throw new Error("新听读记录必须填写材料出处。");
+  if (typeof payload.contentHash !== "string") throw new Error("新听读记录必须保存材料校验值。");
+  if (payload.scope === undefined) throw new Error("新听读记录必须明确练习范围。");
 }
 
 const writingFeedbackFields = ["errorCauses", "spellingCheck", "checklist"] as const;

@@ -25,6 +25,8 @@ SECRET = re.compile(r"\b(?:sk-ant-|sk-proj-|ghp_|gho_)[A-Za-z0-9_-]{10,}")
 SENSITIVE = frozenset(("apikey", "aikey", "token", "accesstoken", "refreshtoken", "password", "secret", "authorization", "cookie"))
 COMMON = {"datasetId", "planId"}
 PROTOCOL_VERSION = 2
+MATERIAL_SOURCES = frozenset(("official", "cambridge", "publisher", "unofficial"))
+ATTEMPT_SCOPES = frozenset(("full", "section", "type-drill", "short"))
 SECTION_TARGETS = {"listening": 8.5, "reading": 8.5, "writing": 7.5, "speaking": 7.5}
 GATE_TARGETS = {
     "G1": {"overall": 6.5, "listening": 7, "reading": 7, "writing": 6, "speaking": 6},
@@ -50,7 +52,7 @@ SPEAKING_CHECKLIST_IDS = frozenset((
 FIELDS = {
     "plan": {"startDate", "timeZone", "curriculumVersion", "studyBudgetMinutes", "targetBand", "sectionTargets", "enabled", "syllabusUnit", "materialLevel", "title", "pauseIntervals"},
     "mission": {"date", "day", "taskId", "missionId", "skill", "status", "plannedMinutes", "actualMinutes", "timeSource"},
-    "attempt": {"date", "day", "taskId", "contentId", "contentVersion", "skill", "answers", "correct", "score", "total", "actualMinutes", "elapsedSeconds", "conditions", "replayed", "viewedTranscript", "firstAttempt", "isCheckpoint", "note", "questionResults"},
+    "attempt": {"date", "day", "taskId", "contentId", "contentVersion", "skill", "answers", "correct", "score", "total", "actualMinutes", "elapsedSeconds", "conditions", "replayed", "viewedTranscript", "firstAttempt", "isCheckpoint", "note", "questionResults", "materialSource", "sourceRef", "contentHash", "scope", "coverage", "reviewAnswers"},
     "essay": {"date", "day", "taskId", "contentId", "contentVersion", "prompt", "text", "wordCount", "parentRevisionId", "taskType", "scope", "stage", "elapsedSeconds", "conditions", "sourceRef"},
     "speaking": {"date", "day", "taskId", "contentId", "contentVersion", "prompt", "transcript", "durationSeconds", "recordingId", "recordingDevice", "parentRevisionId", "part", "prepSeconds", "conditions", "sourceRef", "recordingStatus"},
     "feedback": {"workId", "workRevisionId", "inputHash", "rubricVersion", "source", "sourceText", "assessedAt", "text", "bands", "taskType", "errorCauses", "spellingCheck", "checklist"},
@@ -246,6 +248,8 @@ def validate_payload(kind, payload, record_id, deleted=False):
             validate_speaking_feedback(payload)
         else:
             validate_writing_feedback(payload)
+    if kind == "attempt":
+        validate_attempt_fields(payload)
     if "correct" in payload and "total" in payload and payload["correct"] > payload["total"]:
         reject("正确数不能超过总题数。")
     if kind in {"feedback", "assessment"}:
@@ -261,14 +265,20 @@ def validate_payload(kind, payload, record_id, deleted=False):
             reject("逐题错因格式无效。")
         ids = set()
         for result in payload["questionResults"]:
-            if not isinstance(result, dict) or set(result) - {"questionId", "correct", "confidence", "errorCause", "note"} or "errorCause" not in result or not isinstance(result.get("correct"), bool) or not isinstance(result.get("confidence"), str) or result["confidence"] not in {"sure", "unsure"}:
+            if not isinstance(result, dict) or set(result) - {"questionId", "correct", "confidence", "errorCause", "note", "reviewCorrect", "answerDisputed"} or "errorCause" not in result or not isinstance(result.get("correct"), bool) or not isinstance(result.get("confidence"), str) or result["confidence"] not in {"sure", "unsure"}:
                 reject("逐题错因格式无效。")
             question_id = identifier(result.get("questionId"))
             if question_id in ids:
                 reject("逐题错因题号不能重复。")
             ids.add(question_id)
             cause = result["errorCause"]
-            if (result["correct"] and cause is not None) or (not result["correct"] and (not isinstance(cause, str) or cause not in ERROR_CAUSES)):
+            if "reviewCorrect" in result and not isinstance(result["reviewCorrect"], bool):
+                reject("复盘正确状态必须为布尔值。")
+            if "answerDisputed" in result and not isinstance(result["answerDisputed"], bool):
+                reject("答案存疑状态必须为布尔值。")
+            if result.get("answerDisputed") is True and (not isinstance(result.get("note"), str) or not result["note"].strip()):
+                reject("答案存疑必须在本题填写说明。")
+            if (result["correct"] and cause is not None) or (not result["correct"] and not (result.get("answerDisputed") is True and cause is None) and (not isinstance(cause, str) or cause not in ERROR_CAUSES)):
                 reject("错因必须使用枚举编码，正确答案的错因为空。")
             if "note" in result and (not isinstance(result["note"], str) or len(result["note"]) > 4000):
                 reject("错因说明格式无效。")
@@ -277,6 +287,44 @@ def validate_payload(kind, payload, record_id, deleted=False):
     if kind == "assessment":
         validate_assessment(payload)
     return payload
+
+
+def validate_attempt_fields(payload):
+    # Additive optional fields: historical schema-2 attempts are not rewritten.
+    if "materialSource" in payload and (not isinstance(payload["materialSource"], str) or payload["materialSource"] not in MATERIAL_SOURCES):
+        reject("材料来源必须为official、cambridge、publisher或unofficial。")
+    if "scope" in payload and (not isinstance(payload["scope"], str) or payload["scope"] not in ATTEMPT_SCOPES):
+        reject("听读练习范围必须为full、section、type-drill或short。")
+    if "contentHash" in payload and (not isinstance(payload["contentHash"], str) or not re.fullmatch(r"[a-f0-9]{64}", payload["contentHash"])):
+        reject("材料校验值无效。")
+    if "reviewAnswers" in payload:
+        answers = payload["reviewAnswers"]
+        if not isinstance(answers, list) or any(value is not None and (isinstance(value, bool) or not isinstance(value, (str, int, float))) for value in answers):
+            reject("复盘作答格式不正确。")
+        if not isinstance(payload.get("answers"), list) or len(answers) != len(payload["answers"]):
+            reject("复盘答案数必须与首答一致。")
+    if "coverage" not in payload:
+        return
+    coverage = payload["coverage"]
+    if not isinstance(coverage, dict) or set(coverage) != {"requestedWordIds", "coveredWordIds", "uncoveredWordIds", "matcherVersion"}:
+        reject("词汇覆盖格式无效。")
+    groups = [coverage["requestedWordIds"], coverage["coveredWordIds"], coverage["uncoveredWordIds"]]
+    for group in groups:
+        if not isinstance(group, list):
+            reject("词汇覆盖格式无效。")
+        if len(group) > 50:
+            reject("词汇覆盖词条最多50个。")
+        if any(not isinstance(value, str) or not IDENTIFIER.fullmatch(value) for value in group):
+            reject("词汇覆盖词条标识无效。")
+        if len(set(group)) != len(group):
+            reject("词汇覆盖词条不能重复。")
+    version = coverage["matcherVersion"]
+    if not isinstance(version, str) or not version.strip() or len(version.encode("utf-16-le")) // 2 > 120:
+        reject("词汇覆盖匹配器版本无效。")
+    requested, covered, uncovered = groups
+    union = covered + uncovered
+    if len(set(union)) != len(union) or len(union) != len(requested) or set(union) != set(requested):
+        reject("词汇覆盖分区必须完整对应目标词。")
 
 
 def validate_speaking_record(payload):
