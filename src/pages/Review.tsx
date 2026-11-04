@@ -1,7 +1,14 @@
+import {
+  deriveListeningSequences,
+  type ListeningSequence,
+} from "../study365/listeningSequence";
 import { BankCoveragePanel } from "../study365/ui/review/BankCoveragePanel";
 import { AnswerReviewQueue } from "../study365/ui/review/AnswerReviewQueue";
-import { projectReviewedAttempts, reviewedOfficialTypeCalibration } from "../study365/answerReviewModel";
-import { WeeklyReview } from '../study365/ui/review/WeeklyReview';
+import {
+  projectReviewedAttempts,
+  reviewedOfficialTypeCalibration,
+} from "../study365/answerReviewModel";
+import { WeeklyReview } from "../study365/ui/review/WeeklyReview";
 import { RetestPanel } from "../study365/ui/review/RetestPanel";
 import { loadPromptBank } from "../study365/promptBank";
 import { withPromptOrigins } from "../study365/promptOrigins";
@@ -19,11 +26,15 @@ export function Review({
 }) {
   const { learning, plan, dayPlan, error } = useActivePlan();
   const [prompts, setPrompts] = useState<RetestPrompt[]>([]);
+  const [sequenceOrigins, setSequenceOrigins] = useState<ListeningSequence[]>(
+    [],
+  );
   const [bank, setBank] = useState<LocalMaterial[]>([]),
     [bankError, setBankError] = useState("");
   useEffect(() => {
     let live = true;
     setBank([]);
+    setSequenceOrigins([]);
     setPrompts([]);
     void loadPromptBank(learning.userId)
       .then(withPromptOrigins)
@@ -36,14 +47,28 @@ export function Review({
         },
       );
     setBankError("");
-    void loadLocalBank(learning.userId).then(
-      (value) => {
-        if (live) setBank(value);
-      },
-      (e) => {
-        if (live) setBankError(String(e));
-      },
-    );
+    void loadLocalBank(learning.userId)
+      .then(async (originals) => {
+        const origins = await deriveListeningSequences(originals);
+        return {
+          origins,
+          materials: [
+            ...origins.map((sequence) => sequence.material),
+            ...originals,
+          ],
+        };
+      })
+      .then(
+        (value) => {
+          if (live) {
+            setBank(value.materials);
+            setSequenceOrigins(value.origins);
+          }
+        },
+        (e) => {
+          if (live) setBankError(String(e));
+        },
+      );
     return () => {
       live = false;
     };
@@ -54,8 +79,15 @@ export function Review({
         .getElementById(`review-${route.correctionId}`)
         ?.scrollIntoView({ block: "start" });
   }, [route.correctionId, learning.records]);
-  const projection = useMemo(() => projectReviewedAttempts(learning.records, bank, plan?.id ?? ""), [learning.records, bank, plan?.id]);
-  const officialCalibration = useMemo(() => reviewedOfficialTypeCalibration(learning.records, bank, plan?.id ?? ""), [learning.records, bank, plan?.id]);
+  const projection = useMemo(
+    () => projectReviewedAttempts(learning.records, bank, plan?.id ?? ""),
+    [learning.records, bank, plan?.id],
+  );
+  const officialCalibration = useMemo(
+    () =>
+      reviewedOfficialTypeCalibration(learning.records, bank, plan?.id ?? ""),
+    [learning.records, bank, plan?.id],
+  );
   if (!learning.ready)
     return (
       <div className="page">
@@ -83,13 +115,45 @@ export function Review({
         <a className="btn btn-ghost" href="#/review">
           订正与复测
         </a>
-        <a className="btn btn-ghost" href="#/review?tab=weekly">本周校准</a>
-      <a className="btn btn-ghost" href="#/review?tab=answers">答案审校</a>
-        <a className="btn btn-ghost" href="#/review?tab=coverage">题库完整性</a>
+        <a className="btn btn-ghost" href="#/review?tab=weekly">
+          本周校准
+        </a>
+        <a className="btn btn-ghost" href="#/review?tab=answers">
+          答案审校
+        </a>
+        <a className="btn btn-ghost" href="#/review?tab=coverage">
+          题库完整性
+        </a>
       </nav>
-      {route.tab === "weekly" && <WeeklyReview plan={plan} records={learning.records} bank={bank} date={dayPlan.date} userId={learning.userId} statisticsRecords={projection.records} officialCalibration={officialCalibration} />}
-      {route.tab === "answers" && <AnswerReviewQueue planId={plan.id} records={learning.records} bank={bank} userId={learning.userId} date={dayPlan.date} day={dayPlan.day} />}
-      {route.tab === "coverage" && <BankCoveragePanel planId={plan.id} records={learning.records} bank={bank} />}
+      {route.tab === "weekly" && (
+        <WeeklyReview
+          plan={plan}
+          records={learning.records}
+          bank={bank}
+          date={dayPlan.date}
+          userId={learning.userId}
+          statisticsRecords={projection.records}
+          officialCalibration={officialCalibration}
+        />
+      )}
+      {route.tab === "answers" && (
+        <AnswerReviewQueue
+          planId={plan.id}
+          records={learning.records}
+          bank={bank}
+          userId={learning.userId}
+          date={dayPlan.date}
+          day={dayPlan.day}
+        />
+      )}
+      {route.tab === "coverage" && (
+        <BankCoveragePanel
+          planId={plan.id}
+          records={learning.records}
+          bank={bank}
+          sequenceOrigins={sequenceOrigins}
+        />
+      )}
       {error && <p role="alert">{error}</p>}
       {bankError && <p role="alert">{bankError}</p>}
       {(route.tab === undefined || route.tab === "corrections") && (
@@ -104,7 +168,19 @@ export function Review({
       )}
       {(route.tab === undefined || route.tab === "corrections") && (
         <RetestPanel
-          questionResultsFor={(work) => { const rows = projection.attempts.find(item => item.work.revisionId === work.revisionId)?.questions; return rows ? Object.fromEntries(rows.map(q => [q.questionId, { correct: q.correct, excluded: q.excluded }])) : undefined; }}
+          questionResultsFor={(work) => {
+            const rows = projection.attempts.find(
+              (item) => item.work.revisionId === work.revisionId,
+            )?.questions;
+            return rows
+              ? Object.fromEntries(
+                  rows.map((q) => [
+                    q.questionId,
+                    { correct: q.correct, excluded: q.excluded },
+                  ]),
+                )
+              : undefined;
+          }}
           plan={plan}
           dayPlan={dayPlan}
           records={learning.records}

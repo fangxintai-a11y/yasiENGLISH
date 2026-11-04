@@ -20,7 +20,10 @@ import {
   reviewedOfficialTypeCalibration,
 } from "./answerReviewModel";
 import { buildCorrection } from "./correctionModel";
-import { completeReadingReview } from "./readingReview";
+import {
+  completeReadingReview,
+  recentReadingStatistics,
+} from "./readingReview";
 let sequence = 0;
 const record = (
   kind: Revision["kind"],
@@ -547,10 +550,8 @@ test("correct-only first-answer snapshots keep original question outcomes when l
   );
   assert.equal(changed.originalScore, 1);
   assert.equal(changed.correctedScore, 1);
-  for (const projection of [
-    changed.statisticsRecord,
-    changed.correctionRecord,
-  ]) {
+  assert.deepEqual(changed.statisticsRecord.payload.questionResults, []);
+  for (const projection of [changed.correctionRecord]) {
     const rows = projection.payload.questionResults as Record<
       string,
       unknown
@@ -633,4 +634,67 @@ test("an all-wrong empty first-answer snapshot stays all-wrong even after answer
     /A-B复盘/,
   );
   assert.deepEqual(attempt, raw);
+});
+
+test("first-only snapshots never inflate weekly accuracy before B and completed B restores the full sample", () => {
+  for (const score of [0, 1, 2]) {
+    const m = material(),
+      attempt = work(m, false);
+    Object.assign(attempt.payload, {
+      score,
+      correct: score,
+      questionResults: m.questions
+        .slice(0, score)
+        .map((question) => ({
+          questionId: question.id,
+          correct: true,
+          confidence: "unsure",
+          errorCause: null,
+        })),
+    });
+    delete attempt.payload.reviewAnswers;
+    const raw = structuredClone(attempt),
+      projected = projectReviewedAttempts([attempt], [m], "review-plan");
+    const beforeB = recentReadingStatistics(
+      projected.records,
+      "review-plan",
+      [m],
+      "2026-11-09",
+    );
+    assert.deepEqual(beforeB.types, []);
+    assert.deepEqual(beforeB.causes, []);
+    assert.deepEqual(attempt, raw);
+    const completed = record(
+      "attempt",
+      completeReadingReview(
+        attempt,
+        m,
+        ["rainfall", "blue"],
+        Object.fromEntries(
+          m.questions.map((question, index) => [
+            question.id,
+            {
+              confidence: "sure",
+              errorCause: index < score ? null : "vocab-unknown",
+            },
+          ]),
+        ),
+      ),
+    );
+    const afterProjection = projectReviewedAttempts(
+      [completed],
+      [m],
+      "review-plan",
+    );
+    const afterB = recentReadingStatistics(
+      afterProjection.records,
+      "review-plan",
+      [m],
+      "2026-11-09",
+    );
+    assert.equal(afterB.types.length, 1);
+    assert.equal(afterB.types[0].total, 2);
+    assert.equal(afterB.types[0].correct, score);
+    assert.deepEqual(attempt, raw);
+  }
 });

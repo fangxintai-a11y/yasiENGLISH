@@ -1,5 +1,11 @@
-import { preferPracticeMaterial } from '../../materialPreferences';
-import type { AcceptedPreferences } from '../../weeklyReview';
+import { preferPracticeMaterial } from "../../materialPreferences";
+import { isListeningSequenceMaterial } from "../../listeningSequence";
+import {
+  isHeldOutListeningReading,
+  unseenListeningReading,
+} from "../../retestSelection";
+import { isObject } from "../../protocol";
+import type { AcceptedPreferences } from "../../weeklyReview";
 import type { LocalMaterial } from "../../localBankSchema";
 import type { Revision } from "../../protocol";
 import {
@@ -20,6 +26,48 @@ export const PRACTICE_SCOPE_LABELS = {
   "type-drill": "题型精练",
   short: "短专项",
 };
+/** The legacy level selector expects complete results; a creation-time correct-only snapshot must use its raw score instead. */
+function recordsForReadingLevel(
+  records: readonly Revision[],
+  bank: readonly LocalMaterial[],
+) {
+  return records.map((record) => {
+    const results = record.payload.questionResults;
+    if (
+      record.kind !== "attempt" ||
+      record.payload.skill !== "reading" ||
+      !Array.isArray(results)
+    )
+      return record;
+    const material = bank.find(
+      (item) =>
+        item.skill === "reading" &&
+        item.id === record.payload.contentId &&
+        item.version === record.payload.contentVersion &&
+        item.contentHash === record.payload.contentHash,
+    );
+    const rows = results.filter(isObject);
+    if (
+      !material ||
+      record.payload.total !== material.questions.length ||
+      !Number.isInteger(record.payload.score) ||
+      rows.length !== results.length ||
+      rows.length !== record.payload.score ||
+      rows.length >= material.questions.length ||
+      new Set(rows.map((row) => row.questionId)).size !== rows.length ||
+      !rows.every(
+        (row) =>
+          row.correct === true &&
+          row.reviewCorrect === undefined &&
+          material.questions.some((question) => question.id === row.questionId),
+      )
+    )
+      return record;
+    const payload = { ...record.payload };
+    delete payload.questionResults;
+    return { ...record, payload };
+  });
+}
 export function practiceSelection(
   bank: readonly LocalMaterial[],
   records: readonly Revision[],
@@ -30,7 +78,10 @@ export function practiceSelection(
   requiresFull: boolean,
   preferences?: AcceptedPreferences,
 ) {
-  const schedule = buildListeningReadingSchedule(bank),
+  const originals = bank.filter(
+    (material) => !isListeningSequenceMaterial(material),
+  );
+  const schedule = buildListeningReadingSchedule(originals),
     attempts = currentAttempts(records, planId);
   const isUsed = (m: LocalMaterial) =>
     attempts.some(
@@ -68,31 +119,42 @@ export function practiceSelection(
     notice = "";
   if (day >= 1 && day <= 365) {
     if (requiresFull) {
+      const fullBank =
+        skill === "listening"
+          ? [...bank.filter(isListeningSequenceMaterial), ...originals]
+          : bank;
       practice =
-        bank.find(
+        fullBank.find(
           (m) =>
             m.skill === skill &&
             m.scope === "full" &&
             m.pool !== "holdout" &&
             m.questions.length === 40 &&
-            !isUsed(m),
+            !isUsed(m) &&
+            !isHeldOutListeningReading(m, bank) &&
+            unseenListeningReading(m, records, bank, planId),
         ) ?? null;
       if (!practice)
         notice =
           "当前缺少可在App直接作答的未见整套。单节或单篇只能登记部分完成；整套原件也可外部完成后登记。";
     } else if (skill === "reading") {
-      const next = selectReadingForDay(bank, records, planId, day);
+      const next = selectReadingForDay(
+        originals,
+        recordsForReadingLevel(records, originals),
+        planId,
+        day,
+      );
       practice = fromRef(next.material);
       notice = next.notice;
     } else {
       const reserved = new Set(
-        bank
+        originals
           .filter(
             (m) => m.skill === "listening" && m.scope === "full" && m.examId,
           )
           .map((m) => m.examId),
       );
-      const eligible = bank.filter(
+      const eligible = originals.filter(
         (m) =>
           m.skill === "listening" &&
           m.pool !== "holdout" &&
@@ -100,7 +162,9 @@ export function practiceSelection(
           !!m.audio &&
           m.questions.length > 0 &&
           !(m.examId && reserved.has(m.examId)) &&
-          !isUsed(m),
+          !isUsed(m) &&
+          !isHeldOutListeningReading(m, bank) &&
+          unseenListeningReading(m, records, bank, planId),
       );
       const scheduled = fromRef(slot?.listening);
       practice =
@@ -129,9 +193,17 @@ export function practiceSelection(
     }
   }
   if (!requiresFull && preferences) {
-    const adjusted = preferPracticeMaterial(practice, bank, records, planId, skill, preferences);
+    const adjusted = preferPracticeMaterial(
+      practice,
+      bank,
+      records,
+      planId,
+      skill,
+      preferences,
+    );
     practice = adjusted.material;
-    if (adjusted.missingTypes.length) notice += ` 本周已采纳的偏重题型还缺新材料：${adjusted.missingTypes.join('、')}。`;
+    if (adjusted.missingTypes.length)
+      notice += ` 本周已采纳的偏重题型还缺新材料：${adjusted.missingTypes.join("、")}。`;
   }
   const preferred = official && !officialDone ? official : practice;
   return { schedule, official, practice, preferred, officialDone, notice };
@@ -171,12 +243,16 @@ export function ListeningReadingPlan({
       requiresFull,
       preferences,
     ),
-    calibration = (officialCalibration ?? officialTypeCalibration(records, bank, planId)).filter(
-      (item) => item.skill === skill,
-    );
+    calibration = (
+      officialCalibration ?? officialTypeCalibration(records, bank, planId)
+    ).filter((item) => item.skill === skill);
   return (
     <section aria-label="听读选材计划">
-      {!!preferences?.questionTypes[skill].length && <p>本周日常选材按已采纳建议优先弱项题型；整套测评和分钟预算保持原安排。</p>}
+      {!!preferences?.questionTypes[skill].length && (
+        <p>
+          本周日常选材按已采纳建议优先弱项题型；整套测评和分钟预算保持原安排。
+        </p>
+      )}
       <h2>{requiresFull ? "本次整套测评" : "今天的听读选材"}</h2>
       {selected.official && (
         <p>
@@ -205,7 +281,9 @@ export function ListeningReadingPlan({
         </p>
       )}
       {selected.notice && <p>{selected.notice}</p>}
-      <p><a href="#/review?tab=coverage">查看题库完整性与全年缺口</a></p>
+      <p>
+        <a href="#/review?tab=coverage">查看题库完整性与全年缺口</a>
+      </p>
       <p>
         {requiresFull
           ? "整套保留原测评时间，官方题型与复盘使用当天已有复盘预算，不增加120分钟总预算。"

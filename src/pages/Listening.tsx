@@ -2,10 +2,10 @@ import type { Route } from "../lib/router";
 import { useActivePlan } from "../study365/useActivePlan";
 import { resolvePracticeContext } from "../study365/listeningReadingTasks";
 import { ReadingSession } from "../study365/ui/reading/ReadingSession";
-import {
-  clearListeningPending,
-  ListeningPlayer,
-} from "../study365/ui/listening/ListeningPlayer";
+import { clearListeningPending } from "../study365/ui/listening/ListeningPlayer";
+import { clearListeningSequencePending } from "../study365/ui/listening/ListeningSequencePlayer";
+import { isListeningSequenceMaterial } from "../study365/listeningSequence";
+import { SequenceAwareListeningPlayer } from "../study365/ui/listening/SequenceAwareListeningPlayer";
 import "../styles/reading.css";
 
 export function Listening({
@@ -52,9 +52,14 @@ export function Listening({
         skill="listening"
         initialWorkId={route.work}
         initialMaterialId={route.material}
-        workflow={{ correctionId: route.correctionId, retestOf: route.retestOf }}
+        workflow={{
+          correctionId: route.correctionId,
+          retestOf: route.retestOf,
+        }}
         onAttemptSaved={(material) =>
-          clearListeningPending(learning.userId, material)
+          isListeningSequenceMaterial(material)
+            ? clearListeningSequencePending(learning.userId, material)
+            : clearListeningPending(learning.userId, material)
         }
         playback={(
           material,
@@ -63,7 +68,7 @@ export function Listening({
           onReady,
           evidenceVisible,
         ) => (
-          <ListeningPlayer
+          <SequenceAwareListeningPlayer
             userId={learning.userId}
             material={material}
             review={review}

@@ -1,9 +1,23 @@
-import { applyAnswerReviewsToMaterial, projectReviewedAttempts, reviewedAttempt, reviewedOfficialTypeCalibration } from "../../answerReviewModel";
-import { acceptedMaterialPreferences } from '../../weeklyReview';
-import { calibrationWeekIndex } from '../../writingCalibration';
-import { assertRetestMaterialEligible, selectRetest, estimatedRetestMinutes } from '../../retestSelection';
-import { correctionOriginal } from '../../correctionModel';
-import { withRevisionReferences } from '../../revisionReferences';
+import {
+  withListeningSequences,
+  isListeningSequenceMaterial,
+  LISTENING_SEQUENCE_REPLAY_EVENT,
+} from "../../listeningSequence";
+import {
+  applyAnswerReviewsToMaterial,
+  projectReviewedAttempts,
+  reviewedAttempt,
+  reviewedOfficialTypeCalibration,
+} from "../../answerReviewModel";
+import { acceptedMaterialPreferences } from "../../weeklyReview";
+import { calibrationWeekIndex } from "../../writingCalibration";
+import {
+  assertRetestMaterialEligible,
+  selectRetest,
+  estimatedRetestMinutes,
+} from "../../retestSelection";
+import { correctionOriginal } from "../../correctionModel";
+import { withRevisionReferences } from "../../revisionReferences";
 import {
   ListeningReadingPlan,
   practiceSelection,
@@ -47,6 +61,7 @@ export interface PlaybackConditions {
   replayed: boolean;
   transcriptViewed: boolean;
   replays: number;
+  sequential?: boolean;
 }
 export function ReadingSession({
   plan,
@@ -117,20 +132,22 @@ export function ReadingSession({
   }, []);
   useEffect(() => {
     let live = true;
-    void loadLocalBank(userId).then(
-      (materials) => {
-        if (live) {
-          setBank(materials);
-          setLoaded(true);
-        }
-      },
-      (e) => {
-        if (live) {
-          setError(String(e));
-          setLoaded(true);
-        }
-      },
-    );
+    void loadLocalBank(userId)
+      .then(withListeningSequences)
+      .then(
+        (materials) => {
+          if (live) {
+            setBank(materials);
+            setLoaded(true);
+          }
+        },
+        (e) => {
+          if (live) {
+            setError(String(e));
+            setLoaded(true);
+          }
+        },
+      );
     return () => {
       live = false;
     };
@@ -153,7 +170,15 @@ export function ReadingSession({
   );
   const materialKey = (m: LocalMaterial) =>
     `${m.id}@${m.version}@${m.contentHash}`;
-  const preferences = useMemo(() => acceptedMaterialPreferences(learning.records, plan.id, calibrationWeekIndex(plan, context.date)), [learning.records, plan, context.date]);
+  const preferences = useMemo(
+    () =>
+      acceptedMaterialPreferences(
+        learning.records,
+        plan.id,
+        calibrationWeekIndex(plan, context.date),
+      ),
+    [learning.records, plan, context.date],
+  );
   const selection = useMemo(
     () =>
       practiceSelection(
@@ -211,7 +236,17 @@ export function ReadingSession({
   const paragraphs = material?.skill === "reading" ? material.paragraphs : [];
   const transcript = material?.skill === "listening" ? material.transcript : "";
   const minutes =
-    material?.scope === "full" ? 60 : material?.scope === "type-drill" ? 5 : 20;
+    material?.skill === "listening"
+      ? isListeningSequenceMaterial(material)
+        ? (material.estimatedMinutes ?? 30)
+        : material.audio
+          ? Math.ceil(material.audio.durationSeconds / 60) + 1
+          : 20
+      : material?.scope === "full"
+        ? 60
+        : material?.scope === "type-drill"
+          ? 5
+          : 20;
   const elapsed = started === null ? 0 : Math.max(0, (now - started) / 1000);
   const liveAccount = () => {
     const state = getLearningState();
@@ -281,19 +316,48 @@ export function ReadingSession({
   }, [draftKey, work?.id, started, answers]);
   const assertRetest = () => {
     if (!workflow?.retestOf) return;
-    if (!material || !workflow.correctionId) throw new Error('复测关联不完整，请从订正页重新进入。');
-    const state = liveAccount(), records = withRevisionReferences(state.records);
-    const correction = state.records.find(r => r.id === workflow.correctionId && r.kind === 'correction' && r.planId === plan.id && !r.conflict);
-    if (!correction) throw new Error('这条订正尚未同步，请先回订正页。');
-    const ctx = { planId: plan.id, date: context.date, day: context.day, records, materials: bank, prompts: [] };
-    if (selectRetest(correction, ctx).retestOf !== workflow.retestOf) throw new Error('复测未绑定原问题的准确修订。');
+    if (!material || !workflow.correctionId)
+      throw new Error("复测关联不完整，请从订正页重新进入。");
+    const state = liveAccount(),
+      records = withRevisionReferences(state.records);
+    const correction = state.records.find(
+      (r) =>
+        r.id === workflow.correctionId &&
+        r.kind === "correction" &&
+        r.planId === plan.id &&
+        !r.conflict,
+    );
+    if (!correction) throw new Error("这条订正尚未同步，请先回订正页。");
+    const ctx = {
+      planId: plan.id,
+      date: context.date,
+      day: context.day,
+      records,
+      materials: bank,
+      prompts: [],
+    };
+    if (selectRetest(correction, ctx).retestOf !== workflow.retestOf)
+      throw new Error("复测未绑定原问题的准确修订。");
     assertRetestMaterialEligible(correction, material, ctx);
     const original = correctionOriginal(correction, records)!;
-    const used = Number(selectMission(state.records, plan.id, context.date, context.taskId)?.payload.actualMinutes ?? 0);
-    if (!context.block || estimatedRetestMinutes(material, original) > Math.max(0, context.plannedMinutes - used)) throw new Error('当天同科预算不足，复测留到能容纳的任务。');
+    const used = Number(
+      selectMission(state.records, plan.id, context.date, context.taskId)
+        ?.payload.actualMinutes ?? 0,
+    );
+    if (
+      !context.block ||
+      estimatedRetestMinutes(material, original) >
+        Math.max(0, context.plannedMinutes - used)
+    )
+      throw new Error("当天同科预算不足，复测留到能容纳的任务。");
   };
   const start = () => {
-    try { assertRetest(); } catch (e) { setError(e instanceof Error ? e.message : '复测不能开始。'); return; }
+    try {
+      assertRetest();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "复测不能开始。");
+      return;
+    }
     if (context.day < 1 || context.day > 365) {
       setError("当天不在365天计划内，可以查看已有作答，或从今日进入有效任务。");
       return;
@@ -318,7 +382,11 @@ export function ReadingSession({
   const submit = async () => {
     if (!material || started === null || inFlight.current) return;
     if (skill === "listening" && !playbackReadyRef.current) {
-      setError("请完整听完首答音频并完成一分钟检查，再提交。");
+      setError(
+        isListeningSequenceMaterial(material)
+          ? "请顺序听完四节并完成统一两分钟检查，再提交。"
+          : "请完整听完首答音频并完成一分钟检查，再提交。",
+      );
       return;
     }
     inFlight.current = true;
@@ -354,9 +422,22 @@ export function ReadingSession({
           : undefined,
       );
       // Persist only known-correct first outcomes; wrong answers acquire a real cause in B review.
-      payload.questionResults = gradeMaterial(applyAnswerReviewsToMaterial(material, state.records, plan.id), payload.answers as string[]).questionResults
-        .filter(q => q.correct).map(q => ({ questionId: q.questionId, correct: true, confidence: "unsure", errorCause: null }));
-      if (workflow?.retestOf && workflow.correctionId) Object.assign(payload, { retestOf: workflow.retestOf, correctionId: workflow.correctionId });
+      payload.questionResults = gradeMaterial(
+        applyAnswerReviewsToMaterial(material, state.records, plan.id),
+        payload.answers as string[],
+      )
+        .questionResults.filter((q) => q.correct)
+        .map((q) => ({
+          questionId: q.questionId,
+          correct: true,
+          confidence: "unsure",
+          errorCause: null,
+        }));
+      if (workflow?.retestOf && workflow.correctionId)
+        Object.assign(payload, {
+          retestOf: workflow.retestOf,
+          correctionId: workflow.correctionId,
+        });
       payload.actualMinutes = activeClock.current.value() / 60;
       const record = await saveRecord({
         id: `attempt-${crypto.randomUUID()}`,
@@ -463,10 +544,21 @@ export function ReadingSession({
       (q) =>
         typeof (q as { reviewCorrect?: unknown }).reviewCorrect === "boolean",
     );
-  const effectiveMaterial = material ? applyAnswerReviewsToMaterial(material, learning.records, plan.id) : null;
-  const reviewed = material && work ? reviewedAttempt(work, material, learning.records, plan.id) : null;
-  const projection = useMemo(() => projectReviewedAttempts(learning.records, bank, plan.id), [learning.records, bank, plan.id]);
-  const officialCalibration = useMemo(() => reviewedOfficialTypeCalibration(learning.records, bank, plan.id), [learning.records, bank, plan.id]);
+  const effectiveMaterial = material
+    ? applyAnswerReviewsToMaterial(material, learning.records, plan.id)
+    : null;
+  const reviewed =
+    material && work
+      ? reviewedAttempt(work, material, learning.records, plan.id)
+      : null;
+  const projection = useMemo(
+    () => projectReviewedAttempts(learning.records, bank, plan.id),
+    [learning.records, bank, plan.id],
+  );
+  const officialCalibration = useMemo(
+    () => reviewedOfficialTypeCalibration(learning.records, bank, plan.id),
+    [learning.records, bank, plan.id],
+  );
   const result =
     material && work
       ? gradeMaterial(material, work.payload.answers as string[])
@@ -526,7 +618,11 @@ export function ReadingSession({
             查看独立检查池（不用于日常选材）
           </label>
         )}
-        {workflow?.retestOf && <p role="status">这是隔天未见新题复测。完成首答和A-B复盘后，请返回订正页记录本轮结果。</p>}
+        {workflow?.retestOf && (
+          <p role="status">
+            这是隔天未见新题复测。完成首答和A-B复盘后，请返回订正页记录本轮结果。
+          </p>
+        )}
         {!work && (
           <label className="field">
             <span>练习材料</span>
@@ -711,7 +807,16 @@ export function ReadingSession({
                       首答 {work.payload.score as number}/
                       {work.payload.total as number}
                     </h2>
-                    {reviewed?.questions.some(q => q.verdict) && <p role="status">原分 {reviewed.originalScore}/{reviewed.originalTotal} · 校正后 {reviewed.correctedScore}/{reviewed.total} · 排除 {reviewed.excluded} 题；首答原分保留。<a href="#/review?tab=answers">查看答案审校与补选错因</a></p>}
+                    {reviewed?.questions.some((q) => q.verdict) && (
+                      <p role="status">
+                        原分 {reviewed.originalScore}/{reviewed.originalTotal} ·
+                        校正后 {reviewed.correctedScore}/{reviewed.total} · 排除{" "}
+                        {reviewed.excluded} 题；首答原分保留。
+                        <a href="#/review?tab=answers">
+                          查看答案审校与补选错因
+                        </a>
+                      </p>
+                    )}
                     <p>
                       {work.payload.firstAttempt
                         ? "新材料首答"
@@ -754,6 +859,25 @@ export function ReadingSession({
                       key={work.id}
                       material={effectiveMaterial ?? material}
                       originalMaterial={material}
+                      onReplay={
+                        isListeningSequenceMaterial(material)
+                          ? (seconds, questionId) => {
+                              window.dispatchEvent(
+                                new CustomEvent(
+                                  LISTENING_SEQUENCE_REPLAY_EVENT,
+                                  {
+                                    detail: {
+                                      materialId: material.id,
+                                      contentHash: material.contentHash,
+                                      questionId,
+                                      seconds,
+                                    },
+                                  },
+                                ),
+                              );
+                            }
+                          : undefined
+                      }
                       work={work}
                       userId={userId}
                       onSaved={(record) => setActiveWorkId(record.id)}

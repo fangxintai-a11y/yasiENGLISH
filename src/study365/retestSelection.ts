@@ -187,7 +187,7 @@ export function unseenListeningReading(
         item.skill === "listening" &&
         ((material.audio?.sha256 &&
           item.audio?.sha256 === material.audio.sha256) ||
-          item.audio?.path === material.audio?.path),
+          (!!material.audio?.path && item.audio?.path === material.audio.path)),
     )
   )
     return false;

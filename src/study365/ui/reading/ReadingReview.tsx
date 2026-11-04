@@ -29,7 +29,7 @@ export function ReadingReview({
   userId: string | null;
   onSaved: (record: Revision) => void;
   onEvidence?: (quote: string, paragraphId?: string, offset?: number) => void;
-  onReplay?: (seconds: number) => void;
+  onReplay?: (seconds: number, questionId?: string) => void;
 }) {
   const [answers, setAnswers] = useState<string[]>(() => [
     ...((work.payload.reviewAnswers ?? work.payload.answers) as string[]),
@@ -246,7 +246,7 @@ export function ReadingReview({
                   <button
                     className="btn btn-ghost"
                     onClick={() =>
-                      onReplay(Math.max(0, q.evidence.startSeconds! - 5))
+                      onReplay(Math.max(0, q.evidence.startSeconds! - 5), q.id)
                     }
                   >
                     重听这句前5秒

@@ -277,6 +277,22 @@ export function reviewedAttempt(
       ? work.payload.questionResults
       : []
   ).filter(isObject);
+  const firstOnlySnapshot =
+    Array.isArray(work.payload.questionResults) &&
+    originalResults.length === work.payload.questionResults.length &&
+    Number.isInteger(work.payload.score) &&
+    work.payload.total === material.questions.length &&
+    originalResults.length === work.payload.score &&
+    new Set(originalResults.map((result) => result.questionId)).size ===
+      originalResults.length &&
+    originalResults.every(
+      (result) =>
+        result.correct === true &&
+        result.reviewCorrect === undefined &&
+        material.questions.some(
+          (question) => question.id === result.questionId,
+        ),
+    );
   const previous = new Map(
     originalResults.map((result) => [String(result.questionId), result]),
   );
@@ -336,29 +352,31 @@ export function reviewedAttempt(
     questions.map((question) => [question.questionId, question]),
   );
   const project = (forCorrection: boolean): Revision =>
-    !originalResults.length
-      ? work
-      : {
-          ...work,
-          payload: {
-            ...work.payload,
-            questionResults: originalResults.map((result) => {
-              const outcome = outcomes.get(String(result.questionId));
-              return outcome
-                ? {
-                    ...result,
-                    correct: outcome.correct,
-                    answerDisputed:
-                      outcome.excluded ||
-                      (forCorrection && outcome.needsErrorCause),
-                    ...(outcome.reviewCorrect === undefined
-                      ? {}
-                      : { reviewCorrect: outcome.reviewCorrect }),
-                  }
-                : result;
-            }),
-          },
-        };
+    !forCorrection && firstOnlySnapshot
+      ? { ...work, payload: { ...work.payload, questionResults: [] } }
+      : !originalResults.length
+        ? work
+        : {
+            ...work,
+            payload: {
+              ...work.payload,
+              questionResults: originalResults.map((result) => {
+                const outcome = outcomes.get(String(result.questionId));
+                return outcome
+                  ? {
+                      ...result,
+                      correct: outcome.correct,
+                      answerDisputed:
+                        outcome.excluded ||
+                        (forCorrection && outcome.needsErrorCause),
+                      ...(outcome.reviewCorrect === undefined
+                        ? {}
+                        : { reviewCorrect: outcome.reviewCorrect }),
+                    }
+                  : result;
+              }),
+            },
+          };
   const counted = questions.filter((question) => !question.excluded);
   return {
     work,
