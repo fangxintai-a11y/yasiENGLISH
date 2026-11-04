@@ -33,6 +33,7 @@ import { getLearningState, type LearningState } from "../study365/repository";
 import { saveMission } from "../study365/missionRecords";
 import { WritingReview } from "../study365/ui/writing/WritingReview";
 import { ExternalWritingFeedback } from "../study365/ui/writing/ExternalWritingFeedback";
+import { WritingHumanCalibration } from "../study365/ui/writing/WritingHumanCalibration";
 import { WritingComparison } from "../study365/ui/writing/WritingComparison";
 import { WritingRevisionChain } from "../study365/ui/writing/WritingRevisionChain";
 
@@ -640,6 +641,18 @@ function WritingEditor({
                       (work) => work.revisionId === draft.submittedRevisionId,
                     ) && (
                       <ExternalWritingFeedback
+                        work={works.find(
+                          (work) =>
+                            work.revisionId === draft.submittedRevisionId,
+                        )!}
+                        currentWork={() => currentSubmittedWork(draft.recordId)}
+                      />
+                    )}
+                    {works.find(
+                      (work) => work.revisionId === draft.submittedRevisionId,
+                    ) && (
+                      <WritingHumanCalibration
+                        plan={plan}
                         work={works.find(
                           (work) =>
                             work.revisionId === draft.submittedRevisionId,

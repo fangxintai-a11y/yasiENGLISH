@@ -8,6 +8,7 @@ import { useActivePlan } from "../useActivePlan";
 import { MissionCard } from "./MissionCard";
 import { PlanSetup } from "./PlanSetup";
 import { TaskRegistration } from "./TaskRegistration";
+import { pendingWritingHandoffs } from "../writingCalibration";
 import { latestAssessment, scoreView } from "../scoresModel";
 
 const weekdays: Record<string, string> = { monday: "一", tuesday: "二", wednesday: "三", thursday: "四", friday: "五", saturday: "六", sunday: "日" };
@@ -23,6 +24,7 @@ function ActiveTasks({ plan, today, learning }: { plan: Revision; today: DayPlan
   const registrationBlock = registration?.date === date ? dayPlan.blocks.find(block => block.id === registration.blockId) : undefined;
   const completion = dayCompletion(learning.records, plan.id, date);
   const streak = missionStreak(learning.records, plan.id, today.date);
+  const pendingReviews = pendingWritingHandoffs(learning.records, plan.id).length;
   return <div className="study365-tasks">
     <label className="field"><span>今日与补记<small>可以补记前7天的状态和用时，不改首答与成绩。</small></span>
       <select aria-label="查看学习日期" value={date} onChange={event => { setSelectedDate(event.target.value); setRegistration(null); }}>
@@ -33,7 +35,7 @@ function ActiveTasks({ plan, today, learning }: { plan: Revision; today: DayPlan
     <p role="status">当天完成度 {Math.round(completion.ratio * 100)}%（{completion.completedMinutes}/{completion.totalMinutes}分钟） · {completion.status === "completed" ? "已完成" : completion.status === "partial" ? "部分完成" : "未开始"}</p>
     <progress aria-label="当天完成度" max={completion.totalMinutes} value={completion.completedMinutes} />
     <p className="muted">实际用时 {completion.actualMinutes} 分钟 · 连续达成80%：{streak}天</p>
-    {dayPlan.blocks.map((block, index) => <MissionCard key={`${learning.userId ?? "guest"}:${plan.id}:${date}:${block.id}`} plan={plan} dayPlan={dayPlan} block={block} index={index} userId={learning.userId}
+    {dayPlan.blocks.map((block, index) => <MissionCard key={`${learning.userId ?? "guest"}:${plan.id}:${date}:${block.id}`} plan={plan} dayPlan={dayPlan} block={block} index={index} userId={learning.userId} pendingWritingReviews={pendingReviews}
       mission={selectMission(learning.records, plan.id, date, missionTaskId(dayPlan.day, block.id))} onRegister={skill => setRegistration({ blockId: block.id, skill, date })} />)}
     {registrationBlock && registration && <div ref={registrationRef}><TaskRegistration key={`${learning.userId ?? 'guest'}:${plan.id}:${date}:${registrationBlock.id}:${registration.skill}`} plan={plan} dayPlan={dayPlan} block={registrationBlock} selectedSkill={registration.skill}
       mission={selectMission(learning.records, plan.id, date, missionTaskId(dayPlan.day, registrationBlock.id))} onClose={() => setRegistration(null)} /></div>}

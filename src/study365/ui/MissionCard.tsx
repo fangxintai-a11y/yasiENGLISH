@@ -6,8 +6,8 @@ import { taskTitle } from "../taskGuides";
 
 const skills = { listening: "听力", reading: "阅读", writing: "写作", speaking: "口语" };
 
-export function MissionCard({ plan, dayPlan, block, mission, userId, index, onRegister }: {
-  plan: Revision; dayPlan: DayPlan; block: DayBlock; mission?: Revision; userId: string | null; index: number; onRegister?: (skill: DayBlock['skill']) => void;
+export function MissionCard({ plan, dayPlan, block, mission, userId, index, onRegister, pendingWritingReviews = 0 }: {
+  plan: Revision; dayPlan: DayPlan; block: DayBlock; mission?: Revision; userId: string | null; index: number; onRegister?: (skill: DayBlock['skill']) => void; pendingWritingReviews?: number;
 }) {
   const [actual, setActual] = useState(String(mission?.payload.actualMinutes ?? 0));
   const [skill, setSkill] = useState(block.skill);
@@ -36,6 +36,7 @@ export function MissionCard({ plan, dayPlan, block, mission, userId, index, onRe
   return <article className="study365-task" aria-label={`任务 ${title}`} data-task-id={missionTaskId(dayPlan.day, block.id)}>
     <h3>{index + 1}. {title} · {planned} 分钟</h3>
     <p>{block.guide}</p>
+    {block.id === "human-calibration-handoff" && pendingWritingReviews > 0 && <p role="status">写作待评阅：{pendingWritingReviews}篇 · <a href="#/writing">查看交出的作品</a></p>}
     {material && <details className="study365-material">
       <summary>材料与准备：{material.title}</summary>
       {material.materials.length > 0 && <ul>{material.materials.map(item => <li key={item.id}>{item.title} <small>（自编材料 · 待人工审校）</small></li>)}</ul>}
