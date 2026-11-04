@@ -320,7 +320,9 @@ export function SpeakingSession({
                 className="btn btn-ghost"
                 disabled={dirty || deleting}
                 onClick={() => {
-                  setSeed(rerecordSpeaking(liveSelected!));
+                  const next = rerecordSpeaking(liveSelected!);
+                  if (context.correctionId) Object.assign(next, { correctionId: context.correctionId, date: context.date, day: context.day, taskId: context.taskId });
+                  setSeed(next);
                   setSelected(null);
                   setMessage("上一版仍保留，这次是新的作答。");
                 }}

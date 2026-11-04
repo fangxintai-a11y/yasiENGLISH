@@ -775,6 +775,7 @@ function WritingEditor({
     try {
       checkAccount();
       const next = rewriteWriting(work);
+      if (context.correctionId) Object.assign(next, { correctionId: context.correctionId, date: context.date, day: context.day, taskId: context.taskId });
       const result = await checkpointWriting(next, {
         scope,
         expectedUserId: userId,
@@ -783,6 +784,7 @@ function WritingEditor({
       go({
         page: "writing",
         work: result.work.id,
+        ...(context.correctionId ? { correctionId: context.correctionId } : {}),
         date: String(result.work.payload.date),
         ...(typeof result.work.payload.day === "number"
           ? { day: result.work.payload.day }

@@ -21,6 +21,7 @@ import { Reading } from "./pages/Reading";
 import { Speaking } from "./pages/Speaking";
 import { Writing } from "./pages/Writing";
 import { Progress } from "./pages/Progress";
+import { Review } from "./pages/Review";
 import { cue } from "./lib/sound";
 import { store, useStore } from "./store/store";
 import { EntryView } from "./ui/EntryView";
@@ -191,6 +192,7 @@ function Shell({ privateAvailable }: { privateAvailable: boolean }) {
         {route.page === "reading" && <Reading route={route} />}
         {route.page === "speaking" && <Speaking route={route} />}
         {route.page === "writing" && <Writing route={route} />}
+        {route.page === "review" && <Review route={route} />}
         {route.page === "progress" && <Progress />}
         {route.page === "me" && <Me privateAvailable={privateAvailable} focusSync={route.section === "learning-sync"} />}
         {route.page === "about" && <About />}

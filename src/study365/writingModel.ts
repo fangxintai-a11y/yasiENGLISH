@@ -1,7 +1,7 @@
 import { isIdentifier, isRevisionId } from './protocol';
 
 export interface WritingDraft {
-  version: 1; id: string; recordId: string; planId: string; baseRevision: string | null; parentRevisionId?: string;
+  version: 1; id: string; recordId: string; planId: string; baseRevision: string | null; parentRevisionId?: string; correctionId?: string;
   taskType: 'task1' | 'task2'; scope: 'full' | 'paragraph'; date: string; day?: number; taskId?: string;
   contentId?: string; contentVersion?: string; sourceRef?: string;
   prompt: string; text: string; outline: string;
@@ -25,6 +25,7 @@ export function validateWritingDraft(value: WritingDraft): void {
     || !['full', 'paragraph'].includes(value.scope) || !['draft', 'submitted'].includes(value.stage)) throw new Error('写作草稿格式无效，未保存。');
   if (value.baseRevision !== null && !isRevisionId(value.baseRevision) || value.parentRevisionId !== undefined && !isRevisionId(value.parentRevisionId)
     || value.submittedRevisionId !== undefined && !isRevisionId(value.submittedRevisionId)) throw new Error('写作草稿修订引用无效，未保存。');
+  if (value.correctionId !== undefined && !isIdentifier(value.correctionId)) throw new Error('订正引用无效，未保存。');
   if (typeof value.text !== 'string' || value.text.length > 20000 || typeof value.prompt !== 'string' || value.prompt.length > 8000 || typeof value.outline !== 'string' || value.outline.length > 8000) throw new Error('写作内容过长或格式无效，未保存。');
   const date = new Date(`${value.date}T00:00:00Z`);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value.date) || !Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== value.date) throw new Error('写作日期无效，未保存。');

@@ -1,3 +1,4 @@
+import { correctionContextBlock } from './correctionContext';
 import { materialQualifiedRecords } from './materialSource';
 import samples from '../../public/curriculum365/v1/samples.json';
 import { MaterialSchema, type Material } from './contentSchemas';
@@ -10,7 +11,7 @@ import type { Revision } from './protocol';
 export type WritingMaterial = Extract<Material, { skill: 'writing' }>;
 export type WritingMode = 'task1' | 'task2' | 'paragraph' | 'pair';
 export interface WritingContext {
-  date: string; day: number; taskId: string; plannedMinutes: number; block: DayBlock | null; defaultMode: WritingMode;
+  date: string; day: number; taskId: string; correctionId?: string; plannedMinutes: number; block: DayBlock | null; defaultMode: WritingMode;
 }
 export const WRITING_OUTLINE_HINTS = {
   task1: ['一句话概括最明显的总体特征。', '找出两组值得比较的数据。', '只描述图表信息，核对单位和时间。'],
@@ -25,18 +26,19 @@ export function defaultWritingMode(minutes: number): WritingMode {
   return minutes >= 60 ? 'pair' : minutes >= 40 ? 'task2' : minutes <= 20 ? 'task1' : 'paragraph';
 }
 /** A route carries context; the plan and saved mission own its date and budget. */
-export function resolveWritingContext(plan: Revision, records: readonly Revision[], route: { date?: string; day?: number; task?: string; minutes?: number }, now = Date.now()): WritingContext {
+export function resolveWritingContext(plan: Revision, records: readonly Revision[], route: { date?: string; day?: number; task?: string; minutes?: number; correctionId?: string; work?: string }, now = Date.now()): WritingContext {
   const date = route.date ?? todayInTimeZone(now, String(plan.payload.timeZone));
   const scores = scoreView(latestAssessment(records, plan.id)?.payload ?? {}, records).effectiveScores;
   const dayPlan = buildDayPlan(bundledRules, plan.payload, date, selectLatestBaseline(materialQualifiedRecords(records, plan.id), plan.id), { scores });
   if (route.day !== undefined && route.day !== dayPlan.day) throw new Error('写作任务日期与计划日不一致，请从今日任务重新进入。');
-  const selected = route.task ? dayPlan.blocks.find(block => missionTaskId(dayPlan.day, block.id) === route.task) : dayPlan.blocks.find(block => block.skill === 'writing');
-  if (route.task && (!selected || selected.skill !== 'writing' && !['timed-section', 'weak-skill'].includes(selected.id))) throw new Error('这不是当天的写作任务，请从今日任务重新进入。');
+  const correctionBlock = correctionContextBlock(plan, records, dayPlan, route, 'writing');
+  const selected = correctionBlock ?? (route.task ? dayPlan.blocks.find(block => missionTaskId(dayPlan.day, block.id) === route.task) : dayPlan.blocks.find(block => block.skill === 'writing'));
+  if (!correctionBlock && route.task && (!selected || selected.skill !== 'writing' && !['timed-section', 'weak-skill'].includes(selected.id))) throw new Error('这不是当天的写作任务，请从今日任务重新进入。');
   if (!selected) return { date, day: dayPlan.day, taskId: '', plannedMinutes: 0, block: null, defaultMode: 'task1' };
   const taskId = missionTaskId(dayPlan.day, selected.id);
   const saved = selectMission(records, plan.id, date, taskId);
   const plannedMinutes = Number(saved?.payload.plannedMinutes ?? selected.minutes);
-  return { date, day: dayPlan.day, taskId, plannedMinutes, block: { ...selected, skill: 'writing', minutes: plannedMinutes }, defaultMode: defaultWritingMode(plannedMinutes) };
+  return { date, day: dayPlan.day, taskId, plannedMinutes, correctionId: route.correctionId, block: correctionBlock ? { ...selected, minutes: plannedMinutes } : { ...selected, skill: 'writing', minutes: plannedMinutes }, defaultMode: defaultWritingMode(plannedMinutes) };
 }
 export function externalWritingId(date: string, sequence: number): string {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isInteger(sequence) || sequence < 1) throw new Error('外部题标识无效。');

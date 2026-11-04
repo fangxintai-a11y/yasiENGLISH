@@ -10,7 +10,7 @@ export function essayPayload(draft: WritingDraft, stage: 'draft' | 'submitted', 
   const payload: LearningPayload = { planId: draft.planId, taskType: draft.taskType, scope: draft.scope, stage,
     date: draft.date, prompt: draft.tableDescription?.trim() ? `${draft.prompt}\n\n题图文字说明：${draft.tableDescription.trim()}` : draft.prompt, text: draft.text, wordCount: words(draft.text).length, elapsedSeconds: elapsedWritingSeconds(draft, now),
     conditions: { timed: draft.timer.timed, ...draft.conditions } };
-  for (const key of ['day', 'taskId', 'contentId', 'contentVersion', 'sourceRef', 'parentRevisionId'] as const)
+  for (const key of ['day', 'taskId', 'contentId', 'contentVersion', 'sourceRef', 'parentRevisionId', 'correctionId'] as const)
     if (draft[key] !== undefined && draft[key] !== '') payload[key] = draft[key];
   assertNoCredentials(payload); validatePayload('essay', payload); return payload;
 }

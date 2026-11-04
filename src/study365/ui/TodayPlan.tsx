@@ -37,6 +37,7 @@ function ActiveTasks({ plan, today, learning }: { plan: Revision; today: DayPlan
     <p role="status">当天完成度 {Math.round(completion.ratio * 100)}%（{completion.completedMinutes}/{completion.totalMinutes}分钟） · {completion.status === "completed" ? "已完成" : completion.status === "partial" ? "部分完成" : "未开始"}</p>
     <progress aria-label="当天完成度" max={completion.totalMinutes} value={completion.completedMinutes} />
     <p className="muted">实际用时 {completion.actualMinutes} 分钟 · 连续达成80%：{streak}天</p>
+    <section className="panel" aria-label="订正与复测入口"><h3>订正与复测</h3><p>待订正 {learning.records.filter(r => r.kind === 'correction' && r.planId === plan.id && !r.conflict).reduce((sum,r) => sum + (Array.isArray(r.payload.items) ? r.payload.items.filter(item => !!item && typeof item === 'object' && 'status' in item && item.status === 'open').length : 0), 0)} 项；订正使用当天已有复盘块，排不下的顺延。</p><a className="btn btn-ghost" href="#/review">打开订正与复测</a></section>
     {dayPlan.blocks.map((block, index) => <MissionCard key={`${learning.userId ?? "guest"}:${plan.id}:${date}:${block.id}`} plan={plan} dayPlan={dayPlan} block={block} index={index} userId={learning.userId} pendingWritingReviews={pendingReviews}
       mission={selectMission(learning.records, plan.id, date, missionTaskId(dayPlan.day, block.id))} onRegister={skill => setRegistration({ blockId: block.id, skill, date })} />)}
     <ExtensivePractice key={`${learning.userId ?? 'guest'}:${plan.id}:${date}`} plan={plan} dayPlan={dayPlan} userId={learning.userId} />

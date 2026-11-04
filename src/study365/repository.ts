@@ -1,3 +1,4 @@
+import { replaceRevisionReferences } from './revisionReferences';
 import { useSyncExternalStore } from "react";
 import { getCloudState, subscribeCloudState } from "../store/cloudSync";
 import { store } from "../store/store";
@@ -37,6 +38,7 @@ const publish = (patch: Partial<LearningState>) => { state = { ...state, ...patc
 async function refresh(c = context) {
   const data = await readScope(c.scope);
   if (!active(c)) return;
+  replaceRevisionReferences(Object.values(data.revisions));
   publish({
     ready: true,
     records: Object.values(data.heads).filter((r) => !r.deleted).sort((a, b) => b.createdAt - a.createdAt),
@@ -71,6 +73,7 @@ function selectContext() {
   }
   const c: Context = { scope, userId, datasetId, epoch: context.epoch + 1 };
   context = c;
+  replaceRevisionReferences([]);
   engine = null;
   publish({ ready: false, records: [], conflicts: [], pending: 0, quarantined: 0, userId, error: null, syncStatus: userId ? "local" : "signed-out" });
   ready = (userId ? migrateUserScopes(userId) : migrateGuestScopes()).then(() => refresh(c)).then(() => {
