@@ -4,6 +4,7 @@ import { assertNoCredentials, type FeedbackMode } from "../ielts/scoring";
 import { emptyShadow, type ShadowStat } from "../ielts/shadow";
 import type { CardState, Grade } from "./srs";
 import { mergeSnapshots, type SyncSnapshot } from "./syncMerge";
+import { GATE_TARGETS } from "../study365/protocol";
 
 export type QuizKind = "meaning" | "picture" | "listen" | "spell" | "paraphrase" | "dictation" | "produce";
 /**
@@ -172,7 +173,7 @@ export const defaultSettings: Settings = {
   sentenceFirst: true,
   examDate: "",
   dailyMinutes: 30,
-  targetBand: 6.5,
+  targetBand: GATE_TARGETS.G4.overall,
   trackL: true,
   trackP: true,
   feedbackMode: "rules",
@@ -344,7 +345,6 @@ export function sanitizeSettings(v: unknown): Settings {
   if (typeof v.sentenceFirst === "boolean") s.sentenceFirst = v.sentenceFirst;
   if (v.examDate === "" || (typeof v.examDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v.examDate))) s.examDate = v.examDate;
   if (num(v.dailyMinutes, 5, 240)) s.dailyMinutes = Math.round(v.dailyMinutes as number);
-  if (num(v.targetBand, 4, 9) && Number.isInteger((v.targetBand as number) * 2)) s.targetBand = v.targetBand as number;
   if (typeof v.trackL === "boolean") s.trackL = v.trackL;
   if (typeof v.trackP === "boolean") s.trackP = v.trackP;
   if (v.feedbackMode === "rules" || v.feedbackMode === "manual" || v.feedbackMode === "auto") s.feedbackMode = v.feedbackMode;

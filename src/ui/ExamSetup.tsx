@@ -1,11 +1,13 @@
 import { store, useStore } from "../store/store";
+import { GATE_TARGETS, SECTION_TARGETS } from "../study365/protocol";
+import { useVocabularyBudget } from "../study365/useVocabularyBudget";
 
-export const BANDS = [5.5, 6, 6.5, 7, 7.5, 8];
 export const MINUTES = [15, 20, 30, 45, 60, 90];
 
 /** Exam date, target band and daily minutes: everything the plan is built from. */
 export function ExamFields({ compact = false }: { compact?: boolean }) {
   const s = useStore((x) => x.settings);
+  const budget = useVocabularyBudget();
   const today = new Date();
   const min = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
   return (
@@ -26,29 +28,22 @@ export function ExamFields({ compact = false }: { compact?: boolean }) {
       </label>
       <div className="field">
         <div>
-          <b>目标分数</b>
-          <small>决定要掌握到哪个难度：6.5 分约到 B2，7.5 分约到 C1。</small>
-        </div>
-        <div className="segmented">
-          {BANDS.map((b) => (
-            <button key={b} type="button" className={s.targetBand === b ? "is-on" : ""} onClick={() => store.settings({ targetBand: b })}>
-              {b}
-            </button>
-          ))}
+          <b>目标 {GATE_TARGETS.G4.overall.toFixed(1)}</b>
+          <small>听 {SECTION_TARGETS.listening.toFixed(1)} · 读 {SECTION_TARGETS.reading.toFixed(1)} · 写 {SECTION_TARGETS.writing.toFixed(1)} · 说 {SECTION_TARGETS.speaking.toFixed(1)}</small>
         </div>
       </div>
       <div className="field">
         <div>
-          <b>每天能学多久</b>
-          <small>计划按这个时间倒推：每天的量永远不会超出它。</small>
+          <b>每天词汇练习多久</b>
+          <small>未开启365天计划时使用。</small>
         </div>
-        <div className="segmented">
+        {budget.managed ? <p role="status">由今日计划决定：今天 {budget.minutes} 分钟</p> : <div className="segmented">
           {MINUTES.map((m) => (
             <button key={m} type="button" className={s.dailyMinutes === m ? "is-on" : ""} onClick={() => store.settings({ dailyMinutes: m })}>
               {m}′
             </button>
           ))}
-        </div>
+        </div>}
       </div>
     </div>
   );

@@ -19,6 +19,7 @@ import { ExamFields } from "../ui/ExamSetup";
 import { Sheet } from "../ui/Sheet";
 import { TodayPlan } from "../study365/ui/TodayPlan";
 import { useVocabularyBudget } from "../study365/useVocabularyBudget";
+import { GATE_TARGETS } from "../study365/protocol";
 
 const BRAND = `${import.meta.env.BASE_URL}brand`;
 
@@ -265,7 +266,7 @@ const PHASE_NOTE: Record<Phase, string> = {
 /** Countdown and the forecast: how many target words you will still recall on exam day. */
 function ExamHero({ plan, onSetup }: { plan: ExamPlan; onSetup: () => void }) {
   const { minutes } = useVocabularyBudget();
-  const band = useStore((s) => s.settings.targetBand);
+  const band = GATE_TARGETS.G4.overall;
   if (plan.days === null)
     return (
       <section className="exam-hero is-empty">
@@ -286,7 +287,7 @@ function ExamHero({ plan, onSetup }: { plan: ExamPlan; onSetup: () => void }) {
       <button className="exam-count" onClick={onSetup} aria-label="修改考试计划">
         <small>距雅思</small>
         <b>{Math.max(0, plan.days)}</b>
-        <small>天 · 目标 {band}</small>
+        <small>天 · 目标 {band.toFixed(1)}</small>
       </button>
       <div className="exam-forecast">
         <p className="eyebrow">按计划走，考试当天预计记得</p>

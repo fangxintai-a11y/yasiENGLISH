@@ -5,6 +5,7 @@ import { allCards, examPlan, parseKey, SPRINT_DAYS } from "../ielts/exam";
 import { useTags } from "../ielts/tags";
 import { go, type Route } from "../lib/router";
 import { useVocabularyBudget } from "../study365/useVocabularyBudget";
+import { GATE_TARGETS } from "../study365/protocol";
 import { store, useStore, type Step } from "../store/store";
 import { ExamFields } from "../ui/ExamSetup";
 import { toast } from "../ui/Toast";
@@ -106,7 +107,7 @@ function PlanTab() {
           <div>
             <dt>目标词</dt>
             <dd>{plan.target.toLocaleString()}</dd>
-            <small>目标 {settings.targetBand} 分对应的难度 + 听力高频词 + 学术词</small>
+            <small>目标 {GATE_TARGETS.G4.overall.toFixed(1)} 分对应的词汇范围 + 听力高频词 + 学术词</small>
           </div>
           <div>
             <dt>已遇见</dt>
