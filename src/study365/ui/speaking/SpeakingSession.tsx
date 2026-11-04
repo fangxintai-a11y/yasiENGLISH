@@ -22,6 +22,8 @@ import {
 import { RecordingPlayer } from "./RecordingPlayer";
 import { SpeakingQuestionEditor } from "./SpeakingQuestionEditor";
 import { RecordingsBackup } from "../RecordingsBackup";
+import { listSpeakingWorks } from "../../speakingList";
+import { SpeakingWorkList } from "./SpeakingWorkList";
 function seedFor(
   plan: Revision,
   context: SpeakingContext,
@@ -55,20 +57,7 @@ export function SpeakingSession({
   learning: LearningState;
   initialWorkId?: string;
 }) {
-  const works = learning.records
-    .filter(
-      (work) =>
-        work.kind === "speaking" &&
-        work.planId === plan.id &&
-        !work.deleted &&
-        !work.conflict,
-    )
-    .sort(
-      (a, b) =>
-        String(b.payload.date ?? "").localeCompare(
-          String(a.payload.date ?? ""),
-        ) || b.createdAt - a.createdAt,
-    );
+  const works = listSpeakingWorks(learning.records, plan.id);
   const initial = works.find((work) => work.id === initialWorkId);
   const [selected, setSelected] = useState<Revision | null>(initial ?? null),
     [part, setPart] = useState<SpeakingPart>(
@@ -411,33 +400,12 @@ export function SpeakingSession({
           </ul>
         </details>
       </section>
-      <section
-        className="panel"
-        aria-label="我的口语"
-        data-testid="speaking-work-list"
-      >
-        <h2>我的口语</h2>
-        {!works.length ? (
-          <p>尚未保存作答。</p>
-        ) : (
-          works.map((work) => (
-            <p key={work.id}>
-              <button
-                type="button"
-                className="link"
-                disabled={dirty || deleting}
-                data-work-id={work.id}
-                data-revision-id={work.revisionId}
-                onClick={() => open(work)}
-              >
-                {String(work.payload.date ?? "日期未记录")} · Part{" "}
-                {speakingPart(work.payload.part) ?? "未知"} ·{" "}
-                {Number(work.payload.durationSeconds ?? 0).toFixed(1)}秒
-              </button>
-            </p>
-          ))
-        )}
-      </section>
+      <SpeakingWorkList
+        works={works}
+        records={learning.records}
+        disabled={dirty || deleting}
+        onOpen={open}
+      />
       <section className="panel" aria-label="口语录音保存说明">
         <h2>本机录音与备份</h2>
         <p>
