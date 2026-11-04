@@ -2,7 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import { go } from "../../../lib/router";
 import { saveMission, selectMission } from "../../missionRecords";
 import type { Revision } from "../../protocol";
-import { getLearningState, type LearningState } from "../../repository";
+import {
+  getLearningState,
+  removeRecord,
+  type LearningState,
+} from "../../repository";
 import {
   newSpeakingDraft,
   rerecordSpeaking,
@@ -17,6 +21,7 @@ import {
 } from "../../speakingTasks";
 import { RecordingPlayer } from "./RecordingPlayer";
 import { SpeakingQuestionEditor } from "./SpeakingQuestionEditor";
+import { RecordingsBackup } from "../RecordingsBackup";
 function seedFor(
   plan: Revision,
   context: SpeakingContext,
@@ -71,6 +76,7 @@ export function SpeakingSession({
     ),
     [question, setQuestion] = useState(0),
     [dirty, setDirty] = useState(false),
+    [deleting, setDeleting] = useState(false),
     [message, setMessage] = useState("");
   const [seed, setSeed] = useState(() =>
     initial && speakingPart(initial.payload.part)
@@ -78,7 +84,14 @@ export function SpeakingSession({
       : seedFor(plan, context, context.defaultPart),
   );
   const pendingSeconds = useRef(new Map<string, number>()),
-    inFlight = useRef(false);
+    inFlight = useRef(false),
+    alive = useRef(true);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, [learning.userId]);
   const liveSelected = selected
     ? (works.find((work) => work.id === selected.id) ?? selected)
     : null;
@@ -195,6 +208,43 @@ export function SpeakingSession({
       inFlight.current = false;
     }
   };
+  const remove = async () => {
+    if (inFlight.current || dirty || !liveSelected) return;
+    if (
+      !window.confirm(
+        "删除这份作答？本机录音、历史版本和备份信息仍保留；删除作答不会释放音频占用的空间。",
+      )
+    )
+      return;
+    inFlight.current = true;
+    setDeleting(true);
+    setMessage("");
+    try {
+      const state = getLearningState();
+      if (state.userId !== learning.userId)
+        throw new Error("账号已经切换，请在原账号继续。");
+      const current = state.records.find(
+        (record) =>
+          record.id === liveSelected.id && !record.deleted && !record.conflict,
+      );
+      if (!current || current.revisionId !== liveSelected.revisionId)
+        throw new Error("作答版本已变化，请重新打开后再删除。");
+      await removeRecord(current.id);
+      if (alive.current && getLearningState().userId === learning.userId) {
+        setSelected(null);
+        setSeed(seedFor(plan, context, part));
+        setMessage("作答已删除；本机录音、历史版本和备份信息仍保留。");
+      }
+    } catch (error) {
+      if (alive.current)
+        setMessage(
+          `删除未保存：${error instanceof Error ? error.message : "请重试。"}`,
+        );
+    } finally {
+      inFlight.current = false;
+      if (alive.current) setDeleting(false);
+    }
+  };
   return (
     <div className="page">
       <section
@@ -216,7 +266,7 @@ export function SpeakingSession({
               <select
                 aria-label="口语部分"
                 value={part}
-                disabled={dirty}
+                disabled={dirty || deleting}
                 onChange={(event) =>
                   choosePart(Number(event.target.value) as SpeakingPart)
                 }
@@ -232,7 +282,7 @@ export function SpeakingSession({
                 <select
                   aria-label="本组题目"
                   value={question}
-                  disabled={dirty}
+                  disabled={dirty || deleting}
                   onChange={(event) =>
                     choosePart(part, Number(event.target.value))
                   }
@@ -245,7 +295,9 @@ export function SpeakingSession({
                 </select>
               </label>
             )}
-            {liveSelected && !speakingPart(liveSelected.payload.part) ? (
+            {deleting ? (
+              <p role="status">正在删除作答…</p>
+            ) : liveSelected && !speakingPart(liveSelected.payload.part) ? (
               <>
                 <h2>Part未知 · 旧作答只读</h2>
                 <p>{String(liveSelected.payload.prompt ?? "")}</p>
@@ -269,7 +321,7 @@ export function SpeakingSession({
               <button
                 type="button"
                 className="btn btn-ghost"
-                disabled={dirty}
+                disabled={dirty || deleting}
                 onClick={() => {
                   setSeed(rerecordSpeaking(liveSelected!));
                   setSelected(null);
@@ -279,11 +331,23 @@ export function SpeakingSession({
                 重录这题
               </button>
             )}
+            {selected && (
+              <button
+                type="button"
+                className="btn btn-ghost"
+                disabled={dirty || deleting}
+                onClick={() => {
+                  void remove();
+                }}
+              >
+                删除作答
+              </button>
+            )}
             {material && currentQuestion + 1 < material.prompts.length && (
               <button
                 type="button"
                 className="btn btn-ghost"
-                disabled={dirty}
+                disabled={dirty || deleting}
                 onClick={() => choosePart(part, currentQuestion + 1)}
               >
                 下一题
@@ -314,6 +378,7 @@ export function SpeakingSession({
               className="btn btn-primary"
               disabled={
                 dirty ||
+                deleting ||
                 !context.block ||
                 !works.some(
                   (work) =>
@@ -360,7 +425,7 @@ export function SpeakingSession({
               <button
                 type="button"
                 className="link"
-                disabled={dirty}
+                disabled={dirty || deleting}
                 data-work-id={work.id}
                 data-revision-id={work.revisionId}
                 onClick={() => open(work)}
@@ -373,6 +438,21 @@ export function SpeakingSession({
           ))
         )}
       </section>
+      <section className="panel" aria-label="口语录音保存说明">
+        <h2>本机录音与备份</h2>
+        <p>
+          题目、手动转写和反馈会随账号同步。音频只保存在录制或导入它的设备浏览器里，不会上传到服务器。
+        </p>
+        <p>
+          换设备回听时，请先在保留录音的设备导出
+          ZIP，再到另一设备导入。建议定期把 ZIP 保存到浏览器以外的位置。
+        </p>
+        <p>
+          清除浏览器数据、重装浏览器或使用临时浏览模式可能丢失本机录音；没有 ZIP
+          或另一设备的副本时无法恢复。删除作答仍保留录音和备份信息，不会释放音频占用的空间。
+        </p>
+      </section>
+      <RecordingsBackup />
     </div>
   );
 }

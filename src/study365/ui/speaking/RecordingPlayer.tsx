@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { Revision } from "../../protocol";
 import { deviceId, getRecording, useLearning } from "../../repository";
 import { recordingDeviceLabel } from "../../speakingRecording";
+import { speakingRecordingLocation } from "../../speakingMedia";
 export interface PendingAudioPreview {
   id: string;
   blob: Blob;
@@ -21,11 +22,9 @@ export function RecordingPlayer({
     );
   const id =
     pending?.id ??
-    (work?.payload.recordingStatus === "none"
-      ? null
-      : typeof work?.payload.recordingId === "string"
-        ? work.payload.recordingId
-        : null);
+    (typeof work?.payload.recordingId === "string"
+      ? work.payload.recordingId
+      : null);
   useEffect(() => {
     let active = true,
       objectUrl: string | null = null;
@@ -55,10 +54,11 @@ export function RecordingPlayer({
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [id, pending?.blob, learning.userId, learning.recordingsVersion]);
-  const origin =
-    typeof work?.payload.recordingDevice === "string"
-      ? work.payload.recordingDevice
-      : "设备名称未记录";
+  const location = speakingRecordingLocation(
+    work ?? { payload: {} },
+    !!url,
+    recordingDeviceLabel(deviceId()),
+  );
   return (
     <div aria-label="作答录音">
       {url ? (
@@ -76,23 +76,15 @@ export function RecordingPlayer({
               ? "临时回听：录音未保存，请重试保存。"
               : pending
                 ? "录音已在本机，作答记录尚待保存。"
-                : "录音保存在这台设备上。"}
+                : location.message}
           </p>
         </>
       ) : state === "error" ? (
         <p role="status">录音暂时未能读取，文字记录仍保留，请重试。</p>
-      ) : !id ? (
-        <p className="muted">
-          这份作答没有本机录音，可以只保留转写或使用外部录音。
-        </p>
       ) : state === "loading" ? (
         <p role="status">正在读取本机录音…</p>
-      ) : origin === recordingDeviceLabel(deviceId()) ? (
-        <p role="status">这台设备未找到录音，请从此前导出的ZIP备份恢复。</p>
       ) : (
-        <p role="status">
-          录音在另一台设备上（{origin}），导出ZIP后在这里导入即可回听。
-        </p>
+        <p role="status">{location.message}</p>
       )}
     </div>
   );
