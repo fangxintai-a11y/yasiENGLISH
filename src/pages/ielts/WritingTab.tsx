@@ -43,12 +43,13 @@ export function WritingTab() {
   const [sentence, setSentence] = useState("");
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<SentenceResult | null>(null);
+  const [pastedReviewUnchanged, setPastedReviewUnchanged] = useState(false);
   const [manualInput, setManualInput] = useState<Parameters<typeof scoreSentence>[0] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const { entry } = useEntry(id ?? null);
   const request = useRef(0);
   useEffect(() => {
-    setBusy(false); setResult(null); setManualInput(null);
+    setBusy(false); setResult(null); setManualInput(null); setPastedReviewUnchanged(false);
     return () => { request.current++; };
   }, [id, atlas.id, accountId, progress.datasetId]);
 
@@ -73,16 +74,19 @@ export function WritingTab() {
     setResult(null);
     setError(null);
     setManualInput(null);
+    setPastedReviewUnchanged(false);
   };
-  const applyResult = (g: SentenceResult) => {
+  const applyResult = (g: SentenceResult, pasted = false) => {
     setResult(g);
     // Only the first mark of the day reviews this word's production card.
     const key = `p:${id}`, t = Date.now();
+    let reviewedToday = false;
     store.progress((p) => {
       const c = p.skills[key];
-      if (c?.last && new Date(c.last).toDateString() === new Date(t).toDateString()) return p;
+      if (c?.last && new Date(c.last).toDateString() === new Date(t).toDateString()) { reviewedToday = true; return p; }
       return { ...p, skills: { ...p.skills, [key]: review(c, GRADE_OF[g.score], t, effectiveRetention(store.get().settings, t)) } };
     });
+    setPastedReviewUnchanged(pasted && reviewedToday);
   };
   const grade = async () => {
     const token = ++request.current;
@@ -133,7 +137,7 @@ export function WritingTab() {
           </button>
         </div>
         {error && <p className="warn-text">{error}</p>}
-        {manualInput && <ManualPrompt task="sentence" input={manualInput} onAccept={(value) => { applyResult(value as SentenceResult); setManualInput(null); }} onCancel={() => setManualInput(null)} />}
+        {manualInput && <ManualPrompt task="sentence" input={manualInput} onAccept={(value) => { applyResult(value as SentenceResult, true); setManualInput(null); }} onCancel={() => setManualInput(null)} />}
         {result && (
           <div className={`grade-card s-${result.score}`}>
             <p className="grade-score">
@@ -156,7 +160,9 @@ export function WritingTab() {
                 ))}
               </ul>
             )}
-            <p className="muted small">这次批改已记入「写作产出」记忆：3 分 = 良好，2 分 = 困难，1 分及以下 = 重来（每个词每天只计一次）。</p>
+            {!!result.warnings?.length && <ul className="warn-text" aria-label="反馈校验提示">{result.warnings.map((warning, index) => <li key={index}>{warning}</li>)}</ul>}
+            {pastedReviewUnchanged && <p className="muted small" role="status">这次结果不影响今天的复习安排</p>}
+            <p className="muted small">「写作产出」复习按每个词当天首次评分安排：3 分 = 良好，2 分 = 困难，1 分及以下 = 重来。</p>
             <button className="btn btn-ghost" onClick={next}>
               下一个词
             </button>

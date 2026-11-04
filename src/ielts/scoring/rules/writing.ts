@@ -4,6 +4,10 @@ import { RUBRIC_VERSION, type CriterionScore, type Evidence, type WritingInput, 
 import { emptyGrammarChecker } from "../adapters/grammar";
 import { deviation, mean, metric, normal, overlap, paragraphs, rule, sentences, span, stopWords, subordinate, words } from "./text";
 const criterion = (evidence: Evidence[]): CriterionScore => ({ band: null, confidence: 0, target: SECTION_TARGETS.writing, gap: null, evidence: evidence.slice(0, 12) });
+function writingCriteria(task: Evidence[], coherence: Evidence[], lexical: Evidence[], grammar: Evidence[]) {
+  const common = { coherence: criterion(coherence), lexical: criterion(lexical), grammar: criterion(grammar) };
+  return { task1: { taskAchievement: criterion(task), ...common }, task2: { taskResponse: criterion(task), ...common } };
+}
 export async function scoreWritingRules(input: WritingInput, assessedAt = 0): Promise<WritingResult> {
   if (!["task1", "task2"].includes(input.taskType)) throw new Error("请选择Task 1或Task 2。");
   const count = words(input.text).length, minimum = input.taskType === "task1" ? 150 : 250;
@@ -35,10 +39,11 @@ export async function scoreWritingRules(input: WritingInput, assessedAt = 0): Pr
   const lexical: Evidence[] = [metric("w.lexical.repetition", "repeatedContentWords", repeated.length, repeated.length ? `重复超过4次的实义词：${repeated.slice(0, 5).map(([word, n]) => `${word}(${n})`).join("、")}。` : "未检测到同一实义词超过4次。"), metric("w.prompt.overlap", "promptOverlap", overlap(input.text, input.prompt), "与题目四词组合的重合比例，供检查是否照抄题目。")];
   const grammar: Evidence[] = [metric("w.sentences.mean", "meanSentenceLength", mean(lengths), "平均句长。"), metric("w.sentences.deviation", "sentenceLengthDeviation", deviation(lengths), "句长总体标准差。"), metric("w.sentences.complex-ratio", "complexSentenceRatio", lines.length ? lines.filter((line) => subordinate.test(line.text)).length / lines.length : 0, "从属结构关键词命中比例，不等于语法正确率。")];
   await emptyGrammarChecker.check(input.text); grammar.push(rule("w.grammar.review", "尚未执行语法工具检查，请逐句自查或交真人核对。"));
-  const body = { criteria: input.taskType === "task1" ? { taskAchievement: criterion(task), coherence: criterion(coherence), lexical: criterion(lexical), grammar: criterion(grammar) } : { taskResponse: criterion(task), coherence: criterion(coherence), lexical: criterion(lexical), grammar: criterion(grammar) }, causes: count < minimum ? ["word-limit"] : [], rewrite8: "", summaryZh: "本地文本体检保存指标和原文证据；各维度分数待评估。" };
+  const criteria = writingCriteria(task, coherence, lexical, grammar);
+  const body = { criteria: criteria[input.taskType], causes: count < minimum ? ["word-limit"] : [], rewrite8: "", summaryZh: "本地文本体检保存指标和原文证据；各维度分数待评估。" };
   // Local and external feedback share the same strict wire shape.
   const wire = { ...body, criteria: Object.fromEntries(Object.entries(body.criteria).map(([key, value]) => [key, { band: value.band, confidence: value.confidence, evidence: value.evidence }])) };
   (input.taskType === "task1" ? Task1FeedbackSchema : Task2FeedbackSchema).parse(wire);
   const base = { rubricVersion: RUBRIC_VERSION, source: "rules" as const, provider: null, inputHash: await hashPayload("essay", { text: input.text }), assessedAt, overall: null, warnings, fallbackTrail: [], rewrite8: body.rewrite8, summaryZh: body.summaryZh, causes: count < minimum ? ["word-limit" as const] : [] };
-  return input.taskType === "task1" ? { ...base, kind: "writing", taskType: "task1", criteria: { taskAchievement: criterion(task), coherence: criterion(coherence), lexical: criterion(lexical), grammar: criterion(grammar) } } : { ...base, kind: "writing", taskType: "task2", criteria: { taskResponse: criterion(task), coherence: criterion(coherence), lexical: criterion(lexical), grammar: criterion(grammar) } };
+  return input.taskType === "task1" ? { ...base, kind: "writing", taskType: "task1", criteria: criteria.task1 } : { ...base, kind: "writing", taskType: "task2", criteria: criteria.task2 };
 }

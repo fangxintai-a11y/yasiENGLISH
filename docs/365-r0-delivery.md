@@ -13,7 +13,7 @@
 | R0-3 起点和题型 | D1听读、D2写、D3说的外部真题基线，D4–D5试跑、D6周六听读、D7周日写说校准；首月雅思题型与C1/AWL；等级按基线；自编完整Section、学术阅读及写说样本 | [内容契约](../src/study365/contentSchemas.ts)、[样本预览](./365-r0-sample-preview.md) |
 | R0-4 时间预算 | 阶段一至三普通日每天四科；固定周六听读模考与周日写说/真人校准；阶段四周三/周六启动跨日分科模拟，每天120分钟 | [预算与时序](./365-r0-plan-rules.md) |
 | R0-5 继承记录 | 明确旧P1结论与本轮实际继承的修正提交，保留原R0历史，不重写已推送提交 | 本文首段与Git父提交 |
-| R0-6 阶段顺序 | P1修正 → R0修正 → S0 → R1；本轮只完成R0，旧AI依赖留待下一步S0统一清理 | [总路线](./365-training-redesign-2026-11-03.md) |
+| R0-6 阶段顺序 | P1修正 → R0修正 → S0 → R1；旧依赖已在S0（分支`codex/ielts-365-s0-scoring`）清理完成，首个S0提交为`b2973223e`；后续修正见本分支提交记录 | [总路线](./365-training-redesign-2026-11-03.md) |
 | R0-7 独立测试 | 每个负例只改一个条件，匹配具体字段路径/错误；重复题号、音频段、未知评分键、缺审校证据分别测试 | [内容测试](../src/study365/contentSchemas.test.ts)、[规则测试](../scripts/curriculum/plan-rules.test.mjs) |
 
 ## 制品与真实边界
@@ -47,7 +47,7 @@
 
 红灯证据保存在本机`/tmp/band-r0-contract-red.txt`、`/tmp/band-r0-python-red.txt`、`/tmp/bandgalaxy-r0-content-red-baseline-replay.log`（明确为旧提交重放）、`/tmp/r0-rules-before.log`、`/tmp/r0-baseline-timing-before.log`、`/tmp/r0-inventory-honesty-before.log`、`/tmp/bandgalaxy-r0-heading-red.log`及`/tmp/r0-final-audit-before.log`。独立测试保留在仓库，可复核实际字段和错误路径，不补写未执行过的失败结果。
 
-目标扫描中保留的6.5仅用于G门槛、用户要求的基线分流、合法评分、旧兼容与拒绝测试；150/180仅为旧数据兼容或新规则拒绝测试，不作为活动计划预算。S0尚未开始，旧AI依赖仍按阶段边界保留。
+目标扫描中保留的6.5仅用于G门槛、用户要求的基线分流、合法评分、旧兼容与拒绝测试；150/180仅为旧数据兼容或新规则拒绝测试，不作为活动计划预算。旧依赖已在S0（分支`codex/ielts-365-s0-scoring`）清理完成，首个S0提交为`b2973223e`；当前S0后续修正等待用户复核。
 
 ## 复核方式与停止位置
 

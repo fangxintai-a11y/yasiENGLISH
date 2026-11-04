@@ -129,7 +129,8 @@ try {
   await page.locator(".grade-card").waitFor();
   assert.match(await page.locator(".grade-card").innerText(), /[0-3]\s*\/3/);
   assert.match(await page.locator(".grade-card").innerText(), /词库例句/);
-  const production = (await state()).progress.skills[`p:${fixture.id}`];
+  assert.equal(await page.getByText("这次结果不影响今天的复习安排", { exact: true }).count(), 0);
+  let production = (await state()).progress.skills[`p:${fixture.id}`];
   assert.ok(production && production.last);
   await page.getByRole("button", { name: "批改句子", exact: true }).click();
   await eventually(async () => !(await page.getByRole("button", { name: "批改句子", exact: true }).isDisabled()), "repeat scoring did not finish");
@@ -145,12 +146,42 @@ try {
   await manual.getByRole("textbox", { name: "粘贴评分结果", exact: true }).fill("this is not JSON");
   await manual.getByRole("button", { name: "校验并使用", exact: true }).click();
   assert.match(await manual.getByRole("alert").innerText(), /[\u4e00-\u9fff]/);
-  await manual.getByRole("textbox", { name: "粘贴评分结果", exact: true }).fill(JSON.stringify({ score: 3, usedCorrectly: true, verdict: "已根据原句给出反馈", corrected: sentence, better: `Although ${target} is relevant, a careful assessment requires clear evidence.`, notes: ["对照原稿检查搭配。"] }));
+  const pastedBody = { score: 3, usedCorrectly: true, verdict: "已根据原句给出反馈", corrected: sentence, better: `Although ${target} is relevant, a careful assessment requires clear evidence.`, notes: ["对照原稿检查搭配。"] };
+  await manual.getByRole("textbox", { name: "粘贴评分结果", exact: true }).fill(JSON.stringify({ ...pastedBody, confidence: .2, evidence: [{ kind: "rule", ruleId: "external.word", message: "已核对目标词。" }], cause: "grammar" }));
   await manual.getByRole("button", { name: "校验并使用", exact: true }).click();
   await eventually(async () => await manual.count() === 0, "valid manual feedback did not replace the local display");
   assert.match(await page.locator(".grade-card").innerText(), /8 分参考句/);
   assert.deepEqual((await state()).progress.skills[`p:${fixture.id}`], production);
+  assert.equal(await page.getByText("这次结果不影响今天的复习安排", { exact: true }).count(), 1);
   checks.push("断网可复制含JSON Schema提示词，非法粘贴给中文错误，合法粘贴替换显示且不重复复习");
+
+  phase = "invalid external sentence cause shows an audit warning without repeating the review";
+  await page.getByRole("button", { name: "批改句子", exact: true }).click();
+  await manual.waitFor();
+  await manual.getByRole("textbox", { name: "粘贴评分结果", exact: true }).fill(JSON.stringify({ ...pastedBody, confidence: .1, evidence: [], cause: "invented-cause" }));
+  await manual.getByRole("button", { name: "校验并使用", exact: true }).click();
+  await eventually(async () => await manual.count() === 0, "a normalised invalid cause did not retain the usable sentence result");
+  assert.match(await page.getByRole("list", { name: "反馈校验提示", exact: true }).innerText(), /cause.*无效/);
+  assert.deepEqual((await state()).progress.skills[`p:${fixture.id}`], production);
+  checks.push("粘贴的非法造句错因置空后显示校验警告，同日复习不重复计入");
+
+  phase = "manual feedback with a previous-day review can schedule today's first review";
+  await page.getByRole("button", { name: "批改句子", exact: true }).click();
+  await manual.waitFor();
+  await page.evaluate(async (id) => {
+    const { store } = await import("/src/store/store.ts");
+    const key = `p:${id}`;
+    store.progress((p) => ({ ...p, skills: { ...p.skills, [key]: { ...p.skills[key], last: Date.now() - 86400000 } } }));
+  }, fixture.id);
+  const previousDay = (await state()).progress.skills[`p:${fixture.id}`];
+  await manual.getByRole("textbox", { name: "粘贴评分结果", exact: true }).fill(JSON.stringify(pastedBody));
+  await manual.getByRole("button", { name: "校验并使用", exact: true }).click();
+  await eventually(async () => await manual.count() === 0, "the previous-day review fixture did not accept manual feedback");
+  production = (await state()).progress.skills[`p:${fixture.id}`];
+  assert.ok(production.last > previousDay.last);
+  assert.equal(production.reps, previousDay.reps + 1);
+  assert.equal(await page.getByText("这次结果不影响今天的复习安排", { exact: true }).count(), 0);
+  checks.push("只有同词同日已复习才显示不影响提示，前一日记录的粘贴结果正常安排本日首次复习");
 
   phase = "automatic failure keeps local feedback and opens manual input";
   await page.evaluate(async () => (await import("/src/store/store.ts")).store.settings({ feedbackMode: "auto" }));
@@ -159,6 +190,7 @@ try {
   assert.match(await page.locator(".grade-card").innerText(), /词库例句/);
   assert.match(await manual.getByRole("textbox", { name: "评分提示词", exact: true }).inputValue(), /"properties"/);
   assert.deepEqual((await state()).progress.skills[`p:${fixture.id}`], production);
+  assert.equal(await page.getByText("这次结果不影响今天的复习安排", { exact: true }).count(), 0);
   await manual.getByRole("button", { name: "收起", exact: true }).click();
   checks.push("自动接口无可用配置时保留本地反馈并转到复制提示词，不额外记复习");
 

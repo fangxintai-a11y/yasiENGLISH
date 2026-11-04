@@ -49,7 +49,13 @@ function taskInput(task: TaskId, value: unknown) {
 }
 function taskSchema(task: TaskId, input: unknown): ZodType<unknown> {
   const value = taskInput(task, input);
-  if (task === "sentence") return SentenceGradeSchema;
+  if (task === "sentence") return z.preprocess((raw) => { assertSafe(raw); return raw; }, SentenceGradeSchema).superRefine((body, ctx) => {
+    const original = String(value.sentence);
+    for (const [index, evidence] of (body.evidence ?? []).entries()) {
+      if (evidence.kind === "span" && (Number(evidence.end) > original.length || original.slice(evidence.start, evidence.end) !== evidence.text))
+        ctx.addIssue({ code: "custom", path: ["evidence", index], message: "证据片段与当前原句及字符位置不一致。" });
+    }
+  });
   if (task === "reading") return ReadingSchema;
   if (task === "hack") return HackSchema;
   const original = String(task === "essay" ? value.text : value.transcript);
@@ -78,7 +84,11 @@ function feedbackResult(task: "essay" | "speaking", input: WritingInput | Speaki
 }
 function wrapped(task: TaskId, input: unknown, wire: unknown, provider: string, trail: FallbackEntry[], now: number, rawHash = "") {
   assertSafe(wire);
-  if (task === "sentence") return SentenceResultSchema.parse({ ...SentenceGradeSchema.parse(wire), source: "ai", provider, confidence: .6, evidence: [], cause: null, fallbackTrail: trail }) as SentenceResult;
+  if (task === "sentence") {
+    const value = SentenceGradeSchema.parse(wire);
+    return SentenceResultSchema.parse({ ...value, source: "ai", provider, confidence: value.confidence ?? .6, evidence: value.evidence ?? [],
+      cause: value.cause ?? null, warnings: value.warnings ?? [], fallbackTrail: trail }) as SentenceResult;
+  }
   if (task === "reading") {
     const value = ReadingSchema.parse(wire), coverage = readingCoverage(input as ReadingInput, value.passage), words = coverage.coveredWordIds;
     return { ...value, id: `r-${now}-${words.join("-").slice(0, 40)}`, at: now, words, coverage, answers: value.questions.map(() => null), src: provider === "manual" ? "manual" as const : "ai" as const, fallbackTrail: trail } satisfies ReadingResult;

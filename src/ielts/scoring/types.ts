@@ -29,6 +29,7 @@ export type SpeakingResult = ScoreResult<SpeakingCriterion> & { kind: "speaking"
 export interface SentenceResult extends FallbackInfo {
   score: 0 | 1 | 2 | 3; usedCorrectly: boolean; verdict: string; corrected: string; better: string; notes: string[];
   source: MachineSource; provider: string | null; confidence: number; evidence: Evidence[]; cause: ErrorCause | null;
+  warnings?: string[];
 }
 export interface SentenceInput { word: string; zh: string; sentence: string; entry: Entry | null }
 export interface ReadingWord { id: string; word: string; zh: string; entry: Entry | null }
