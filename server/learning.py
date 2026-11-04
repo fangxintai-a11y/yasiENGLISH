@@ -41,12 +41,18 @@ WRITING_CHECKLIST_IDS = {
     "task2": _WRITING_SHARED_CHECKS | {"task-response-answer", "task-response-position", "task-response-support"},
 }
 WRITING_FEEDBACK_FIELDS = {"errorCauses", "spellingCheck", "checklist"}
+SPEAKING_ERROR_CAUSES = ERROR_CAUSES - {"task-response", "task-achievement", "spelling", "word-limit"}
+SPEAKING_CHECKLIST_IDS = frozenset((
+    "speaking-fluency-development", "speaking-fluency-continuity", "speaking-fluency-linking",
+    "speaking-lexical-precision", "speaking-lexical-paraphrase", "speaking-grammar-range", "speaking-grammar-accuracy",
+    "speaking-pronunciation-intelligibility", "speaking-pronunciation-stress", "speaking-pronunciation-intonation",
+))
 FIELDS = {
     "plan": {"startDate", "timeZone", "curriculumVersion", "studyBudgetMinutes", "targetBand", "sectionTargets", "enabled", "syllabusUnit", "materialLevel", "title", "pauseIntervals"},
     "mission": {"date", "day", "taskId", "missionId", "skill", "status", "plannedMinutes", "actualMinutes", "timeSource"},
     "attempt": {"date", "day", "taskId", "contentId", "contentVersion", "skill", "answers", "correct", "score", "total", "actualMinutes", "elapsedSeconds", "conditions", "replayed", "viewedTranscript", "firstAttempt", "isCheckpoint", "note", "questionResults"},
     "essay": {"date", "day", "taskId", "contentId", "contentVersion", "prompt", "text", "wordCount", "parentRevisionId", "taskType", "scope", "stage", "elapsedSeconds", "conditions", "sourceRef"},
-    "speaking": {"date", "day", "taskId", "contentId", "contentVersion", "prompt", "transcript", "durationSeconds", "recordingId", "recordingDevice", "parentRevisionId"},
+    "speaking": {"date", "day", "taskId", "contentId", "contentVersion", "prompt", "transcript", "durationSeconds", "recordingId", "recordingDevice", "parentRevisionId", "part", "prepSeconds", "conditions", "sourceRef", "recordingStatus"},
     "feedback": {"workId", "workRevisionId", "inputHash", "rubricVersion", "source", "sourceText", "assessedAt", "text", "bands", "taskType", "errorCauses", "spellingCheck", "checklist"},
     "assessment": {"date", "day", "kind", "source", "materialId", "score", "total", "bands", "scores", "conditions", "note", "notes", "gateId", "targets", "consecutiveIndex", "scoreSources", "weekIndex", "workId", "workRevisionId", "inputHash", "taskType", "selfBands", "machineBands", "machineSource"},
 }
@@ -141,7 +147,7 @@ def validate_payload(kind, payload, record_id, deleted=False):
     for key, value in payload.items():
         if key == "sourceRef" and isinstance(value, str) and len(value.encode("utf-16-le")) // 2 > 300:
             reject("学习文本格式或长度不正确。")
-        if kind == "essay" and key == "conditions":
+        if kind in {"essay", "speaking"} and key == "conditions":
             if not isinstance(value, dict) or set(value) - {"timed", "firstAttempt", "unseen"} or any(not isinstance(item, bool) for item in value.values()):
                 reject("作答条件格式不正确。")
             continue
@@ -231,10 +237,15 @@ def validate_payload(kind, payload, record_id, deleted=False):
         reject("作文保存阶段无效。")
     if kind == "speaking" and not isinstance(payload.get("transcript"), str):
         reject("口语记录缺少转写字段。")
+    if kind == "speaking":
+        validate_speaking_record(payload)
     if kind == "feedback" and not {"workRevisionId", "inputHash", "source", "text"}.issubset(payload):
         reject("反馈缺少原稿引用或来源。")
     if kind == "feedback":
-        validate_writing_feedback(payload)
+        if payload.get("taskType") == "speaking":
+            validate_speaking_feedback(payload)
+        else:
+            validate_writing_feedback(payload)
     if "correct" in payload and "total" in payload and payload["correct"] > payload["total"]:
         reject("正确数不能超过总题数。")
     if kind in {"feedback", "assessment"}:
@@ -243,7 +254,7 @@ def validate_payload(kind, payload, record_id, deleted=False):
         for field in ("bands", "selfBands", "machineBands"):
             if field in payload:
                 validate_task_bands(payload.get("taskType"), payload[field])
-    if "taskType" in payload and payload["taskType"] not in {"task1", "task2"}:
+    if "taskType" in payload and not (kind == "feedback" and payload["taskType"] == "speaking") and payload["taskType"] not in {"task1", "task2"}:
         reject("作文任务类型无效。")
     if kind == "attempt" and "questionResults" in payload:
         if not isinstance(payload["questionResults"], list):
@@ -266,6 +277,44 @@ def validate_payload(kind, payload, record_id, deleted=False):
     if kind == "assessment":
         validate_assessment(payload)
     return payload
+
+
+def validate_speaking_record(payload):
+    if "part" in payload and (not number(payload["part"], 1, 3) or payload["part"] not in (1, 2, 3)):
+        reject("口语Part必须为1、2或3。")
+    if "prepSeconds" in payload:
+        seconds = payload["prepSeconds"]
+        if not number(seconds, 0, 60) or int(seconds) != seconds:
+            reject("口语准备时间必须为0至60的整数秒。")
+        if seconds > 0 and payload.get("part") != 2:
+            reject("只有 Part 2可以保存大于0的准备时间。")
+    if "recordingStatus" in payload and payload["recordingStatus"] not in ("local", "none"):
+        reject("录音状态只能为local或none，录音不上传。")
+
+
+def validate_speaking_feedback(payload):
+    if "spellingCheck" in payload:
+        reject("口语反馈不能包含拼写检查。")
+    if "errorCauses" in payload:
+        causes = payload["errorCauses"]
+        if not isinstance(causes, list) or any(not isinstance(cause, str) or cause not in SPEAKING_ERROR_CAUSES for cause in causes):
+            reject("口语错因必须使用允许的枚举编码。")
+        if len(set(causes)) != len(causes):
+            reject("口语错因不能重复。")
+        if "other" in causes and (not isinstance(payload.get("text"), str) or not payload["text"].strip()):
+            reject("其他错因必须在反馈正文填写说明。")
+    if "checklist" in payload:
+        checklist = payload["checklist"]
+        if not isinstance(checklist, dict) or any(key not in SPEAKING_CHECKLIST_IDS or value is not None and not isinstance(value, bool) for key, value in checklist.items()):
+            reject("口语自查条目或状态无效。")
+
+
+def validate_speaking_feedback_reference(feedback, work_kind, work):
+    if feedback.get("taskType") != "speaking":
+        reject("口语反馈必须明确speaking任务类型。")
+    validate_speaking_feedback(feedback)
+    if work_kind != "speaking" or not isinstance(work.get("transcript"), str):
+        reject("口语反馈必须引用口语原稿。")
 
 
 def validate_writing_feedback(payload):
@@ -337,6 +386,10 @@ def validate_bands(value):
 
 
 def validate_task_bands(task_type, bands):
+    if task_type == "speaking":
+        if set(bands) - {"fluency", "lexical", "grammar", "pronunciation"}:
+            reject("口语评分维度无效。")
+        return
     if {"taskAchievement", "taskResponse"} & set(bands) and task_type not in {"task1", "task2"}:
         reject("作文评分必须明确任务类型。")
     if task_type == "task1" and "taskResponse" in bands:
@@ -538,7 +591,9 @@ class LearningStore:
                     if ("inputHash" in payload and payload["inputHash"] != row["content_hash"]) or (payload.get("workId") and payload["workId"] != row["record_id"]):
                         reject("反馈与原稿版本不匹配。")
                     work = json.loads(row["payload"])
-                    if kind == "feedback" and WRITING_FEEDBACK_FIELDS.intersection(payload):
+                    if kind == "feedback" and payload.get("taskType") == "speaking":
+                        validate_speaking_feedback_reference(payload, row["kind"], work)
+                    elif kind == "feedback" and WRITING_FEEDBACK_FIELDS.intersection(payload):
                         if row["kind"] != "essay":
                             reject("写作自查必须引用作文原稿。")
                         validate_writing_feedback_reference(payload, work)

@@ -1,0 +1,921 @@
+{
+  "fixtureVersion": 2,
+  "purpose": "synthetic-r3-speaking-wire-examples-not-user-learning-records",
+  "records": [
+    {
+      "recordId": "r3-plan",
+      "request": {
+        "schemaVersion": 2,
+        "revisionId": "71000000-0000-4000-8000-000000000001",
+        "mutationId": "72000000-0000-4000-8000-000000000001",
+        "baseRevision": null,
+        "kind": "plan",
+        "payload": {
+          "planId": "r3-plan",
+          "startDate": "2026-11-09",
+          "timeZone": "Asia/Shanghai",
+          "studyBudgetMinutes": 120,
+          "targetBand": 8,
+          "sectionTargets": {
+            "listening": 8.5,
+            "reading": 8.5,
+            "writing": 7.5,
+            "speaking": 7.5
+          },
+          "enabled": true,
+          "curriculumVersion": "2.0.0"
+        }
+      },
+      "expectedContentHash": "d75b2bb1f341e96d3fe8d070a83dece66f5efee6f36b9b380a1e4c1e1224abf1"
+    },
+    {
+      "recordId": "r3-speaking-legacy",
+      "request": {
+        "schemaVersion": 2,
+        "revisionId": "71000000-0000-4000-8000-000000000002",
+        "mutationId": "72000000-0000-4000-8000-000000000002",
+        "baseRevision": null,
+        "kind": "speaking",
+        "payload": {
+          "planId": "r3-plan",
+          "transcript": "\n  A legacy spoken answer.  ",
+          "durationSeconds": 20,
+          "recordingId": "r3-legacy-recording"
+        }
+      },
+      "expectedContentHash": "59ae53a85b677906c58cb734b9611668d043811003e7516a3344b8221386881a"
+    },
+    {
+      "recordId": "r3-essay",
+      "request": {
+        "schemaVersion": 2,
+        "revisionId": "71000000-0000-4000-8000-000000000003",
+        "mutationId": "72000000-0000-4000-8000-000000000003",
+        "baseRevision": null,
+        "kind": "essay",
+        "payload": {
+          "planId": "r3-plan",
+          "taskType": "task2",
+          "text": "A synthetic writing draft, not a spoken answer."
+        }
+      },
+      "expectedContentHash": "6ea9efd6da0df2a289724fd945f3c461a891175c66252c137eaf387dbe1e6932"
+    },
+    {
+      "recordId": "r3-speaking-part1",
+      "request": {
+        "schemaVersion": 2,
+        "revisionId": "71000000-0000-4000-8000-000000000004",
+        "mutationId": "72000000-0000-4000-8000-000000000004",
+        "baseRevision": null,
+        "kind": "speaking",
+        "payload": {
+          "planId": "r3-plan",
+          "date": "2026-11-15",
+          "day": 7,
+          "taskId": "d7-speaking",
+          "contentId": "synthetic-speaking-part1",
+          "contentVersion": "1",
+          "prompt": "What do you enjoy doing outdoors?",
+          "part": 1,
+          "prepSeconds": 0,
+          "conditions": {
+            "timed": true,
+            "firstAttempt": true,
+            "unseen": true
+          },
+          "sourceRef": "Self-authored synthetic question.",
+          "transcript": "\n  🗣 I enjoy walking near the river.\r\nIt helps me relax.  ",
+          "durationSeconds": 25,
+          "recordingStatus": "local",
+          "recordingId": "r3-recording-part1",
+          "recordingDevice": "Synthetic device A"
+        }
+      },
+      "expectedContentHash": "c92c0313ea6bbd66c747cf81696b7ff9bf2340c4b22c9b40adbe15beacbf29fa"
+    },
+    {
+      "recordId": "r3-speaking-part2",
+      "request": {
+        "schemaVersion": 2,
+        "revisionId": "71000000-0000-4000-8000-000000000005",
+        "mutationId": "72000000-0000-4000-8000-000000000005",
+        "baseRevision": null,
+        "kind": "speaking",
+        "payload": {
+          "planId": "r3-plan",
+          "date": "2026-11-15",
+          "part": 2,
+          "prepSeconds": 60,
+          "conditions": {
+            "timed": true,
+            "firstAttempt": true,
+            "unseen": false
+          },
+          "sourceRef": "Self-authored synthetic topic card.",
+          "prompt": "Describe a place where you like spending time.",
+          "transcript": "I would like to describe a quiet riverside path. I visit it with a friend and we discuss our plans while walking.",
+          "durationSeconds": 120,
+          "recordingStatus": "local",
+          "recordingId": "r3-recording-part2",
+          "recordingDevice": "Synthetic device A"
+        }
+      },
+      "expectedContentHash": "254e2c1bd1b15ccd4bdbffd21aae7e193b1eb678aa5db4194ae6fd5c837429a4"
+    },
+    {
+      "recordId": "r3-speaking-part3",
+      "request": {
+        "schemaVersion": 2,
+        "revisionId": "71000000-0000-4000-8000-000000000006",
+        "mutationId": "72000000-0000-4000-8000-000000000006",
+        "baseRevision": null,
+        "kind": "speaking",
+        "payload": {
+          "planId": "r3-plan",
+          "date": "2026-11-15",
+          "part": 3,
+          "prepSeconds": 0,
+          "conditions": {
+            "timed": false,
+            "firstAttempt": true,
+            "unseen": true
+          },
+          "sourceRef": "Self-authored synthetic discussion question.",
+          "prompt": "How can cities help residents spend time outdoors?",
+          "transcript": "Cities can provide safe paths, accessible parks and reliable information about local facilities.",
+          "durationSeconds": 48,
+          "recordingStatus": "none"
+        }
+      },
+      "expectedContentHash": "f9f1fccd7299c885125062fa5929dcfbe44c2b13aa98ad887c9bcdf3ed46cadc"
+    },
+    {
+      "recordId": "r3-speaking-empty",
+      "request": {
+        "schemaVersion": 2,
+        "revisionId": "71000000-0000-4000-8000-000000000007",
+        "mutationId": "72000000-0000-4000-8000-000000000007",
+        "baseRevision": null,
+        "kind": "speaking",
+        "payload": {
+          "planId": "r3-plan",
+          "part": 2,
+          "prepSeconds": 45,
+          "transcript": "",
+          "durationSeconds": 0,
+          "recordingStatus": "none"
+        }
+      },
+      "expectedContentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "recordId": "r3-speaking-rerecord",
+      "request": {
+        "schemaVersion": 2,
+        "revisionId": "71000000-0000-4000-8000-000000000008",
+        "mutationId": "72000000-0000-4000-8000-000000000008",
+        "baseRevision": null,
+        "kind": "speaking",
+        "payload": {
+          "planId": "r3-plan",
+          "date": "2026-11-15",
+          "part": 2,
+          "prepSeconds": 60,
+          "conditions": {
+            "timed": true,
+            "firstAttempt": false,
+            "unseen": false
+          },
+          "prompt": "Describe a place where you like spending time.",
+          "transcript": "A clearer rerecording describes the same riverside path, with a reason and a personal example.",
+          "durationSeconds": 127,
+          "recordingStatus": "local",
+          "recordingId": "r3-recording-part2-rerecord",
+          "recordingDevice": "Synthetic device A",
+          "parentRevisionId": "71000000-0000-4000-8000-000000000005"
+        }
+      },
+      "expectedContentHash": "9856ef6ed9869dbb0c178c7cc47be1487c00804069bd5cef77412174e90d207e"
+    },
+    {
+      "recordId": "r3-feedback-self",
+      "request": {
+        "schemaVersion": 2,
+        "revisionId": "71000000-0000-4000-8000-000000000009",
+        "mutationId": "72000000-0000-4000-8000-000000000009",
+        "baseRevision": null,
+        "kind": "feedback",
+        "payload": {
+          "planId": "r3-plan",
+          "taskType": "speaking",
+          "workId": "r3-speaking-part1",
+          "workRevisionId": "71000000-0000-4000-8000-000000000004",
+          "inputHash": "c92c0313ea6bbd66c747cf81696b7ff9bf2340c4b22c9b40adbe15beacbf29fa",
+          "rubricVersion": "r3-self-check-1",
+          "source": "self",
+          "text": "Synthetic speaking self-check.",
+          "bands": {
+            "fluency": null,
+            "lexical": null,
+            "grammar": null,
+            "pronunciation": null
+          },
+          "errorCauses": [
+            "fluency-pause",
+            "pronunciation"
+          ],
+          "checklist": {
+            "speaking-fluency-continuity": false,
+            "speaking-lexical-precision": true,
+            "speaking-grammar-range": null,
+            "speaking-pronunciation-stress": false
+          }
+        }
+      },
+      "expectedContentHash": "acff973a69739bcdc311f79f9b4fd9a456b898942f660a66021ec717b1348bab"
+    },
+    {
+      "recordId": "r3-feedback-rules",
+      "request": {
+        "schemaVersion": 2,
+        "revisionId": "71000000-0000-4000-8000-000000000010",
+        "mutationId": "72000000-0000-4000-8000-000000000010",
+        "baseRevision": null,
+        "kind": "feedback",
+        "payload": {
+          "planId": "r3-plan",
+          "taskType": "speaking",
+          "workId": "r3-speaking-part2",
+          "workRevisionId": "71000000-0000-4000-8000-000000000005",
+          "inputHash": "254e2c1bd1b15ccd4bdbffd21aae7e193b1eb678aa5db4194ae6fd5c837429a4",
+          "rubricVersion": "r3-self-check-1",
+          "source": "rules",
+          "text": "Transcript evidence only; all four bands remain unknown.",
+          "bands": {
+            "fluency": null,
+            "lexical": null,
+            "grammar": null,
+            "pronunciation": null
+          }
+        }
+      },
+      "expectedContentHash": "3774010d0f3434f571803fd29b4c70eba865e99f7e0daa1a2c5a43fcbf982a6f"
+    },
+    {
+      "recordId": "r3-feedback-ai",
+      "request": {
+        "schemaVersion": 2,
+        "revisionId": "71000000-0000-4000-8000-000000000011",
+        "mutationId": "72000000-0000-4000-8000-000000000011",
+        "baseRevision": null,
+        "kind": "feedback",
+        "payload": {
+          "planId": "r3-plan",
+          "taskType": "speaking",
+          "workId": "r3-speaking-part3",
+          "workRevisionId": "71000000-0000-4000-8000-000000000006",
+          "inputHash": "f9f1fccd7299c885125062fa5929dcfbe44c2b13aa98ad887c9bcdf3ed46cadc",
+          "rubricVersion": "r3-self-check-1",
+          "source": "ai",
+          "text": "Text-only machine estimates, not a section score.",
+          "bands": {
+            "fluency": null,
+            "lexical": 7,
+            "grammar": 7.5,
+            "pronunciation": null
+          }
+        }
+      },
+      "expectedContentHash": "d8707132240f33c4f874a3197fa8ca0581377af4ff38217c306af3492cb1dc44"
+    },
+    {
+      "recordId": "r3-feedback-rerecord",
+      "request": {
+        "schemaVersion": 2,
+        "revisionId": "71000000-0000-4000-8000-000000000012",
+        "mutationId": "72000000-0000-4000-8000-000000000012",
+        "baseRevision": null,
+        "kind": "feedback",
+        "payload": {
+          "planId": "r3-plan",
+          "taskType": "speaking",
+          "workId": "r3-speaking-rerecord",
+          "workRevisionId": "71000000-0000-4000-8000-000000000008",
+          "inputHash": "9856ef6ed9869dbb0c178c7cc47be1487c00804069bd5cef77412174e90d207e",
+          "rubricVersion": "r3-self-check-1",
+          "source": "self",
+          "text": "Synthetic speaking self-check.",
+          "bands": {
+            "fluency": null,
+            "lexical": null,
+            "grammar": null,
+            "pronunciation": null
+          },
+          "errorCauses": [
+            "grammar"
+          ],
+          "checklist": {
+            "speaking-grammar-accuracy": false
+          }
+        }
+      },
+      "expectedContentHash": "4ad71a07fb9e87bf2627a0d6823b66967d3444036f62f499c0b3436dc9b3dc85"
+    },
+    {
+      "recordId": "r3-feedback-legacy",
+      "request": {
+        "schemaVersion": 2,
+        "revisionId": "71000000-0000-4000-8000-000000000013",
+        "mutationId": "72000000-0000-4000-8000-000000000013",
+        "baseRevision": null,
+        "kind": "feedback",
+        "payload": {
+          "planId": "r3-plan",
+          "workId": "r3-speaking-legacy",
+          "workRevisionId": "71000000-0000-4000-8000-000000000002",
+          "inputHash": "59ae53a85b677906c58cb734b9611668d043811003e7516a3344b8221386881a",
+          "rubricVersion": "r3-self-check-1",
+          "source": "rules",
+          "text": "Synthetic speaking self-check.",
+          "bands": {
+            "fluency": null,
+            "lexical": null,
+            "grammar": null,
+            "pronunciation": null
+          }
+        }
+      },
+      "expectedContentHash": "f0aae8c5fa887bef37b0dae2ff03a0e653ec200f364fd01d7fc68a047f91cb53"
+    },
+    {
+      "recordId": "r3-weekly-human",
+      "request": {
+        "schemaVersion": 2,
+        "revisionId": "71000000-0000-4000-8000-000000000014",
+        "mutationId": "72000000-0000-4000-8000-000000000014",
+        "baseRevision": null,
+        "kind": "assessment",
+        "payload": {
+          "planId": "r3-plan",
+          "date": "2026-11-15",
+          "kind": "weekly-calibration",
+          "source": "human",
+          "weekIndex": 1,
+          "workId": "r3-speaking-rerecord",
+          "workRevisionId": "71000000-0000-4000-8000-000000000008",
+          "inputHash": "9856ef6ed9869dbb0c178c7cc47be1487c00804069bd5cef77412174e90d207e",
+          "bands": {
+            "fluency": 7,
+            "lexical": 7.5,
+            "grammar": 7,
+            "pronunciation": 7.5
+          },
+          "note": "Synthetic per-work dimensions, not a speaking section score."
+        }
+      },
+      "expectedContentHash": "c9fc129be19882aa7f5cbbf417fac17d04a3ecb961f721cd8be3a149ae354843"
+    },
+    {
+      "recordId": "r3-speaking-part1",
+      "request": {
+        "schemaVersion": 2,
+        "revisionId": "71000000-0000-4000-8000-000000000015",
+        "mutationId": "72000000-0000-4000-8000-000000000015",
+        "baseRevision": "71000000-0000-4000-8000-000000000004",
+        "kind": "speaking",
+        "payload": {
+          "planId": "r3-plan",
+          "date": "2026-11-15",
+          "day": 7,
+          "taskId": "d7-speaking",
+          "contentId": "synthetic-speaking-part1",
+          "contentVersion": "1",
+          "prompt": "What do you enjoy doing outdoors?",
+          "part": 1,
+          "prepSeconds": 0,
+          "conditions": {
+            "timed": true,
+            "firstAttempt": false,
+            "unseen": false
+          },
+          "sourceRef": "Self-authored synthetic question.",
+          "transcript": "\n  🗣 I enjoy walking near the river.\r\nIt helps me relax.  \nI can explain my reason more clearly now.",
+          "durationSeconds": 25,
+          "recordingStatus": "local",
+          "recordingId": "r3-recording-part1",
+          "recordingDevice": "Synthetic device A"
+        }
+      },
+      "expectedContentHash": "d7b805d0b7a0a080e128515a317545541e279305fa3ca6e251d1f09b1f65c450"
+    },
+    {
+      "recordId": "r3-feedback-new-transcript",
+      "request": {
+        "schemaVersion": 2,
+        "revisionId": "71000000-0000-4000-8000-000000000016",
+        "mutationId": "72000000-0000-4000-8000-000000000016",
+        "baseRevision": null,
+        "kind": "feedback",
+        "payload": {
+          "planId": "r3-plan",
+          "taskType": "speaking",
+          "workId": "r3-speaking-part1",
+          "workRevisionId": "71000000-0000-4000-8000-000000000015",
+          "inputHash": "d7b805d0b7a0a080e128515a317545541e279305fa3ca6e251d1f09b1f65c450",
+          "rubricVersion": "r3-self-check-1",
+          "source": "self",
+          "text": "Synthetic speaking self-check.",
+          "bands": {
+            "fluency": null,
+            "lexical": null,
+            "grammar": null,
+            "pronunciation": null
+          },
+          "errorCauses": [
+            "coherence"
+          ],
+          "checklist": {
+            "speaking-fluency-development": true
+          }
+        }
+      },
+      "expectedContentHash": "c47ff22d44ad713a91612928cb2bde433842e85a1c536a0bc361cc8466ceb96c"
+    },
+    {
+      "recordId": "r3-writing-feedback",
+      "request": {
+        "schemaVersion": 2,
+        "revisionId": "71000000-0000-4000-8000-000000000017",
+        "mutationId": "72000000-0000-4000-8000-000000000017",
+        "baseRevision": null,
+        "kind": "feedback",
+        "payload": {
+          "planId": "r3-plan",
+          "taskType": "task2",
+          "workId": "r3-essay",
+          "workRevisionId": "71000000-0000-4000-8000-000000000003",
+          "inputHash": "6ea9efd6da0df2a289724fd945f3c461a891175c66252c137eaf387dbe1e6932",
+          "source": "self",
+          "text": "Writing remains governed by its existing contract.",
+          "errorCauses": [
+            "task-response"
+          ],
+          "checklist": {
+            "task-response-answer": null
+          },
+          "spellingCheck": {
+            "status": "checked",
+            "count": 0,
+            "items": []
+          },
+          "bands": {
+            "taskResponse": null,
+            "coherence": null,
+            "lexical": null,
+            "grammar": null
+          }
+        }
+      },
+      "expectedContentHash": "84d1f6629feb03842d4f65076009e3d6026ad62b7858806c634be5eb479a4148"
+    },
+    {
+      "recordId": "r3-feedback-other",
+      "request": {
+        "schemaVersion": 2,
+        "revisionId": "71000000-0000-4000-8000-000000000018",
+        "mutationId": "72000000-0000-4000-8000-000000000018",
+        "baseRevision": null,
+        "kind": "feedback",
+        "payload": {
+          "planId": "r3-plan",
+          "taskType": "speaking",
+          "workId": "r3-speaking-part3",
+          "workRevisionId": "71000000-0000-4000-8000-000000000006",
+          "inputHash": "f9f1fccd7299c885125062fa5929dcfbe44c2b13aa98ad887c9bcdf3ed46cadc",
+          "rubricVersion": "r3-self-check-1",
+          "source": "self",
+          "text": "其他错因：举例没有回答追问的具体范围。",
+          "bands": {
+            "fluency": null,
+            "lexical": null,
+            "grammar": null,
+            "pronunciation": null
+          },
+          "errorCauses": [
+            "other"
+          ]
+        }
+      },
+      "expectedContentHash": "0d6990f757bb263e17b1917b8f82de9117901aed5f8882317f34800cef5c34d1"
+    }
+  ],
+  "invalidCases": [
+    {
+      "recordId": "r3-speaking-part2",
+      "label": "part zero",
+      "path": [
+        "part"
+      ],
+      "value": 0,
+      "error": "口语Part"
+    },
+    {
+      "recordId": "r3-speaking-part2",
+      "label": "part four",
+      "path": [
+        "part"
+      ],
+      "value": 4,
+      "error": "口语Part"
+    },
+    {
+      "recordId": "r3-speaking-part2",
+      "label": "part string",
+      "path": [
+        "part"
+      ],
+      "value": "2",
+      "error": "口语Part"
+    },
+    {
+      "recordId": "r3-speaking-part2",
+      "label": "part boolean",
+      "path": [
+        "part"
+      ],
+      "value": true,
+      "error": "口语Part"
+    },
+    {
+      "recordId": "r3-speaking-part2",
+      "label": "part fraction",
+      "path": [
+        "part"
+      ],
+      "value": 1.5,
+      "error": "口语Part"
+    },
+    {
+      "recordId": "r3-speaking-part2",
+      "label": "part null",
+      "path": [
+        "part"
+      ],
+      "value": null,
+      "error": "口语Part"
+    },
+    {
+      "recordId": "r3-speaking-part2",
+      "label": "prep below zero",
+      "path": [
+        "prepSeconds"
+      ],
+      "value": -1,
+      "error": "准备时间"
+    },
+    {
+      "recordId": "r3-speaking-part2",
+      "label": "prep above sixty",
+      "path": [
+        "prepSeconds"
+      ],
+      "value": 61,
+      "error": "准备时间"
+    },
+    {
+      "recordId": "r3-speaking-part2",
+      "label": "prep fraction",
+      "path": [
+        "prepSeconds"
+      ],
+      "value": 1.5,
+      "error": "准备时间"
+    },
+    {
+      "recordId": "r3-speaking-part2",
+      "label": "prep boolean",
+      "path": [
+        "prepSeconds"
+      ],
+      "value": true,
+      "error": "准备时间"
+    },
+    {
+      "recordId": "r3-speaking-part2",
+      "label": "prep null",
+      "path": [
+        "prepSeconds"
+      ],
+      "value": null,
+      "error": "准备时间"
+    },
+    {
+      "recordId": "r3-speaking-part1",
+      "label": "Part1 rejects positive prep",
+      "path": [
+        "prepSeconds"
+      ],
+      "value": 1,
+      "error": "Part 2"
+    },
+    {
+      "recordId": "r3-speaking-part3",
+      "label": "Part3 rejects positive prep",
+      "path": [
+        "prepSeconds"
+      ],
+      "value": 1,
+      "error": "Part 2"
+    },
+    {
+      "recordId": "r3-speaking-part2",
+      "label": "positive prep requires explicit Part2",
+      "path": [
+        "part"
+      ],
+      "value": null,
+      "error": "Part 2",
+      "remove": true
+    },
+    {
+      "recordId": "r3-speaking-part1",
+      "label": "speaking conditions must be object",
+      "path": [
+        "conditions"
+      ],
+      "value": "timed",
+      "error": "作答条件"
+    },
+    {
+      "recordId": "r3-speaking-part1",
+      "label": "speaking conditions reject replay",
+      "path": [
+        "conditions"
+      ],
+      "value": {
+        "replayed": false
+      },
+      "error": "作答条件"
+    },
+    {
+      "recordId": "r3-speaking-part1",
+      "label": "speaking conditions boolean",
+      "path": [
+        "conditions"
+      ],
+      "value": {
+        "timed": "yes"
+      },
+      "error": "作答条件"
+    },
+    {
+      "recordId": "r3-speaking-part1",
+      "label": "speaking sourceRef length",
+      "path": [
+        "sourceRef"
+      ],
+      "value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "error": "长度"
+    },
+    {
+      "recordId": "r3-speaking-part1",
+      "label": "speaking sourceRef UTF16 length",
+      "path": [
+        "sourceRef"
+      ],
+      "value": "📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝📝",
+      "error": "长度"
+    },
+    {
+      "recordId": "r3-speaking-part1",
+      "label": "speaking sourceRef null",
+      "path": [
+        "sourceRef"
+      ],
+      "value": null,
+      "error": "长度"
+    },
+    {
+      "recordId": "r3-speaking-part1",
+      "label": "recording uploaded",
+      "path": [
+        "recordingStatus"
+      ],
+      "value": "uploaded",
+      "error": "录音状态"
+    },
+    {
+      "recordId": "r3-speaking-part1",
+      "label": "recording status null",
+      "path": [
+        "recordingStatus"
+      ],
+      "value": null,
+      "error": "录音状态"
+    },
+    {
+      "recordId": "r3-speaking-part1",
+      "label": "recording status boolean",
+      "path": [
+        "recordingStatus"
+      ],
+      "value": true,
+      "error": "录音状态"
+    },
+    {
+      "recordId": "r3-feedback-self",
+      "label": "speaking rejects cause task-response",
+      "path": [
+        "errorCauses"
+      ],
+      "value": [
+        "task-response"
+      ],
+      "error": "口语错因"
+    },
+    {
+      "recordId": "r3-feedback-self",
+      "label": "speaking rejects cause task-achievement",
+      "path": [
+        "errorCauses"
+      ],
+      "value": [
+        "task-achievement"
+      ],
+      "error": "口语错因"
+    },
+    {
+      "recordId": "r3-feedback-self",
+      "label": "speaking rejects cause spelling",
+      "path": [
+        "errorCauses"
+      ],
+      "value": [
+        "spelling"
+      ],
+      "error": "口语错因"
+    },
+    {
+      "recordId": "r3-feedback-self",
+      "label": "speaking rejects cause word-limit",
+      "path": [
+        "errorCauses"
+      ],
+      "value": [
+        "word-limit"
+      ],
+      "error": "口语错因"
+    },
+    {
+      "recordId": "r3-feedback-self",
+      "label": "speaking cause unknown",
+      "path": [
+        "errorCauses"
+      ],
+      "value": [
+        "invented"
+      ],
+      "error": "口语错因"
+    },
+    {
+      "recordId": "r3-feedback-self",
+      "label": "speaking cause duplicate",
+      "path": [
+        "errorCauses"
+      ],
+      "value": [
+        "grammar",
+        "grammar"
+      ],
+      "error": "重复"
+    },
+    {
+      "recordId": "r3-feedback-self",
+      "label": "speaking causes must be array",
+      "path": [
+        "errorCauses"
+      ],
+      "value": "grammar",
+      "error": "口语错因"
+    },
+    {
+      "recordId": "r3-feedback-other",
+      "label": "speaking other needs explanation",
+      "path": [
+        "text"
+      ],
+      "value": "   ",
+      "error": "其他错因"
+    },
+    {
+      "recordId": "r3-feedback-self",
+      "label": "speaking rejects spellingCheck",
+      "path": [
+        "spellingCheck"
+      ],
+      "value": {
+        "status": "unchecked",
+        "count": null,
+        "items": []
+      },
+      "error": "拼写检查"
+    },
+    {
+      "recordId": "r3-feedback-self",
+      "label": "speaking rejects null spellingCheck",
+      "path": [
+        "spellingCheck"
+      ],
+      "value": null,
+      "error": "拼写检查"
+    },
+    {
+      "recordId": "r3-feedback-self",
+      "label": "speaking checklist unknown ID",
+      "path": [
+        "checklist"
+      ],
+      "value": {
+        "invented": true
+      },
+      "error": "口语自查"
+    },
+    {
+      "recordId": "r3-feedback-self",
+      "label": "speaking rejects writing checklist ID",
+      "path": [
+        "checklist"
+      ],
+      "value": {
+        "task-response-answer": true
+      },
+      "error": "口语自查"
+    },
+    {
+      "recordId": "r3-feedback-self",
+      "label": "speaking checklist invalid state",
+      "path": [
+        "checklist"
+      ],
+      "value": {
+        "speaking-fluency-continuity": 1
+      },
+      "error": "口语自查"
+    },
+    {
+      "recordId": "r3-feedback-self",
+      "label": "speaking checklist null",
+      "path": [
+        "checklist"
+      ],
+      "value": null,
+      "error": "口语自查"
+    },
+    {
+      "recordId": "r3-feedback-self",
+      "label": "speaking rejects writing band",
+      "path": [
+        "bands"
+      ],
+      "value": {
+        "taskResponse": 7
+      },
+      "error": "口语评分维度"
+    },
+    {
+      "recordId": "r3-feedback-self",
+      "label": "speaking rejects coherence band",
+      "path": [
+        "bands"
+      ],
+      "value": {
+        "coherence": 7
+      },
+      "error": "口语评分维度"
+    },
+    {
+      "recordId": "r3-feedback-self",
+      "label": "speaking self-check requires discriminator",
+      "path": [
+        "taskType"
+      ],
+      "value": null,
+      "error": "任务类型",
+      "remove": true
+    },
+    {
+      "recordId": "r3-feedback-self",
+      "label": "r3-feedback-self must reference speaking, not essay",
+      "referenceTarget": "r3-essay",
+      "error": "口语原稿"
+    },
+    {
+      "recordId": "r3-feedback-rules",
+      "label": "r3-feedback-rules must reference speaking, not essay",
+      "referenceTarget": "r3-essay",
+      "error": "口语原稿",
+      "omitBands": true
+    }
+  ]
+}
