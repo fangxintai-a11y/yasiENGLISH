@@ -7,6 +7,7 @@ import {
   part2Full,
   rerecordSpeaking,
   speakingPart,
+  speakingDraftFromRevision,
   speakingPayload,
   speakingTimingStatus,
   startPracticeTimer,
@@ -121,4 +122,96 @@ test("re-answer uses a new record and exact parent without overwriting the old a
   assert.equal(next.transcript, "");
   assert.equal(original.payload.recordingId, "audio-old");
   assert.equal(original.payload.transcript, "Old answer.");
+});
+
+test("recording is stored before metadata and retry reuses its recording ID", async () => {
+  const calls: string[] = [];
+  const audio = new Blob([new Uint8Array([1, 2, 3])], {
+    type: "audio/webm;codecs=opus",
+  });
+  const value = draft();
+  const port = {
+    saveRecording: async (id: string, blob: Blob) => {
+      calls.push(`audio:${id}`);
+      assert.equal(blob.type, "audio/webm");
+    },
+    save: async (input: {
+      id: string;
+      kind: "speaking";
+      payload: Record<string, unknown>;
+      baseRevision: string | null;
+    }) => {
+      calls.push("record");
+      return { ...revision(value), payload: input.payload };
+    },
+  };
+  const result = await saveSpeakingAttempt(value, {
+    expectedUserId: null,
+    port,
+    recording: {
+      id: "audio-new",
+      blob: audio,
+      durationSeconds: 1.25,
+      device: "设备 test",
+    },
+  });
+  assert.deepEqual(calls, ["audio:audio-new", "record"]);
+  assert.equal(result.work.payload.recordingId, "audio-new");
+  assert.equal(result.work.payload.recordingStatus, "local");
+  assert.equal(result.work.payload.durationSeconds, 1.25);
+  assert.doesNotMatch(
+    JSON.stringify(result.work.payload),
+    /base64|blob|audioData/,
+  );
+});
+
+test("explicit recording none survives old recording IDs without rewriting raw payload", () => {
+  const original = revision({
+    ...draft(),
+    recordingId: "old-audio",
+    recordingStatus: "none",
+  });
+  assert.equal(speakingDraftFromRevision(original).recordingStatus, "none");
+  assert.equal(original.payload.recordingStatus, "none");
+  assert.equal(original.payload.recordingId, "old-audio");
+});
+
+test("audio write failure is explicit, and audio-success record-failure retains a retryable ID", async () => {
+  const recording = {
+    id: "audio-retry",
+    blob: new Blob(["abc"], { type: "audio/webm" }),
+    durationSeconds: 1,
+    device: "设备 test",
+  };
+  await assert.rejects(
+    () =>
+      saveSpeakingAttempt(draft(), {
+        expectedUserId: null,
+        recording,
+        port: {
+          saveRecording: async () => {
+            throw new Error("quota");
+          },
+          save: async () => revision(draft()),
+        },
+      }),
+    /录音未保存/,
+  );
+  await assert.rejects(
+    () =>
+      saveSpeakingAttempt(draft(), {
+        expectedUserId: null,
+        recording,
+        port: {
+          saveRecording: async () => {},
+          save: async () => {
+            throw new Error("metadata failure");
+          },
+        },
+      }),
+    (error) =>
+      error instanceof Error &&
+      error.message.includes("作答记录未保存") &&
+      (error as Error & { recordingSaved?: boolean }).recordingSaved === true,
+  );
 });

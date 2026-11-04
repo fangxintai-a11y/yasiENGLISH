@@ -171,9 +171,11 @@ export function speakingDraftFromRevision(work: Revision): SpeakingDraft {
     durationSeconds: Number(p.durationSeconds ?? 0),
     recordingId: typeof p.recordingId === "string" ? p.recordingId : null,
     recordingStatus:
-      p.recordingStatus === "local" || typeof p.recordingId === "string"
-        ? "local"
-        : "none",
+      p.recordingStatus === "none"
+        ? "none"
+        : p.recordingStatus === "local" || typeof p.recordingId === "string"
+          ? "local"
+          : "none",
     recordingDevice:
       typeof p.recordingDevice === "string" ? p.recordingDevice : null,
     conditions: {

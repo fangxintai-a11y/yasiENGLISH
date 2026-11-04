@@ -15,6 +15,7 @@ import {
   availableSpeakingMaterials,
   type SpeakingContext,
 } from "../../speakingTasks";
+import { RecordingPlayer } from "./RecordingPlayer";
 import { SpeakingQuestionEditor } from "./SpeakingQuestionEditor";
 function seedFor(
   plan: Revision,
@@ -275,7 +276,7 @@ export function SpeakingSession({
                   setMessage("上一版仍保留，这次是新的作答。");
                 }}
               >
-                重新作答
+                重录这题
               </button>
             )}
             {material && currentQuestion + 1 < material.prompts.length && (
@@ -288,6 +289,26 @@ export function SpeakingSession({
                 下一题
               </button>
             )}
+            {seed.parentRevisionId &&
+              works.find(
+                (work) => work.revisionId === seed.parentRevisionId,
+              ) && (
+                <section className="panel" aria-label="上一版口语作答">
+                  <h3>上一版作答</h3>
+                  <p>
+                    {String(
+                      works.find(
+                        (work) => work.revisionId === seed.parentRevisionId,
+                      )!.payload.transcript ?? "转写为空",
+                    )}
+                  </p>
+                  <RecordingPlayer
+                    work={works.find(
+                      (work) => work.revisionId === seed.parentRevisionId,
+                    )!}
+                  />
+                </section>
+              )}
             <button
               type="button"
               className="btn btn-primary"

@@ -1,42 +1,33 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import type { Revision } from "../../protocol";
-import {
-  newSpeakingTiming,
-  measuredPreparation,
-  speakingDraftFromRevision,
-  speakingTimingStatus,
-  startPracticeTimer,
-  stopPracticeTimer,
-  type SpeakingDraft,
-} from "../../speakingModel";
 import {
   availableSpeakingMaterials,
   type SpeakingContext,
 } from "../../speakingTasks";
-import { saveSpeakingAttempt } from "../../speakingWorks";
-export function SpeakingQuestionEditor({
-  context,
-  seed,
-  initialWork,
-  userId,
-  onSaved,
-  onDirty,
-}: {
-  plan: Revision;
-  context: SpeakingContext;
-  seed: SpeakingDraft;
-  initialWork?: Revision;
-  userId: string | null;
-  onSaved: (work: Revision, seconds: number, isNew: boolean) => Promise<void>;
-  onDirty: (dirty: boolean) => void;
-}) {
-  const [draft, setDraft] = useState(seed),
-    [work, setWork] = useState(initialWork),
-    [timing, setTiming] = useState(newSpeakingTiming),
-    [notes, setNotes] = useState(""),
-    [now, setNow] = useState(Date.now),
-    [busy, setBusy] = useState(false),
-    [message, setMessage] = useState("");
+import { RecordingPlayer } from "./RecordingPlayer";
+import {
+  useSpeakingAnswer,
+  type SpeakingAnswerOptions,
+} from "./useSpeakingAnswer";
+export function SpeakingQuestionEditor(
+  props: SpeakingAnswerOptions & { plan: Revision; context: SpeakingContext },
+) {
+  const { context } = props;
+  const answer = useSpeakingAnswer(props),
+    {
+      draft,
+      setDraft,
+      work,
+      timing,
+      notes,
+      setNotes,
+      busy,
+      message,
+      status,
+      captureState,
+      pending,
+      estimated,
+    } = answer;
   const material = availableSpeakingMaterials(context.day).find(
     (value) =>
       value.id === draft.contentId && value.version === draft.contentVersion,
@@ -50,110 +41,7 @@ export function SpeakingQuestionEditor({
           ? "custom"
           : "external",
   );
-  const alive = useRef(true),
-    draftRef = useRef(draft);
-  draftRef.current = draft;
-  useEffect(() => {
-    alive.current = true;
-    const timer = window.setInterval(() => setNow(Date.now()), 200);
-    return () => {
-      alive.current = false;
-      window.clearInterval(timer);
-    };
-  }, []);
-  useEffect(() => {
-    if (!initialWork || initialWork.revisionId === work?.revisionId) return;
-    if (
-      !work ||
-      draftRef.current.transcript === String(work.payload.transcript ?? "")
-    ) {
-      setWork(initialWork);
-      setDraft(speakingDraftFromRevision(initialWork));
-    } else setMessage("云端有新修订，当前未保存的转写已保留。");
-  }, [initialWork?.revisionId]);
-  const dirty = work
-    ? draft.transcript !== String(work.payload.transcript ?? "")
-    : !!draft.transcript.trim() ||
-      !!notes.trim() ||
-      timing.prep.runningSince !== null ||
-      timing.answer.runningSince !== null ||
-      timing.prep.elapsedSeconds > 0 ||
-      timing.answer.elapsedSeconds > 0;
-  useEffect(() => {
-    onDirty(dirty);
-  }, [dirty]);
-  const status = speakingTimingStatus(draft.part, timing, now);
-  const prepare = () => {
-    setTiming((value) => ({ ...value, prep: startPracticeTimer(value.prep) }));
-    setDraft((value) => ({
-      ...value,
-      conditions: { ...value.conditions, timed: true },
-    }));
-  };
-  const start = () => {
-    const at = Date.now();
-    setTiming((value) => ({
-      prep: stopPracticeTimer(value.prep, at),
-      answer: startPracticeTimer(value.answer, at),
-    }));
-    setDraft((value) => ({
-      ...value,
-      conditions: { ...value.conditions, timed: true },
-    }));
-    setNow(at);
-  };
-  const stop = () => {
-    const at = Date.now();
-    setTiming((value) => ({
-      prep: stopPracticeTimer(value.prep, at),
-      answer: stopPracticeTimer(value.answer, at),
-    }));
-    setNow(at);
-  };
-  const save = async () => {
-    if (busy) return;
-    setBusy(true);
-    setMessage("");
-    try {
-      const at = Date.now(),
-        measured = speakingTimingStatus(draft.part, timing, at),
-        isNew = draft.baseRevision === null;
-      const next = work
-        ? draft
-        : {
-            ...draft,
-            prepSeconds: measuredPreparation(draft.part, timing, at),
-            durationSeconds: measured.answerSeconds,
-          };
-      const result = await saveSpeakingAttempt(next, {
-        expectedUserId: userId,
-      });
-      if (!alive.current) return;
-      setTiming((value) => ({
-        prep: stopPracticeTimer(value.prep, at),
-        answer: stopPracticeTimer(value.answer, at),
-      }));
-      setDraft(result.draft);
-      setWork(result.work);
-      onDirty(false);
-      try {
-        await onSaved(result.work, isNew ? measured.actualSeconds : 0, isNew);
-        if (alive.current) setMessage("作答已保存在本机，联网后同步文字记录。");
-      } catch (error) {
-        if (alive.current)
-          setMessage(
-            `作答已保存；任务用时未更新：${error instanceof Error ? error.message : "请重试。"}`,
-          );
-      }
-    } catch (error) {
-      if (alive.current)
-        setMessage(
-          `作答未保存：${error instanceof Error ? error.message : "请重试，转写仍保留。"}`,
-        );
-    } finally {
-      if (alive.current) setBusy(false);
-    }
-  };
+  const recording = captureState === "recording";
   const chooseSource = (value: typeof source) => {
     setSource(value);
     const builtin = availableSpeakingMaterials(context.day).find(
@@ -186,7 +74,10 @@ export function SpeakingQuestionEditor({
             ? "准备1分钟，再说满2分钟。到时只提示，可以继续说。"
             : "逐题回答，展开理由、比较与举例。"}
       </p>
-      <fieldset disabled={busy || !!work} style={{ border: 0, padding: 0 }}>
+      <fieldset
+        disabled={busy || !!work || recording}
+        style={{ border: 0, padding: 0 }}
+      >
         <label>
           题目来源
           <select
@@ -244,10 +135,11 @@ export function SpeakingQuestionEditor({
                 className="btn btn-ghost"
                 disabled={
                   busy ||
+                  recording ||
                   timing.prep.runningSince !== null ||
                   timing.answer.runningSince !== null
                 }
-                onClick={prepare}
+                onClick={answer.prepare}
               >
                 开始准备
               </button>
@@ -264,6 +156,7 @@ export function SpeakingQuestionEditor({
                   aria-label="准备笔记"
                   rows={3}
                   value={notes}
+                  disabled={busy}
                   style={{ width: "100%" }}
                   onChange={(event) => setNotes(event.target.value)}
                 />
@@ -274,25 +167,58 @@ export function SpeakingQuestionEditor({
             <button
               type="button"
               className="btn btn-primary"
-              disabled={busy || timing.answer.runningSince !== null}
-              onClick={start}
+              disabled={
+                busy || recording || timing.answer.runningSince !== null
+              }
+              onClick={() => {
+                void answer.beginRecord();
+              }}
             >
-              开始作答计时
+              开始录音
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              disabled={busy || !recording}
+              onClick={() => {
+                void answer.endRecord();
+              }}
+            >
+              停止录音
             </button>
             <button
               type="button"
               className="btn btn-ghost"
-              disabled={busy || timing.answer.runningSince === null}
-              onClick={stop}
+              disabled={
+                busy || recording || timing.answer.runningSince !== null
+              }
+              onClick={answer.startManual}
+            >
+              仅计时作答
+            </button>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              disabled={
+                busy || recording || timing.answer.runningSince === null
+              }
+              onClick={answer.stopManual}
             >
               结束作答
             </button>
           </div>
           <p role="status">
+            {captureState === "requesting"
+              ? "正在请求麦克风…"
+              : captureState === "stopping"
+                ? "正在保存录音…"
+                : recording
+                  ? "录音中 · "
+                  : ""}
             作答计时 {Math.floor(status.answerSeconds)} 秒
             {draft.part === 2
               ? status.part2Full
-                ? " · 已说满120秒，可以结束或继续"
+                ? " · 已到120秒，可以结束或继续"
                 : " · 未说满120秒"
               : ""}
           </p>
@@ -305,8 +231,13 @@ export function SpeakingQuestionEditor({
             ? draft.durationSeconds >= 120
               ? " · 已说满"
               : " · 未说满120秒"
-            : ""}{" "}
-          · 无本机录音
+            : ""}
+        </p>
+      )}
+      <RecordingPlayer work={work} pending={pending} />
+      {estimated && (
+        <p className="muted">
+          本段音频无法解码，时长按实际录制计时估计；请回听确认。
         </p>
       )}
       <label style={{ display: "block" }}>
@@ -327,7 +258,7 @@ export function SpeakingQuestionEditor({
       <label>
         <input
           type="checkbox"
-          disabled={busy || !!work}
+          disabled={busy || !!work || recording}
           checked={draft.conditions.unseen}
           onChange={(event) =>
             setDraft((value) => ({
@@ -338,19 +269,36 @@ export function SpeakingQuestionEditor({
         />{" "}
         这是未做过的题目
       </label>
-      <p className="muted">
-        本步可只写转写或用外部录音，保存为无本机录音的作答。
-      </p>
-      <button
-        type="button"
-        className="btn btn-primary"
-        disabled={busy}
-        onClick={() => {
-          void save();
-        }}
-      >
-        {busy ? "保存中…" : work ? "保存转写" : "保存作答"}
-      </button>
+      <div className="data-actions">
+        <button
+          type="button"
+          className="btn btn-primary"
+          disabled={busy || recording}
+          onClick={() => {
+            void answer.save();
+          }}
+        >
+          {busy
+            ? "保存中…"
+            : work
+              ? "保存转写"
+              : pending
+                ? "重试保存录音"
+                : "保存作答"}
+        </button>
+        {!work && (pending || answer.micFailed) && (
+          <button
+            type="button"
+            className="btn btn-ghost"
+            disabled={busy || recording}
+            onClick={() => {
+              void answer.onlyTranscript();
+            }}
+          >
+            仅保存转写
+          </button>
+        )}
+      </div>
       {message && <p role="status">{message}</p>}
     </article>
   );
