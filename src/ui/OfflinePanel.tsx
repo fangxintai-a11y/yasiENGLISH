@@ -2,6 +2,7 @@ import { Download, Pause, Play, Trash2 } from "lucide-react";
 import {
   defaultSelection,
   deletePack,
+  ensureStoragePersistence,
   loadManifest,
   pausePack,
   setSelection,
@@ -100,7 +101,27 @@ export function OfflinePanel() {
       {space && (
         <p className="pack-space">
           存储 · 已用 {formatBytes(space.used)} / 配额 {formatBytes(space.quota)}
-          {pack.persisted === false && "（浏览器暂未授予持久存储，长期不用可能被清理）"}
+          {pack.persisted === true && " · 已授予持久存储"}
+          {pack.persisted === false && " · 暂未持久存储（长期不用可能被清理）"}
+          {pack.persisted === false && (
+            <button
+              type="button"
+              className="btn-link"
+              style={{
+                marginLeft: 6,
+                textDecoration: "underline",
+                color: "var(--sky)",
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                font: "inherit",
+                padding: 0,
+              }}
+              onClick={() => void ensureStoragePersistence()}
+            >
+              申请持久化
+            </button>
+          )}
         </p>
       )}
 

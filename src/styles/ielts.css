@@ -646,7 +646,7 @@ input[type="date"],
   border: 1px solid var(--line-strong);
   background: var(--card);
   color: var(--ink);
-  font: 500 15px var(--sans);
+  font: 500 16px var(--sans);
   color-scheme: inherit;
 }
 /* ---------- onboarding placement ---------- */

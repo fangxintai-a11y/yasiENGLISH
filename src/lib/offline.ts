@@ -12,6 +12,11 @@ import {
   type PackManifest,
   type Progress,
 } from "./offlinePack";
+import {
+  checkStoragePersistence,
+  getStorageEstimate,
+  requestStoragePersistence,
+} from "./storagePersist";
 
 export { defaultSelection };
 export type { GroupKey, PackManifest, Progress };
@@ -156,12 +161,17 @@ export function loadManifest(): Promise<void> {
 }
 
 export async function refreshSpace() {
-  try {
-    const e = await navigator.storage?.estimate?.();
-    if (e && typeof e.usage === "number" && typeof e.quota === "number") commit({ space: { used: e.usage, quota: e.quota } });
-  } catch {
-    /* estimate is optional */
-  }
+  const e = await getStorageEstimate();
+  if (e) commit({ space: e });
+  const p = await checkStoragePersistence();
+  if (p !== null) commit({ persisted: p });
+}
+
+/** Requests persistent storage for the PWA origin and updates the reactive store. */
+export async function ensureStoragePersistence(): Promise<boolean | null> {
+  const granted = await requestStoragePersistence();
+  if (granted !== null) commit({ persisted: granted });
+  return granted;
 }
 
 export function setSelection(keys: GroupKey[]) {
@@ -252,7 +262,7 @@ export async function startPack(keys: GroupKey[], force = false) {
   commit({ phase: "running", failed: [], message: null, lowSpace: null, speed: 0, eta: 0, progress: ZERO });
   job.promise = (async () => {
     try {
-      navigator.storage?.persist?.().then((ok) => commit({ persisted: ok }), () => null);
+      void ensureStoragePersistence();
       const samples: [number, number][] = [];
       const failed = await refreshEntryPages(cache, controller.signal);
       const jobs = jobsFor(await shellAssets(controller.signal));

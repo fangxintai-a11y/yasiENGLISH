@@ -8,10 +8,12 @@ import "./styles/app.css";
 import "./styles/ielts.css";
 import { startCloudSync } from "./store/cloudSync";
 import { startLearningRecords } from "./study365/repository";
+import { ensureStoragePersistence } from "./lib/offline";
 
 migrateLegacy();
 startCloudSync();
 startLearningRecords();
+void ensureStoragePersistence();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
