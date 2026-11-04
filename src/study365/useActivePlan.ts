@@ -1,3 +1,4 @@
+import { materialQualifiedRecords } from './materialSource';
 import { useEffect, useMemo, useState } from "react";
 import { bundledRules } from "./planData";
 import { buildDayPlan, selectLatestBaseline, todayInTimeZone, type DayPlan } from "./planEngine";
@@ -19,9 +20,9 @@ export function useActivePlan() {
   const result = useMemo<{ dayPlan: DayPlan | null; error: string | null }>(() => {
     if (!plan) return { dayPlan: null, error: null };
     try {
-      const baseline = selectLatestBaseline(learning.records, plan.id);
+      const baseline = selectLatestBaseline(materialQualifiedRecords(learning.records, plan.id), plan.id);
       const today = todayInTimeZone(now, String(plan.payload.timeZone));
-      const scores = scoreView(latestAssessment(learning.records, plan.id)?.payload ?? {}).effectiveScores;
+      const scores = scoreView(latestAssessment(learning.records, plan.id)?.payload ?? {}, learning.records).effectiveScores;
       return { dayPlan: buildDayPlan(bundledRules, plan.payload, today, baseline, { scores }), error: null };
     } catch (error) {
       return { dayPlan: null, error: `暂时无法显示此计划：${error instanceof Error ? error.message : "请检查计划日期与时区。"}历史记录已保留。` };

@@ -1,3 +1,4 @@
+import { assessmentMaterialEligibility } from './materialSource';
 import { evaluateFinalGoal, overallBand, sectionGaps, type GateId, type Scores } from './goals';
 import { GATE_TARGETS, SCORE_SOURCES, SECTION_TARGETS, isObject, validatePayload, type LearningPayload, type Revision } from './protocol';
 
@@ -17,15 +18,16 @@ export function sourceLabel(source: ScoreSource | null, skill: Skill): string {
 }
 
 /** Keep the original sitting visible; only its eligible scores enter gaps. Never mix sittings. */
-export function scoreView(payload: LearningPayload) {
+export function scoreView(payload: LearningPayload, records: readonly Revision[] = []) {
+  const material = assessmentMaterialEligibility(payload, records);
   const scores = Object.fromEntries(SKILLS.map(skill => [skill, band(isObject(payload.scores) ? payload.scores[skill] : null)])) as Scores;
   const sources = Object.fromEntries(SKILLS.map(skill => {
     const value = isObject(payload.scoreSources) ? payload.scoreSources[skill] : payload.source;
     return [skill, scores[skill] !== null && SCORE_SOURCES.includes(value as ScoreSource) ? value : null];
   })) as ScoreSources;
   const effectiveScores = Object.fromEntries(SKILLS.map(skill => [skill,
-    sources[skill] && (!(skill === 'writing' || skill === 'speaking') || ['human', 'official'].includes(sources[skill]!)) ? scores[skill] : null])) as Scores;
-  return { scores, sources, effectiveScores, overall: overallBand(scores), effectiveOverall: overallBand(effectiveScores), gaps: sectionGaps(effectiveScores), finalGoalMet: evaluateFinalGoal(payload).met };
+    sources[skill] && (!(skill === 'listening' || skill === 'reading') || material[skill].eligible) && (!(skill === 'writing' || skill === 'speaking') || ['human', 'official'].includes(sources[skill]!)) ? scores[skill] : null])) as Scores;
+  return { scores, sources, material, referenceSkills: (['listening', 'reading'] as const).filter(skill => scores[skill] !== null && !material[skill].eligible), effectiveScores, overall: overallBand(scores), effectiveOverall: overallBand(effectiveScores), gaps: sectionGaps(effectiveScores), finalGoalMet: evaluateFinalGoal(payload).met };
 }
 
 export function currentAssessments(records: readonly Revision[], planId: string): Revision[] {
@@ -47,7 +49,7 @@ export interface EffectiveSectionScore { score: number; source: ScoreSource; dat
 export function latestEffectiveBySkill(records: readonly Revision[], planId: string): Record<Skill, EffectiveSectionScore | null> {
   const result = Object.fromEntries(SKILLS.map(skill => [skill, null])) as Record<Skill, EffectiveSectionScore | null>;
   for (const record of currentAssessments(records, planId)) {
-    const view = scoreView(record.payload);
+    const view = scoreView(record.payload, records);
     for (const skill of SKILLS) {
       const score = view.effectiveScores[skill], source = view.sources[skill];
       if (result[skill] === null && score !== null && source !== null) result[skill] = { score, source, date: String(record.payload.date ?? ''), recordId: record.id };

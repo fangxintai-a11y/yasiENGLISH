@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { buildAssessment, buildExternalAttempt, latestAssessment, latestEffectiveBySkill, scoreView, sourceLabel } from './scoresModel';
+import { buildAssessment, buildExternalAttempt, latestAssessment, latestEffectiveBySkill as rawLatestEffectiveBySkill, scoreView as rawScoreView, sourceLabel } from './scoresModel';
 import { SECTION_TARGETS, validatePayload, type Revision } from './protocol';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -195,3 +195,15 @@ test('per-skill trends choose the newest valid result even when its score is low
     assert.equal(value?.date, '2026-11-16');
   }
 });
+
+// Existing score behavior cases now carry explicit synthetic, classified full-paper evidence.
+function withMaterialEvidence(records: readonly Revision[]): Revision[] {
+  return records.flatMap(item => {
+    if (item.kind !== 'assessment' || !item.payload.scores) return [item];
+    const materialId = String(item.payload.materialId ?? `synthetic-${item.id}`), payload = { ...item.payload, materialId };
+    return [{ ...item, payload }, ...['listening', 'reading'].map(skill => ({ ...item, kind: 'attempt' as const, id: `evidence-${item.id}-${skill}`, payload: { planId: item.payload.planId, date: item.payload.date, contentId: materialId, skill, answers: Array(40).fill('a'), score: 37, correct: 37, total: 40, scope: 'full', materialSource: 'cambridge', contentHash: 'b'.repeat(64) } }))];
+  });
+}
+
+function scoreView(payload: Record<string, unknown>) { const records = withMaterialEvidence([record(payload)]); return rawScoreView(records[0].payload, records); }
+function latestEffectiveBySkill(records: readonly Revision[], planId: string) { return rawLatestEffectiveBySkill(withMaterialEvidence(records), planId); }

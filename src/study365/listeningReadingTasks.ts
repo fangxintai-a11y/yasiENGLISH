@@ -7,6 +7,7 @@ import {
 import { missionTaskId, selectMission } from "./missionRecords";
 import { bundledRules } from "./planData";
 import { latestAssessment, scoreView } from "./scoresModel";
+import { materialQualifiedRecords } from "./materialSource";
 import type { Revision } from "./protocol";
 export interface PracticeContext {
   date: string;
@@ -27,12 +28,13 @@ export function resolvePracticeContext(
     route.date ?? todayInTimeZone(now, String(plan.payload.timeZone));
   const scores = scoreView(
     latestAssessment(records, plan.id)?.payload ?? {},
+    records,
   ).effectiveScores;
   const dayPlan = buildDayPlan(
     bundledRules,
     plan.payload,
     date,
-    selectLatestBaseline(records, plan.id),
+    selectLatestBaseline(materialQualifiedRecords(records, plan.id), plan.id),
     { scores },
   );
   if (route.day !== undefined && route.day !== dayPlan.day)

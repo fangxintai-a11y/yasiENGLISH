@@ -12,6 +12,7 @@ import { FeedbackPanel } from "./me/FeedbackPanel";
 import { SyncIssues } from "../study365/ui/SyncIssues";
 import { RecordingsBackup } from "../study365/ui/RecordingsBackup";
 import { LocalBankPanel } from "../study365/ui/LocalBankPanel";
+import { OfficialResources } from "../study365/ui/OfficialResources";
 import { CalibrationStatus } from "../study365/ui/CalibrationStatus";
 import { streakOf } from "./Today";
 import { useLearning } from "../study365/repository";
@@ -149,6 +150,7 @@ export function Me({ privateAvailable, focusSync = false }: { privateAvailable: 
 
         <RecordingsBackup />
         <LocalBankPanel />
+        <OfficialResources />
 
         <CalibrationStatus />
 

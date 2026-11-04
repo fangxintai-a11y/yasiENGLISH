@@ -1,3 +1,4 @@
+import { materialQualifiedRecords } from './materialSource';
 import samples from '../../public/curriculum365/v1/samples.json';
 import { MaterialSchema, type Material } from './contentSchemas';
 import { bundledInventory, bundledRules } from './planData';
@@ -17,8 +18,8 @@ export function availableSpeakingMaterials(day: number): SpeakingMaterial[] {
 }
 export function resolveSpeakingContext(plan: Revision, records: readonly Revision[], route: { date?: string; day?: number; task?: string; minutes?: number }, now = Date.now()): SpeakingContext {
   const date = route.date ?? todayInTimeZone(now, String(plan.payload.timeZone));
-  const scores = scoreView(latestAssessment(records, plan.id)?.payload ?? {}).effectiveScores;
-  const dayPlan = buildDayPlan(bundledRules, plan.payload, date, selectLatestBaseline(records, plan.id), { scores });
+  const scores = scoreView(latestAssessment(records, plan.id)?.payload ?? {}, records).effectiveScores;
+  const dayPlan = buildDayPlan(bundledRules, plan.payload, date, selectLatestBaseline(materialQualifiedRecords(records, plan.id), plan.id), { scores });
   if (route.day !== undefined && route.day !== dayPlan.day) throw new Error('口语任务日期与计划日不一致，请从今日任务重新进入。');
   const selected = route.task ? dayPlan.blocks.find(block => missionTaskId(dayPlan.day, block.id) === route.task) : dayPlan.blocks.find(block => block.skill === 'speaking');
   if (route.task && (!selected || selected.skill !== 'speaking' && !['timed-section', 'weak-skill'].includes(selected.id))) throw new Error('这不是当天的口语任务，请从今日任务重新进入。');

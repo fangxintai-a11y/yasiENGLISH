@@ -2,9 +2,10 @@ import { useRef, useState } from 'react';
 import { assertNoCredentials } from '../../ielts/scoring';
 import type { DayPlan } from '../planEngine';
 import { missionTaskId, saveMission } from '../missionRecords';
-import type { LearningPayload, Revision } from '../protocol';
+import { ATTEMPT_SCOPES, MATERIAL_SOURCES, validatePayload, type AttemptScope, type MaterialSource, type LearningPayload, type Revision } from '../protocol';
 import { getLearningState, saveRecord, useLearning } from '../repository';
 import { SKILL_LABELS, buildExternalAttempt } from '../scoresModel';
+import { MATERIAL_CATEGORY_LABELS } from './OfficialResources';
 
 interface Props { plan: Revision; dayPlan: DayPlan; block: DayPlan['blocks'][number]; mission?: Revision; selectedSkill?: DayPlan['blocks'][number]['skill']; onClose?: () => void }
 type Pending = { userId: string | null; mission: Parameters<typeof saveMission>[0]; attempt: { id: string; kind: 'attempt'; payload: LearningPayload } | null; missionSaved: boolean };
@@ -18,6 +19,8 @@ export function TaskRegistration({ plan, dayPlan, block, mission, selectedSkill,
   const [materialName, setMaterialName] = useState(''), [materialUrl, setMaterialUrl] = useState(''), [note, setNote] = useState('');
   const [contentId, setContentId] = useState(() => String(existing[0]?.payload.contentId ?? `external-${crypto.randomUUID()}`));
   const [score, setScore] = useState(''), [total, setTotal] = useState('');
+  const [materialSource, setMaterialSource] = useState<MaterialSource>('unofficial');
+  const [scope, setScope] = useState<AttemptScope>('section');
   const [timed, setTimed] = useState(false), [unseen, setUnseen] = useState(false), [replayed, setReplayed] = useState(false), [viewedTranscript, setViewedTranscript] = useState(false), [firstAttempt, setFirstAttempt] = useState(false);
   const [busy, setBusy] = useState(false), [resume, setResume] = useState(false), [message, setMessage] = useState('');
   const pending = useRef<Pending | null>(null), inFlight = useRef(false);
@@ -35,6 +38,10 @@ export function TaskRegistration({ plan, dayPlan, block, mission, selectedSkill,
         const hasNewDetail = status !== 'skipped' && !existing.length || !!(materialName.trim() || materialUrl.trim() || note.trim() || score || total || timed || unseen || replayed || viewedTranscript || firstAttempt);
         const attempt = buildExternalAttempt({ planId: plan.id, date: dayPlan.date, day: dayPlan.day, taskId, skill, contentId, actualMinutes: Number(actualMinutes), materialName, materialUrl, note,
           score: score === '' ? undefined : Number(score), total: total === '' ? undefined : Number(total), timed, unseen, replayed, viewedTranscript, firstAttempt });
+        if (listeningReading) Object.assign(attempt, { materialSource, scope, sourceRef: materialUrl.trim() || materialName.trim() || contentId.trim() });
+        // External aggregate evidence has no imported paper bytes or per-question answers.
+        // Validate the wire fields without inventing a content hash or empty answer slots.
+        validatePayload('attempt', attempt);
         assertNoCredentials(attempt);
         pending.current = { userId: learning.userId, mission: { planId: plan.id, day: dayPlan.day, date: dayPlan.date, block: { ...block, skill: ['listening', 'reading', 'writing', 'speaking', 'vocabulary'].includes(skill) ? skill as DayPlan['blocks'][number]['skill'] : block.skill }, status: status as Parameters<typeof saveMission>[0]['status'], actualMinutes: Number(actualMinutes), timeSource: 'manual', expectedUserId: learning.userId }, attempt: hasNewDetail ? { id: crypto.randomUUID(), kind: 'attempt', payload: attempt } : null, missionSaved: false };
       }
@@ -60,6 +67,9 @@ export function TaskRegistration({ plan, dayPlan, block, mission, selectedSkill,
       <label>材料标识<input aria-label="登记材料标识" value={contentId} maxLength={160} onChange={event => setContentId(event.target.value)} /></label>
       <label>备注<textarea aria-label="登记备注" value={note} maxLength={3000} onChange={event => setNote(event.target.value)} /></label>
       {listeningReading && <fieldset><legend>听读原始成绩（按本次材料填写）</legend>
+        <label>材料类别<select aria-label="登记材料来源" value={materialSource} onChange={event => setMaterialSource(event.target.value as MaterialSource)}>{MATERIAL_SOURCES.map(source => <option key={source} value={source}>{MATERIAL_CATEGORY_LABELS[source]}</option>)}</select></label>
+        <label>练习范围<select aria-label="登记材料范围" value={scope} onChange={event => setScope(event.target.value as AttemptScope)}>{ATTEMPT_SCOPES.map(value => <option key={value} value={value}>{{ full: '完整一套', section: '单篇/单节', 'type-drill': '题型专项', short: '短专项' }[value]}</option>)}</select></label>
+        <p className="muted">按实际材料分类。非官方、其他出版材料或未分类成绩仅供参考；外部整套可如实登记37/40，无需补造逐题答案或材料校验值。</p>
         <label>原始正确数<input aria-label="登记原始正确数" type="number" min={0} step={1} value={score} onChange={event => setScore(event.target.value)} /></label>
         <label>总题数<input aria-label="登记总题数" type="number" min={1} step={1} value={total} onChange={event => setTotal(event.target.value)} /></label>
         <p className="muted">雅思分请另在成绩本按本次材料的换算依据登记。</p>

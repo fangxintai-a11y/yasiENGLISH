@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildProgress } from './progressModel';
+import { buildProgress as rawBuildProgress } from './progressModel';
 import { bundledRules } from './planData';
 import { buildAssessment, scoreView } from './scoresModel';
 import { GATE_TARGETS, SECTION_TARGETS, type LearningPayload, type Revision } from './protocol';
@@ -111,3 +111,14 @@ test('all four per-skill targets across two partial sittings do not manufacture 
   assert.equal(model.gates[0].overallGap, null);
   assert.equal(model.completed, false);
 });
+
+// Existing score behavior cases now carry explicit synthetic, classified full-paper evidence.
+function withMaterialEvidence(records: readonly Revision[]): Revision[] {
+  return records.flatMap(item => {
+    if (item.kind !== 'assessment' || !item.payload.scores) return [item];
+    const materialId = String(item.payload.materialId ?? `synthetic-${item.id}`), payload = { ...item.payload, materialId };
+    return [{ ...item, payload }, ...['listening', 'reading'].map(skill => ({ ...item, kind: 'attempt' as const, id: `evidence-${item.id}-${skill}`, payload: { planId: item.payload.planId, date: item.payload.date, contentId: materialId, skill, answers: Array(40).fill('a'), score: 37, correct: 37, total: 40, scope: 'full', materialSource: 'cambridge', contentHash: 'b'.repeat(64) } }))];
+  });
+}
+
+function buildProgress(plan: Revision, records: readonly Revision[], date: string) { return rawBuildProgress(plan, withMaterialEvidence(records), date); }

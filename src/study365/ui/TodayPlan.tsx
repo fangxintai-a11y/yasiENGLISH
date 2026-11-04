@@ -10,6 +10,8 @@ import { PlanSetup } from "./PlanSetup";
 import { TaskRegistration } from "./TaskRegistration";
 import { pendingWritingHandoffs } from "../writingCalibration";
 import { latestAssessment, scoreView } from "../scoresModel";
+import { materialQualifiedRecords } from "../materialSource";
+import { ExtensivePractice } from "./reading/ExtensivePractice";
 
 const weekdays: Record<string, string> = { monday: "一", tuesday: "二", wednesday: "三", thursday: "四", friday: "五", saturday: "六", sunday: "日" };
 
@@ -20,7 +22,7 @@ function ActiveTasks({ plan, today, learning }: { plan: Revision; today: DayPlan
   useEffect(() => { if (registration) registrationRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' }); }, [registration]);
   const dates = editableDates(today.date, String(plan.payload.startDate));
   const date = dates.includes(selectedDate) ? selectedDate : today.date;
-  const dayPlan = useMemo(() => date === today.date ? today : buildDayPlan(bundledRules, plan.payload, date, selectLatestBaseline(learning.records, plan.id), { scores: scoreView(latestAssessment(learning.records, plan.id)?.payload ?? {}).effectiveScores }), [date, today, plan, learning.records]);
+  const dayPlan = useMemo(() => date === today.date ? today : buildDayPlan(bundledRules, plan.payload, date, selectLatestBaseline(materialQualifiedRecords(learning.records, plan.id), plan.id), { scores: scoreView(latestAssessment(learning.records, plan.id)?.payload ?? {}, learning.records).effectiveScores }), [date, today, plan, learning.records]);
   const registrationBlock = registration?.date === date ? dayPlan.blocks.find(block => block.id === registration.blockId) : undefined;
   const completion = dayCompletion(learning.records, plan.id, date);
   const streak = missionStreak(learning.records, plan.id, today.date);
@@ -37,6 +39,7 @@ function ActiveTasks({ plan, today, learning }: { plan: Revision; today: DayPlan
     <p className="muted">实际用时 {completion.actualMinutes} 分钟 · 连续达成80%：{streak}天</p>
     {dayPlan.blocks.map((block, index) => <MissionCard key={`${learning.userId ?? "guest"}:${plan.id}:${date}:${block.id}`} plan={plan} dayPlan={dayPlan} block={block} index={index} userId={learning.userId} pendingWritingReviews={pendingReviews}
       mission={selectMission(learning.records, plan.id, date, missionTaskId(dayPlan.day, block.id))} onRegister={skill => setRegistration({ blockId: block.id, skill, date })} />)}
+    <ExtensivePractice key={`${learning.userId ?? 'guest'}:${plan.id}:${date}`} plan={plan} dayPlan={dayPlan} userId={learning.userId} />
     {registrationBlock && registration && <div ref={registrationRef}><TaskRegistration key={`${learning.userId ?? 'guest'}:${plan.id}:${date}:${registrationBlock.id}:${registration.skill}`} plan={plan} dayPlan={dayPlan} block={registrationBlock} selectedSkill={registration.skill}
       mission={selectMission(learning.records, plan.id, date, missionTaskId(dayPlan.day, registrationBlock.id))} onClose={() => setRegistration(null)} /></div>}
   </div>;

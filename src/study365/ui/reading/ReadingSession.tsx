@@ -1,3 +1,12 @@
+import {
+  ListeningReadingPlan,
+  practiceSelection,
+  readingDailyRequirements,
+  MATERIAL_SOURCE_LABELS,
+  PRACTICE_SCOPE_LABELS,
+} from "./ListeningReadingPlan";
+import { ShortStudy } from "./ShortStudy";
+import { OfficialResources } from "../OfficialResources";
 import { ReadingReview } from "./ReadingReview";
 import { ReadingErrorBook } from "./ReadingErrorBook";
 import {
@@ -7,7 +16,7 @@ import {
   savePracticeDraft,
   clearPracticeDraft,
 } from "../../practiceDraft";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { loadLocalBank } from "../../localBank";
 import type { LocalMaterial } from "../../localBankSchema";
 import { useLearning, getLearningState, saveRecord } from "../../repository";
@@ -59,6 +68,7 @@ export function ReadingSession({
     [loaded, setLoaded] = useState(false),
     [error, setError] = useState(""),
     [message, setMessage] = useState("");
+  const [holdout, setHoldout] = useState(false);
   const [chosen, setChosen] = useState(initialMaterialId ?? ""),
     [answers, setAnswers] = useState<string[]>([]),
     [started, setStarted] = useState<number | null>(null),
@@ -125,10 +135,40 @@ export function ReadingSession({
   const materials = bank.filter(
     (m) =>
       m.skill === skill &&
-      (m.pool !== "holdout" || m.id === work?.payload.contentId),
+      ((holdout ? m.pool === "holdout" : m.pool !== "holdout") ||
+        m.id === work?.payload.contentId),
   );
   const materialKey = (m: LocalMaterial) =>
     `${m.id}@${m.version}@${m.contentHash}`;
+  const selection = useMemo(
+    () =>
+      practiceSelection(
+        bank,
+        learning.records,
+        plan.id,
+        context.day,
+        context.date,
+        skill,
+        context.requiresFull,
+      ),
+    [
+      bank,
+      learning.records,
+      plan.id,
+      context.day,
+      context.date,
+      skill,
+      context.requiresFull,
+    ],
+  );
+  const preferred = holdout
+    ? (materials.find(
+        (m) =>
+          m.pool === "holdout" &&
+          (!context.requiresFull ||
+            (m.scope === "full" && m.questions.length === 40)),
+      ) ?? null)
+    : selection.preferred;
   const selected = work
     ? materials.find(
         (m) =>
@@ -136,8 +176,10 @@ export function ReadingSession({
           m.version === work.payload.contentVersion &&
           m.contentHash === work.payload.contentHash,
       )
-    : (materials.find((m) => materialKey(m) === chosen || m.id === chosen) ??
-      materials[0]);
+    : chosen
+      ? (materials.find((m) => materialKey(m) === chosen || m.id === chosen) ??
+        null)
+      : preferred;
   const material = selected
     ? {
         ...selected,
@@ -147,6 +189,8 @@ export function ReadingSession({
             : selected.questions,
       }
     : null;
+  const isReferenceShort =
+    material?.scope === "short" && material.questions.length === 0;
   const passage = material?.skill === "reading" ? material.passage : "";
   const paragraphs = material?.skill === "reading" ? material.paragraphs : [];
   const transcript = material?.skill === "listening" ? material.transcript : "";
@@ -178,7 +222,10 @@ export function ReadingSession({
     setNow(Date.now());
     playbackReadyRef.current = skill === "reading";
     setPlaybackReady(playbackReadyRef.current);
-    if (draft) setMessage("已恢复本机未提交答案与原始计时。");
+    if (draft) {
+      setChosen(materialKey(material));
+      setMessage("已恢复本机未提交答案与原始计时。");
+    }
   }, [draftKey, work?.id]);
   useEffect(() => {
     if (work || !draftKey || started === null) return;
@@ -222,6 +269,7 @@ export function ReadingSession({
       return;
     }
     setError("");
+    if (material) setChosen(materialKey(material));
     setHighlight(null);
     setMessage("");
     activeClock.current = new PracticeClock();
@@ -302,16 +350,41 @@ export function ReadingSession({
     setError("");
     try {
       liveAccount();
+      const daily =
+        context.day <= 14 && skill === "reading"
+          ? readingDailyRequirements(
+              getLearningState().records,
+              plan.id,
+              context.date,
+              context.taskId,
+            )
+          : null;
+      const fullMissing =
+        context.requiresFull &&
+        !currentAttempts(getLearningState().records, plan.id).some(
+          (r) =>
+            r.payload.skill === skill &&
+            r.payload.taskId === context.taskId &&
+            r.payload.date === context.date &&
+            r.payload.scope === "full" &&
+            r.payload.total === 40 &&
+            Array.isArray(r.payload.questionResults) &&
+            r.payload.questionResults.length === 40 &&
+            r.payload.questionResults.every(
+              (q) =>
+                !!q &&
+                typeof q === "object" &&
+                "reviewCorrect" in q &&
+                typeof q.reviewCorrect === "boolean",
+            ),
+        );
       await saveMission({
         planId: plan.id,
         day: context.day,
         date: context.date,
         block: context.block,
         status:
-          context.requiresFull &&
-          (material?.scope !== "full" || material.questions.length !== 40)
-            ? "partial"
-            : "completed",
+          fullMissing || (daily && !daily.complete) ? "partial" : "completed",
         actualMinutes: currentAttempts(getLearningState().records, plan.id)
           .filter(
             (r) =>
@@ -324,10 +397,11 @@ export function ReadingSession({
       });
       if (alive.current)
         setMessage(
-          context.requiresFull &&
-            (material?.scope !== "full" || material.questions.length !== 40)
+          fullMissing
             ? "单节或单篇已保存为部分完成；完整测评还需完成整套内容。"
-            : "本次任务已完成，按实际用时记录。",
+            : daily && !daily.complete
+              ? "本次进度已保存；前14天阅读还需完成官方题型练习和一篇新正篇的复盘。"
+              : "本次任务已完成，按实际用时记录。",
         );
     } catch (e) {
       if (alive.current)
@@ -369,6 +443,39 @@ export function ReadingSession({
             <a href="#/me">我的 → 题库</a>
           </p>
         )}
+        {loaded && (
+          <ListeningReadingPlan
+            bank={bank}
+            records={learning.records}
+            planId={plan.id}
+            day={context.day}
+            date={context.date}
+            skill={skill}
+            requiresFull={context.requiresFull}
+            disabled={started !== null || !!work || busy}
+            onChoose={(m) => {
+              if (started !== null || work || busy) return;
+              setChosen(materialKey(m));
+              setHighlight(null);
+            }}
+          />
+        )}
+        <OfficialResources />
+        {!work && (
+          <label className="r4-choice">
+            <input
+              type="checkbox"
+              aria-label="独立检查池"
+              disabled={started !== null || busy}
+              checked={holdout}
+              onChange={(e) => {
+                setHoldout(e.target.checked);
+                setChosen("");
+              }}
+            />
+            查看独立检查池（不用于日常选材）
+          </label>
+        )}
         {!work && (
           <label className="field">
             <span>练习材料</span>
@@ -384,9 +491,13 @@ export function ReadingSession({
               value={selected ? materialKey(selected) : ""}
               onChange={(e) => setChosen(e.target.value)}
             >
+              <option value="" disabled>
+                请选择材料；重做会保留重复练习标记
+              </option>
               {materials.map((m) => (
                 <option key={`${m.id}:${m.version}`} value={materialKey(m)}>
-                  {m.title} · {m.version} · {m.source.materialSource}
+                  {m.title} · {m.version} ·{" "}
+                  {MATERIAL_SOURCE_LABELS[m.source.materialSource]}
                 </option>
               ))}
             </select>
@@ -408,7 +519,8 @@ export function ReadingSession({
                 : material.source.materialSource === "cambridge"
                   ? "剑桥材料"
                   : "参考"}{" "}
-              · {material.source.sourceRef} · {material.scope}
+              · {material.source.sourceRef} ·{" "}
+              {PRACTICE_SCOPE_LABELS[material.scope]}
             </p>
             {skill === "reading" && (
               <p>
@@ -417,205 +529,231 @@ export function ReadingSession({
               </p>
             )}
             <p>本块计划 {context.plannedMinutes} 分钟；实际计时单独保存。</p>
-            {!work && started === null && (
-              <button
-                className="btn btn-primary"
-                onClick={start}
-                disabled={
-                  busy || !!activeWorkId || context.day < 1 || context.day > 365
-                }
-              >
-                开始限时首答
-              </button>
-            )}
-            {!work && started !== null && (
-              <p role="timer">
-                已用 {Math.floor(elapsed / 60)}:
-                {String(Math.floor(elapsed % 60)).padStart(2, "0")}
-                {elapsed > minutes * 60 ? " · 已超时，提交时记为非限时" : ""}
-              </p>
-            )}
-            {(started !== null || work) && (
+            {isReferenceShort ? (
+              <ShortStudy
+                key={material.contentHash}
+                material={material}
+                plan={plan}
+                context={context}
+                userId={userId}
+                work={work}
+                onSaved={(record) => setActiveWorkId(record.id)}
+              />
+            ) : (
               <>
-                {skill === "listening" &&
-                  playback?.(
-                    material,
-                    !!work,
-                    (value) => {
-                      conditions.current = value;
-                    },
-                    (ready) => {
-                      playbackReadyRef.current = ready;
-                      setPlaybackReady(ready);
-                    },
-                    evidenceVisible,
-                  )}
-                <div className="r4-mobile-switch">
-                  {(skill === "reading" || evidenceVisible) && (
-                    <button
-                      className="btn btn-ghost"
-                      onClick={() => setPane("passage")}
-                    >
-                      查看原文
-                    </button>
-                  )}
-                  <button
-                    className="btn btn-ghost"
-                    onClick={() => setPane("questions")}
-                  >
-                    查看题目
-                  </button>
-                </div>
-                <div
-                  className={`r4-columns r4-show-${pane} ${skill === "listening" ? "r4-listening" : ""} ${evidenceVisible ? "r4-has-transcript" : ""}`}
-                >
-                  <article className="r4-passage" aria-label="阅读原文">
-                    {skill === "reading" &&
-                      paragraphs.map((p, i) => (
-                        <p key={p.id} data-paragraph-id={p.id}>
-                          <b>{p.label ?? String.fromCharCode(65 + i)}.</b>{" "}
-                          {evidenceVisible &&
-                          highlight &&
-                          (!highlight.paragraphId ||
-                            highlight.paragraphId === p.id) &&
-                          p.text.includes(highlight.quote) ? (
-                            <>
-                              {p.text.slice(
-                                0,
-                                highlight.offset ??
-                                  p.text.indexOf(highlight.quote),
-                              )}
-                              <mark>{highlight.quote}</mark>
-                              {p.text.slice(
-                                (highlight.offset ??
-                                  p.text.indexOf(highlight.quote)) +
-                                  highlight.quote.length,
-                              )}
-                            </>
-                          ) : (
-                            p.text
-                          )}
-                        </p>
-                      ))}
-                    {skill === "listening" && evidenceVisible && (
-                      <p>{transcript}</p>
-                    )}
-                  </article>
-                  <section className="r4-questions" aria-label="作答题目">
-                    <ReadingQuestions
-                      material={material}
-                      answers={
-                        work ? (work.payload.answers as string[]) : answers
-                      }
-                      disabled={!!work || busy}
-                      onChange={setAnswers}
-                    />
-                  </section>
-                </div>
-                {!work && (
+                {!work && started === null && (
                   <button
                     className="btn btn-primary"
-                    disabled={busy || (skill === "listening" && !playbackReady)}
-                    onClick={() => void submit()}
+                    onClick={start}
+                    disabled={
+                      busy ||
+                      !!activeWorkId ||
+                      context.day < 1 ||
+                      context.day > 365
+                    }
                   >
-                    提交首答
+                    开始限时首答
                   </button>
                 )}
-              </>
-            )}
-            {work && result && (
-              <section aria-label="首答结果">
-                <h2>
-                  首答 {work.payload.score as number}/
-                  {work.payload.total as number}
-                </h2>
-                <p>
-                  {work.payload.firstAttempt
-                    ? "新材料首答"
-                    : "重复练习，不算新首答"}{" "}
-                  ·{" "}
-                  {material.source.materialSource === "official" ||
-                  material.source.materialSource === "cambridge"
-                    ? "官方/剑桥材料"
-                    : "参考"}
-                </p>
-                {estimatedReadingListeningBand(
-                  Number(work.payload.score),
-                  Number(work.payload.total),
-                  String(work.payload.scope),
-                ) !== null && (
-                  <p>
-                    整套估算分{" "}
+                {!work && started !== null && (
+                  <p role="timer">
+                    已用 {Math.floor(elapsed / 60)}:
+                    {String(Math.floor(elapsed % 60)).padStart(2, "0")}
+                    {elapsed > minutes * 60
+                      ? " · 已超时，提交时记为非限时"
+                      : ""}
+                  </p>
+                )}
+                {(started !== null || work) && (
+                  <>
+                    {skill === "listening" &&
+                      playback?.(
+                        material,
+                        !!work,
+                        (value) => {
+                          conditions.current = value;
+                        },
+                        (ready) => {
+                          playbackReadyRef.current = ready;
+                          setPlaybackReady(ready);
+                        },
+                        evidenceVisible,
+                      )}
+                    <div className="r4-mobile-switch">
+                      {(skill === "reading" || evidenceVisible) && (
+                        <button
+                          className="btn btn-ghost"
+                          onClick={() => setPane("passage")}
+                        >
+                          查看原文
+                        </button>
+                      )}
+                      <button
+                        className="btn btn-ghost"
+                        onClick={() => setPane("questions")}
+                      >
+                        查看题目
+                      </button>
+                    </div>
+                    <div
+                      className={`r4-columns r4-show-${pane} ${skill === "listening" ? "r4-listening" : ""} ${evidenceVisible ? "r4-has-transcript" : ""}`}
+                    >
+                      <article className="r4-passage" aria-label="阅读原文">
+                        {skill === "reading" &&
+                          paragraphs.map((p, i) => (
+                            <p key={p.id} data-paragraph-id={p.id}>
+                              <b>{p.label ?? String.fromCharCode(65 + i)}.</b>{" "}
+                              {evidenceVisible &&
+                              highlight &&
+                              (!highlight.paragraphId ||
+                                highlight.paragraphId === p.id) &&
+                              p.text.includes(highlight.quote) ? (
+                                <>
+                                  {p.text.slice(
+                                    0,
+                                    highlight.offset ??
+                                      p.text.indexOf(highlight.quote),
+                                  )}
+                                  <mark>{highlight.quote}</mark>
+                                  {p.text.slice(
+                                    (highlight.offset ??
+                                      p.text.indexOf(highlight.quote)) +
+                                      highlight.quote.length,
+                                  )}
+                                </>
+                              ) : (
+                                p.text
+                              )}
+                            </p>
+                          ))}
+                        {skill === "listening" && evidenceVisible && (
+                          <p>{transcript}</p>
+                        )}
+                      </article>
+                      <section className="r4-questions" aria-label="作答题目">
+                        <ReadingQuestions
+                          material={material}
+                          answers={
+                            work ? (work.payload.answers as string[]) : answers
+                          }
+                          disabled={!!work || busy}
+                          onChange={setAnswers}
+                        />
+                      </section>
+                    </div>
+                    {!work && (
+                      <button
+                        className="btn btn-primary"
+                        disabled={
+                          busy || (skill === "listening" && !playbackReady)
+                        }
+                        onClick={() => void submit()}
+                      >
+                        提交首答
+                      </button>
+                    )}
+                  </>
+                )}
+                {work && result && (
+                  <section aria-label="首答结果">
+                    <h2>
+                      首答 {work.payload.score as number}/
+                      {work.payload.total as number}
+                    </h2>
+                    <p>
+                      {work.payload.firstAttempt
+                        ? "新材料首答"
+                        : "重复练习，不算新首答"}{" "}
+                      ·{" "}
+                      {material.source.materialSource === "official" ||
+                      material.source.materialSource === "cambridge"
+                        ? "官方/剑桥材料"
+                        : "参考"}
+                    </p>
                     {estimatedReadingListeningBand(
                       Number(work.payload.score),
                       Number(work.payload.total),
                       String(work.payload.scope),
+                    ) !== null && (
+                      <p>
+                        整套估算分{" "}
+                        {estimatedReadingListeningBand(
+                          Number(work.payload.score),
+                          Number(work.payload.total),
+                          String(work.payload.scope),
+                        )}
+                        （练习换算，非正式成绩）
+                      </p>
                     )}
-                    （练习换算，非正式成绩）
-                  </p>
-                )}
-                {work.payload.scope === "full" && work.payload.total === 40 && (
-                  <p>
-                    <a
-                      href="https://ielts.idp.com/thailand/results/how-ielts-is-marked"
-                      target="_blank"
-                      rel="noreferrer"
+                    {work.payload.scope === "full" &&
+                      work.payload.total === 40 && (
+                        <p>
+                          <a
+                            href="https://ielts.idp.com/thailand/results/how-ielts-is-marked"
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            估算换算参考
+                          </a>
+                          ：实际试卷分界可能不同；原始分低于本表范围时仅保留正确数。
+                        </p>
+                      )}
+                    <ReadingReview
+                      key={work.id}
+                      material={material}
+                      work={work}
+                      userId={userId}
+                      onSaved={(record) => setActiveWorkId(record.id)}
+                      onEvidence={(quote, paragraphId, offset) => {
+                        setHighlight({ quote, paragraphId, offset });
+                        setPane("passage");
+                        window.requestAnimationFrame(() =>
+                          document
+                            .querySelector(".r4-passage mark")
+                            ?.scrollIntoView({ block: "center" }),
+                        );
+                      }}
+                    />
+                    <p>
+                      目标词覆盖：
+                      {work.payload.coverage &&
+                      typeof work.payload.coverage === "object"
+                        ? "已保存覆盖记录"
+                        : "未知"}
+                    </p>
+                    {context.block && (
+                      <button
+                        className="btn btn-primary"
+                        disabled={busy || !reviewFinished}
+                        onClick={() => void complete()}
+                      >
+                        完成本次任务
+                      </button>
+                    )}
+                    <button
+                      className="btn btn-ghost"
+                      onClick={() => {
+                        setChosen(selected ? materialKey(selected) : "");
+                        setActiveWorkId(null);
+                        setStarted(null);
+                        setAnswers([]);
+                      }}
+                      disabled={busy}
                     >
-                      估算换算参考
-                    </a>
-                    ：实际试卷分界可能不同；原始分低于本表范围时仅保留正确数。
-                  </p>
+                      再做一次
+                    </button>
+                  </section>
                 )}
-                <ReadingReview
-                  key={work.id}
-                  material={material}
-                  work={work}
-                  userId={userId}
-                  onSaved={(record) => setActiveWorkId(record.id)}
-                  onEvidence={(quote, paragraphId, offset) => {
-                    setHighlight({ quote, paragraphId, offset });
-                    setPane("passage");
-                    window.requestAnimationFrame(() =>
-                      document
-                        .querySelector(".r4-passage mark")
-                        ?.scrollIntoView({ block: "center" }),
-                    );
-                  }}
-                />
-                <p>
-                  目标词覆盖：
-                  {work.payload.coverage &&
-                  typeof work.payload.coverage === "object"
-                    ? "已保存覆盖记录"
-                    : "未知"}
-                </p>
-                {context.block && (
-                  <button
-                    className="btn btn-primary"
-                    disabled={busy || !reviewFinished}
-                    onClick={() => void complete()}
-                  >
-                    完成本次任务
-                  </button>
-                )}
-                <button
-                  className="btn btn-ghost"
-                  onClick={() => {
-                    setChosen(selected ? materialKey(selected) : "");
-                    setActiveWorkId(null);
-                    setStarted(null);
-                    setAnswers([]);
-                  }}
-                  disabled={busy}
-                >
-                  再做一次
-                </button>
-              </section>
+              </>
             )}
           </>
         )}
         {loaded && !material && (
-          <p>本机没有这版材料，请在“我的 → 题库”导入同一版本。原作答仍保留。</p>
+          <p>
+            {activeWorkId
+              ? "本机没有这版材料，请在“我的 → 题库”导入同一版本。原作答仍保留。"
+              : "当前没有推荐的新材料，请补齐库存；也可在列表中明确选择重做。"}
+          </p>
         )}
         {work && !material && (
           <section aria-label="已保存首答">
