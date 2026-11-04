@@ -5,6 +5,7 @@ import {
   type SpeakingContext,
 } from "../../speakingTasks";
 import { RecordingPlayer } from "./RecordingPlayer";
+import { SpeakingReview } from "./SpeakingReview";
 import {
   useSpeakingAnswer,
   type SpeakingAnswerOptions,
@@ -28,7 +29,7 @@ export function SpeakingQuestionEditor(
       pending,
       estimated,
     } = answer;
-  const material = availableSpeakingMaterials(context.day).find(
+  const material = availableSpeakingMaterials(draft.day ?? context.day).find(
     (value) =>
       value.id === draft.contentId && value.version === draft.contentVersion,
   );
@@ -42,6 +43,7 @@ export function SpeakingQuestionEditor(
           : "external",
   );
   const recording = captureState === "recording";
+  const reviewWork = answer.currentWork();
   const chooseSource = (value: typeof source) => {
     setSource(value);
     const builtin = availableSpeakingMaterials(context.day).find(
@@ -300,6 +302,13 @@ export function SpeakingQuestionEditor(
         )}
       </div>
       {message && <p role="status">{message}</p>}
+      {reviewWork && (
+        <SpeakingReview
+          work={reviewWork}
+          currentWork={answer.currentWork}
+          materialSelfCheck={material?.reviewChecklist}
+        />
+      )}
     </article>
   );
 }

@@ -57,11 +57,13 @@ export function useSpeakingAnswer({
     timingRef = useRef(timing),
     capture = useRef<SpeakingCapture | null>(null),
     pendingRef = useRef(pending),
+    workRef = useRef(work),
     saving = useRef(false),
     epoch = useRef(0);
   draftRef.current = draft;
   timingRef.current = timing;
   pendingRef.current = pending;
+  workRef.current = work;
   const sameAccount = () => getLearningState().userId === userId;
   useEffect(() => {
     alive.current = true;
@@ -268,6 +270,31 @@ export function useSpeakingAnswer({
       }
     }
   };
+  const currentWork = () => {
+    const saved = workRef.current,
+      current = draftRef.current;
+    if (
+      !alive.current ||
+      !sameAccount() ||
+      !saved ||
+      current.baseRevision !== saved.revisionId ||
+      current.recordId !== saved.id ||
+      current.transcript !== String(saved.payload.transcript ?? "") ||
+      current.prompt !== String(saved.payload.prompt ?? "") ||
+      current.part !== saved.payload.part
+    )
+      return null;
+    return (
+      getLearningState().records.find(
+        (record) =>
+          record.kind === "speaking" &&
+          record.id === saved.id &&
+          record.revisionId === saved.revisionId &&
+          !record.deleted &&
+          !record.conflict,
+      ) ?? null
+    );
+  };
   return {
     draft,
     setDraft,
@@ -284,6 +311,7 @@ export function useSpeakingAnswer({
     pending,
     micFailed,
     estimated,
+    currentWork,
     prepare,
     startManual,
     stopManual,
