@@ -84,6 +84,23 @@ function localMedia(
     res.end();
   }
 }
+import basicSsl from "@vitejs/plugin-basic-ssl";
+
+const useHttps = process.env.BAND_HTTPS === "1" || Boolean(process.env.BAND_SSL_CERT);
+const customCertPath = process.env.BAND_SSL_CERT || path.resolve(".local/certs/cert.pem");
+const customKeyPath = process.env.BAND_SSL_KEY || path.resolve(".local/certs/key.pem");
+const hasCustomCerts = fs.existsSync(customCertPath) && fs.existsSync(customKeyPath);
+
+const httpsOptions = hasCustomCerts
+  ? { cert: fs.readFileSync(customCertPath), key: fs.readFileSync(customKeyPath) }
+  : undefined;
+
+const apiProxy = {
+  "/api": {
+    target: process.env.BAND_API_TARGET || "http://127.0.0.1:5189",
+  },
+};
+
 export default defineConfig({
   // Deploy under a sub-path with ATLAS_BASE=/words/ npm run build
   base: process.env.ATLAS_BASE || "/",
@@ -98,8 +115,19 @@ export default defineConfig({
         server.middlewares.use(localMedia);
       },
     },
+    ...(useHttps && !hasCustomCerts ? [basicSsl()] : []),
   ],
-  server: { port: 5188, strictPort: true, proxy: { "/api": process.env.BAND_API_TARGET || "http://127.0.0.1:5189" } },
-  preview: { port: 5188, strictPort: true },
+  server: {
+    port: 5188,
+    strictPort: true,
+    proxy: apiProxy,
+    ...(httpsOptions ? { https: httpsOptions } : {}),
+  },
+  preview: {
+    port: 5188,
+    strictPort: true,
+    proxy: apiProxy,
+    ...(httpsOptions ? { https: httpsOptions } : {}),
+  },
   build: { chunkSizeWarningLimit: 600 },
 });
