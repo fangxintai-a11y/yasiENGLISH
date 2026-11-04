@@ -17,6 +17,7 @@ import { OfflineNudge } from "../ui/OfflineNudge";
 import { Ring } from "../ui/Ring";
 import { ExamFields } from "../ui/ExamSetup";
 import { Sheet } from "../ui/Sheet";
+import { TodayPlan } from "../study365/ui/TodayPlan";
 
 const BRAND = `${import.meta.env.BASE_URL}brand`;
 
@@ -93,6 +94,7 @@ export function Today() {
 
   return (
     <div className="page today">
+      <TodayPlan />
       <header className="greet">
         <p className="eyebrow">
           {now.getMonth() + 1}月{now.getDate()}日 · 星期{"日一二三四五六"[now.getDay()]}
