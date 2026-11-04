@@ -78,12 +78,85 @@ async function serverHistory(page, id) {
 const workbench = page => page.getByRole("region", { name: "口语练习", exact: true });
 const editor = page => page.getByRole("article", { name: "当前口语作答", exact: true });
 const player = (page, id) => page.locator(`audio[data-recording-id="${id}"]`);
-async function navigate(page, route) { await page.evaluate(route => { location.hash = `#/${route}`; }, route); }
-async function openWork(page, id) {
+async function navigate(page, route) {
+  await page.evaluate(route => { location.hash = `#/${route}`; }, route);
+  // Hash updates precede the rendered route. Speaking and Me both contain a
+  // recording-backup form, so wait for the destination before touching it.
+  if (route === "speaking") await workbench(page).waitFor();
+  if (route === "me") {
+    await page.getByRole("heading", { name: "你的星空", exact: true }).waitFor();
+    await workbench(page).waitFor({ state: "detached" });
+  }
+}
+async function clickGeometry(button) {
+  const pointerBox = await button.boundingBox();
+  return button.evaluate((element, pointerBox) => {
+    const box = rect => ({ x: rect.x, y: rect.y, width: rect.width, height: rect.height, top: rect.top, right: rect.right, bottom: rect.bottom });
+    const rect = element.getBoundingClientRect(), x = rect.x + rect.width / 2, y = rect.y + rect.height / 2;
+    const identify = item => ({ tag: item.tagName, className: item.className, id: item.id });
+    const bars = [...document.querySelectorAll(".topbar,.tabbar")].map(item => ({ ...identify(item), ...box(item.getBoundingClientRect()), position: getComputedStyle(item).position }));
+    return {
+      target: box(rect), pointerBox,
+      viewport: { width: innerWidth, height: innerHeight, scrollX, scrollY, clientWidth: document.documentElement.clientWidth, scrollWidth: document.documentElement.scrollWidth, visual: visualViewport && { width: visualViewport.width, height: visualViewport.height, offsetLeft: visualViewport.offsetLeft, offsetTop: visualViewport.offsetTop, pageLeft: visualViewport.pageLeft, pageTop: visualViewport.pageTop, scale: visualViewport.scale } },
+      horizontalOverflow: [...document.querySelectorAll("body *")].flatMap(item => {
+        const rect = item.getBoundingClientRect(), style = getComputedStyle(item);
+        if (rect.width <= 0 || (rect.left >= -1 && rect.right <= document.documentElement.clientWidth + 1)) return [];
+        return [{ ...identify(item), ariaLabel: item.getAttribute("aria-label"), ...box(rect), scrollWidth: item.scrollWidth, minWidth: style.minWidth, maxWidth: style.maxWidth, overflowX: style.overflowX }];
+      }).slice(0, 30),
+      center: {
+        x, y, receivesEvents: element.contains(document.elementFromPoint(x, y)),
+        outsideBars: !bars.some(bar => bar.width > 0 && bar.height > 0 && x >= bar.x && x <= bar.x + bar.width && y >= bar.top && y <= bar.bottom),
+      },
+      elementsAtCenter: document.elementsFromPoint(x, y).slice(0, 6).map(identify),
+      elementsAtPointerCenter: pointerBox ? document.elementsFromPoint(pointerBox.x + pointerBox.width / 2, pointerBox.y + pointerBox.height / 2).slice(0, 6).map(identify) : [],
+      bars,
+    };
+  }, pointerBox);
+}
+async function openWork(page, id, { probeObstruction = false } = {}) {
   await navigate(page, "speaking");
   const button = page.getByTestId("speaking-work-list").locator(`[data-work-id="${id}"]`).first();
-  await button.waitFor(); await button.click();
+  await button.waitFor();
+  let edge, centered;
+  const screenshots = {};
+  try {
+    if (page.viewportSize()?.width <= 480) {
+      const geometry = await clickGeometry(button);
+      assert.ok(geometry.viewport.scrollWidth <= geometry.viewport.clientWidth,
+        `mobile speaking page overflowed: ${geometry.viewport.scrollWidth}px > ${geometry.viewport.clientWidth}px`);
+      assert.equal(geometry.viewport.visual?.offsetLeft ?? 0, 0, "mobile visual viewport must not be horizontally displaced");
+      assert.equal(geometry.viewport.visual?.offsetTop ?? 0, 0, "mobile visual viewport must not be vertically displaced");
+    }
+    if (probeObstruction) {
+      // Diagnostic only: show why viewport intersection alone does not prove
+      // that a fixed navigation bar leaves the actual click point reachable.
+      await button.evaluate(element => element.scrollIntoView({ block: "end", inline: "nearest", behavior: "instant" }));
+      edge = await clickGeometry(button);
+      screenshots.edge = `/private/tmp/band-r3-openwork-edge-${Date.now()}.png`;
+      await page.screenshot({ path: screenshots.edge });
+    }
+    await button.evaluate(element => element.scrollIntoView({ block: "center", inline: "nearest", behavior: "instant" }));
+    await eventually(async () => {
+      centered = await clickGeometry(button);
+      return centered.center.receivesEvents && centered.center.outsideBars;
+    }, "saved response button did not become reachable between navigation bars");
+    if (probeObstruction) {
+      screenshots.centered = `/private/tmp/band-r3-openwork-centered-${Date.now()}.png`;
+      await page.screenshot({ path: screenshots.centered });
+    }
+    // Keep all Playwright actionability checks; prevent its default automatic
+    // scrolling from moving the already verified point back under a bar.
+    await button.click({ scroll: "none" });
+  }
+  catch (error) {
+    const geometry = await clickGeometry(button).catch(() => null);
+    const screenshot = `/private/tmp/band-r3-openwork-${Date.now()}.png`;
+    await page.screenshot({ path: screenshot }).catch(() => null);
+    error.message += `\nOpen-work click geometry: ${JSON.stringify({ edge, centered, geometry, screenshots, screenshot })}`;
+    throw error;
+  }
   await eventually(async () => await editor(page).getAttribute("data-work-id") === id, "saved speaking response did not open");
+  return { edge, centered, screenshots };
 }
 async function verifyPlayback(page, id) {
   const element = player(page, id); await element.waitFor();
@@ -252,7 +325,7 @@ export async function runR3SpeakingE2E() {
     await desktopContext.setOffline(false);
     await eventually(async () => (await localScope(desktop)).outbox.length === 0, "speaking records did not automatically synchronize");
     for (const work of works) { const history = await serverHistory(desktop, work.id); assert.equal(history.filter(value => value.revisionId === work.revisionId).length, 1); }
-    await login(phone, false); await openWork(phone, repeat.id);
+    await login(phone, false); evidence.mobileWorkClick = await openWork(phone, repeat.id, { probeObstruction: true });
     await eventually(async () => (await localScope(phone)).heads[repeat.id]?.revisionId === repeat.revisionId, "second device did not read the same speaking revision");
     for (const work of works) {
       const same = (await localScope(phone)).heads[work.id]; assert.equal(same.revisionId, work.revisionId); assert.equal(same.payload.transcript, work.payload.transcript);
