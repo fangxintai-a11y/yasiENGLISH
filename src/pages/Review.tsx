@@ -1,3 +1,4 @@
+import { BankCoveragePanel } from "../study365/ui/review/BankCoveragePanel";
 import { AnswerReviewQueue } from "../study365/ui/review/AnswerReviewQueue";
 import { projectReviewedAttempts, reviewedOfficialTypeCalibration } from "../study365/answerReviewModel";
 import { WeeklyReview } from '../study365/ui/review/WeeklyReview';
@@ -84,9 +85,11 @@ export function Review({
         </a>
         <a className="btn btn-ghost" href="#/review?tab=weekly">本周校准</a>
       <a className="btn btn-ghost" href="#/review?tab=answers">答案审校</a>
+        <a className="btn btn-ghost" href="#/review?tab=coverage">题库完整性</a>
       </nav>
       {route.tab === "weekly" && <WeeklyReview plan={plan} records={learning.records} bank={bank} date={dayPlan.date} userId={learning.userId} statisticsRecords={projection.records} officialCalibration={officialCalibration} />}
       {route.tab === "answers" && <AnswerReviewQueue planId={plan.id} records={learning.records} bank={bank} userId={learning.userId} date={dayPlan.date} day={dayPlan.day} />}
+      {route.tab === "coverage" && <BankCoveragePanel planId={plan.id} records={learning.records} bank={bank} />}
       {error && <p role="alert">{error}</p>}
       {bankError && <p role="alert">{bankError}</p>}
       {(route.tab === undefined || route.tab === "corrections") && (

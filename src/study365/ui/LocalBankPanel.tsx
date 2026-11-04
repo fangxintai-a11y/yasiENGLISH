@@ -82,6 +82,7 @@ function BankBody({ userId }: { userId: string | null }) {
       <p className="muted">
         题库原文和音频只放本机，作答记录随账号同步。JSON本身不含音频，可选定后联网准备这一份；带音频的小ZIP导入后即可离线使用。清除浏览器数据会丢失本机题库，请保留原始题库包。
       </p>
+      <p><a className="btn btn-ghost" href="#/review?tab=coverage">题库完整性与缺口</a></p>
       <label
         className="btn btn-ghost"
         style={{ display: "block", maxWidth: "100%", minWidth: 0 }}

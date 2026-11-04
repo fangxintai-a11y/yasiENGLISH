@@ -205,6 +205,7 @@ export function ListeningReadingPlan({
         </p>
       )}
       {selected.notice && <p>{selected.notice}</p>}
+      <p><a href="#/review?tab=coverage">查看题库完整性与全年缺口</a></p>
       <p>
         {requiresFull
           ? "整套保留原测评时间，官方题型与复盘使用当天已有复盘预算，不增加120分钟总预算。"
