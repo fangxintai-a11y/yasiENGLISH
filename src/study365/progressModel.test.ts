@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildProgress } from './progressModel';
 import { bundledRules } from './planData';
-import { buildAssessment } from './scoresModel';
+import { buildAssessment, scoreView } from './scoresModel';
 import { GATE_TARGETS, SECTION_TARGETS, type LearningPayload, type Revision } from './protocol';
 import { dayDate } from './calendar';
 
@@ -17,21 +17,23 @@ test('progress applies all five saved R0 examples and never completes on estimat
   for (const example of bundledRules.scoreExamples) {
     const payload = { planId: plan.id, kind: example.source === 'official' ? 'official' : 'weekly-mock', source: example.source, date: '2026-11-09', scores: example.sections };
     const model = buildProgress(plan, [record('assessment', payload)], '2027-11-09');
-    assert.equal(model.current.overall, example.expected.overall, example.id);
+    assert.equal(scoreView(payload).overall, example.expected.overall, example.id);
+    assert.equal(model.current.effectiveOverall, example.source === 'ai' ? null : example.expected.overall, example.id);
     assert.equal(model.completed, example.expected.finalGoalMet, example.id);
   }
   assert.equal(buildProgress(plan, [], '2027-11-09').completed, false);
 });
 
-test('progress keeps missing or estimated writing unknown and uses one latest sitting', () => {
+test('later writing estimates retain earlier effective human scores and the latest complete sitting', () => {
   const old = record('assessment', buildAssessment(scoreInput), 'old');
   const newer = record('assessment', { ...buildAssessment({ ...scoreInput, date: '2026-11-10' }), scoreSources: { ...sources, writing: 'ai' } }, 'new', 2);
   const model = buildProgress(plan, [old, newer], '2026-11-10');
-  assert.equal(model.latest?.id, 'new');
-  assert.equal(model.current.effectiveScores.writing, null);
-  assert.equal(model.current.gaps.writing, null);
-  assert.equal(model.overallGap, null);
-  assert.equal(model.current.sources.writing, 'ai');
+  assert.equal(model.latest?.id, 'old');
+  assert.equal(model.bySkill.writing?.recordId, 'old');
+  assert.equal(model.bySkill.writing?.date, '2026-11-09');
+  assert.equal(model.bySkill.reading?.recordId, 'new');
+  assert.equal(model.current.effectiveScores.writing, 7.5);
+  assert.equal(model.overallGap, 0);
   assert.equal(model.completed, false);
 });
 
@@ -75,4 +77,37 @@ test('weak-skill recommendation uses effective gaps and fixed writing/speaking/l
   assert.equal(model.recommendedSkill, 'speaking');
   assert.equal(model.hasScores, true);
   assert.equal(buildProgress(plan, [], '2026-11-09').hasScores, false);
+});
+
+test('weekend split assessments retain listening for the gate gap after Sunday writing arrives', () => {
+  const saturday = record('assessment', buildAssessment({ ...scoreInput, date: '2026-11-14', kind: 'weekly-mock', scores: { listening: 5, reading: 4, writing: null, speaking: null }, scoreSources: { listening: 'self', reading: 'self', writing: null, speaking: null } }), 'sat', 2);
+  const sunday = record('assessment', buildAssessment({ ...scoreInput, date: '2026-11-15', kind: 'weekly-mock', scores: { listening: null, reading: null, writing: 7, speaking: 7 }, scoreSources: { listening: null, reading: null, writing: 'human', speaking: 'human' } }), 'sun', 3);
+  const model = buildProgress(plan, [saturday, sunday], '2026-11-15');
+  assert.equal(model.gates[0].gaps.listening, 2);
+});
+
+test('weekend split assessments recommend the largest current per-skill gap', () => {
+  const saturday = record('assessment', buildAssessment({ ...scoreInput, date: '2026-11-14', kind: 'weekly-mock', scores: { listening: 5, reading: 4, writing: null, speaking: null }, scoreSources: { listening: 'self', reading: 'self', writing: null, speaking: null } }), 'sat', 2);
+  const sunday = record('assessment', buildAssessment({ ...scoreInput, date: '2026-11-15', kind: 'weekly-mock', scores: { listening: null, reading: null, writing: 7, speaking: 7 }, scoreSources: { listening: null, reading: null, writing: 'human', speaking: 'human' } }), 'sun', 3);
+  assert.equal(buildProgress(plan, [saturday, sunday], '2026-11-15').recommendedSkill, 'reading');
+});
+
+test('overall target gap keeps the most recent complete effective sitting after partial results', () => {
+  const complete = record('assessment', buildAssessment({ ...scoreInput, date: '2026-11-09', scores: { listening: 6.5, reading: 6.5, writing: 6.5, speaking: 6.5 } }), 'complete', 1);
+  const partial = record('assessment', buildAssessment({ ...scoreInput, date: '2026-11-15', scores: { listening: null, reading: null, writing: 7, speaking: 7 }, scoreSources: { listening: null, reading: null, writing: 'human', speaking: 'human' } }), 'partial', 2);
+  const model = buildProgress(plan, [complete, partial], '2026-11-15');
+  assert.equal(model.overallGap, 1.5);
+});
+
+
+test('all four per-skill targets across two partial sittings do not manufacture an overall', () => {
+  const saturday = record('assessment', buildAssessment({ ...scoreInput, date: '2026-11-14', kind: 'weekly-mock', scores: { listening: 8.5, reading: 8.5, writing: null, speaking: null }, scoreSources: { listening: 'self', reading: 'self', writing: null, speaking: null } }), 'sat', 2);
+  const sunday = record('assessment', buildAssessment({ ...scoreInput, date: '2026-11-15', kind: 'weekly-mock', scores: { listening: null, reading: null, writing: 7.5, speaking: 7.5 }, scoreSources: { listening: null, reading: null, writing: 'human', speaking: 'human' } }), 'sun', 3);
+  const model = buildProgress(plan, [saturday, sunday], '2026-11-15');
+  assert.deepEqual(model.sectionScores, SECTION_TARGETS);
+  assert.equal(model.latest, null);
+  assert.equal(model.current.effectiveOverall, null);
+  assert.equal(model.overallGap, null);
+  assert.equal(model.gates[0].overallGap, null);
+  assert.equal(model.completed, false);
 });

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { buildAssessment, buildExternalAttempt, latestAssessment, scoreView, sourceLabel } from './scoresModel';
+import { buildAssessment, buildExternalAttempt, latestAssessment, latestEffectiveBySkill, scoreView, sourceLabel } from './scoresModel';
 import { SECTION_TARGETS, validatePayload, type Revision } from './protocol';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -149,4 +149,49 @@ test('external registration honors a new explicit selection before the card stat
   const html = renderToStaticMarkup(createElement(TaskRegistration, { plan, dayPlan, block, mission, selectedSkill: 'writing' }));
   assert.match(html, /外部完成后登记 · 写作/);
   assert.doesNotMatch(html, /登记原始正确数/);
+});
+
+test('latest effective scores retain per-skill dates, sources and record IDs across split sessions', () => {
+  const saturday = record(buildAssessment({ ...input, kind: 'weekly-mock', date: '2026-11-14', scores: { listening: 6.5, reading: 7, writing: null, speaking: null }, scoreSources: { listening: 'self', reading: 'rules', writing: null, speaking: null } }), 'saturday', 1);
+  const sunday = record(buildAssessment({ ...input, kind: 'weekly-mock', date: '2026-11-15', scores: { listening: null, reading: null, writing: 7, speaking: 6.5 }, scoreSources: { listening: null, reading: null, writing: 'human', speaking: 'human' } }), 'sunday', 2);
+  const result = latestEffectiveBySkill([sunday, saturday], 'plan-a');
+  assert.deepEqual(result, {
+    listening: { score: 6.5, source: 'self', date: '2026-11-14', recordId: 'saturday' },
+    reading: { score: 7, source: 'rules', date: '2026-11-14', recordId: 'saturday' },
+    writing: { score: 7, source: 'human', date: '2026-11-15', recordId: 'sunday' },
+    speaking: { score: 6.5, source: 'human', date: '2026-11-15', recordId: 'sunday' },
+  });
+});
+
+test('newer writing estimates and single-work weekly calibration never replace section scores', () => {
+  const human = record(buildAssessment(input), 'human', 1);
+  for (const source of ['self', 'rules', 'ai'] as const) {
+    const estimate = record({ ...human.payload, date: '2026-11-16', scores: { listening: null, reading: null, writing: 9, speaking: 9 }, scoreSources: { listening: null, reading: null, writing: source, speaking: source } }, 'estimate', 2);
+    const calibration = record({ planId: 'plan-a', kind: 'weekly-calibration', date: '2026-11-17', weekIndex: 1, source: 'human', workRevisionId: '12345678-1234-1234-1234-123456789012', taskType: 'task2', bands: { taskResponse: 9, coherence: 9, lexical: 9, grammar: 9 }, scores: { listening: 9, reading: 9, writing: 9, speaking: 9 } }, 'calibration', 3);
+    assert.doesNotThrow(() => validatePayload('assessment', calibration.payload));
+    const result = latestEffectiveBySkill([estimate, calibration, human], 'plan-a');
+    assert.equal(result.writing?.recordId, 'human');
+    assert.equal(result.speaking?.recordId, 'human');
+    assert.equal(result.listening?.recordId, 'human');
+  }
+});
+
+test('per-skill selection leaves missing scores null and excludes other plans, deleted heads and conflicts', () => {
+  const complete = record(buildAssessment(input), 'complete', 1);
+  const deleted = { ...complete, deleted: true, seq: 2, createdAt: 2 };
+  const other = { ...record(buildAssessment(input), 'other', 3), planId: 'plan-b' };
+  const conflict = { ...record(buildAssessment(input), 'conflict', 4), conflict: true };
+  assert.deepEqual(latestEffectiveBySkill([complete, deleted, other, conflict], 'plan-a'), { listening: null, reading: null, writing: null, speaking: null });
+});
+
+
+test('per-skill trends choose the newest valid result even when its score is lower', () => {
+  const older = record(buildAssessment(input), 'older', 9);
+  const newer = record(buildAssessment({ ...input, date: '2026-11-16', scores: { listening: 6, reading: 6, writing: 6, speaking: 6 } }), 'newer', 1);
+  const values = latestEffectiveBySkill([older, newer], 'plan-a');
+  for (const value of Object.values(values)) {
+    assert.equal(value?.score, 6);
+    assert.equal(value?.recordId, 'newer');
+    assert.equal(value?.date, '2026-11-16');
+  }
 });

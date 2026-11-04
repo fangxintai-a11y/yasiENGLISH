@@ -18,8 +18,8 @@ export function Progress() {
     <section className="panel" aria-label="最终目标差距">
       <h2>目标总分 {GATE_TARGETS.G4.overall.toFixed(1)}</h2>
       <p>当前总分：{model.current.effectiveOverall === null ? '未知' : model.current.effectiveOverall.toFixed(1)} · 差距：{model.overallGap === null ? '未评估' : model.overallGap.toFixed(1)}</p>
-      <p className="muted">{model.latest ? `使用最近一次测评：${String(model.latest.payload.date ?? '日期未记录')}` : '基线待测，先登记实际成绩。'}每次四科单独计算，不拼接不同场次的最高分。</p>
-      <ul>{SKILLS.map(skill => <li key={skill}>{SKILL_LABELS[skill]} · 目标 {SECTION_TARGETS[skill].toFixed(1)} · 当前 {model.current.effectiveScores[skill] === null ? '未评估' : model.current.effectiveScores[skill]!.toFixed(1)} · 差距 {model.current.gaps[skill] === null ? '未评估' : model.current.gaps[skill]!.toFixed(1)} · {sourceLabel(model.current.sources[skill], skill)}</li>)}</ul>
+      <p className="muted">{model.latest ? `总分来自最近一次四科有效分齐全的测评：${String(model.latest.payload.date ?? '日期未记录')}` : '尚无四科有效分齐全的同场测评，总分未知。'}每次四科单独计算，不拼接不同场次的最高分。</p>
+      <ul>{SKILLS.map(skill => { const value = model.bySkill[skill]; return <li key={skill}>{SKILL_LABELS[skill]} · 目标 {SECTION_TARGETS[skill].toFixed(1)} · 当前 {value ? `${value.score.toFixed(1)}（${value.date || '日期未记录'}，${sourceLabel(value.source, skill)}）` : '未评估'} · 差距 {model.gaps[skill] === null ? '未评估' : model.gaps[skill]!.toFixed(1)}</li>; })}</ul>
       <p role="status">{model.completed ? '已取得满足总分及四科目标的同次正式成绩。' : '尚未完成：需要同次正式成绩的总分和四科全部达到目标。'}</p>
       {dayPlan?.baselineRouting.notice && <p role="status">{dayPlan.baselineRouting.notice}</p>}
       <p className="muted">{model.hasScores ? `补强建议：优先${SKILL_LABELS[model.recommendedSkill]}。` : '先完成基线，未评估科目不能按0分计算。'}任务分钟暂不自动调整。</p>

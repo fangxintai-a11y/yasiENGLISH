@@ -42,6 +42,21 @@ export function currentAssessments(records: readonly Revision[], planId: string)
 }
 export const latestAssessment = (records: readonly Revision[], planId: string): Revision | null => currentAssessments(records, planId)[0] ?? null;
 
+export interface EffectiveSectionScore { score: number; source: ScoreSource; date: string; recordId: string }
+/** Independent section trends only. These values must never be combined into an overall band. */
+export function latestEffectiveBySkill(records: readonly Revision[], planId: string): Record<Skill, EffectiveSectionScore | null> {
+  const result = Object.fromEntries(SKILLS.map(skill => [skill, null])) as Record<Skill, EffectiveSectionScore | null>;
+  for (const record of currentAssessments(records, planId)) {
+    const view = scoreView(record.payload);
+    for (const skill of SKILLS) {
+      const score = view.effectiveScores[skill], source = view.sources[skill];
+      if (result[skill] === null && score !== null && source !== null) result[skill] = { score, source, date: String(record.payload.date ?? ''), recordId: record.id };
+    }
+  }
+  return result;
+}
+
+
 export interface AssessmentInput {
   planId: string; date: string; kind: AssessmentKind; scores: Scores; scoreSources: ScoreSources;
   materialId?: string; note?: string; gateId?: GateId; consecutiveIndex?: 1 | 2;
