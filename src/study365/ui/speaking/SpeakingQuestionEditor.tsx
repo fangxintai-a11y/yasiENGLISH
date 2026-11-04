@@ -7,6 +7,7 @@ import {
 import { RecordingPlayer } from "./RecordingPlayer";
 import { SpeakingReview } from "./SpeakingReview";
 import { ExternalSpeakingFeedback } from "./ExternalSpeakingFeedback";
+import { SpeakingHumanCalibration } from "./SpeakingHumanCalibration";
 import {
   useSpeakingAnswer,
   type SpeakingAnswerOptions,
@@ -312,6 +313,13 @@ export function SpeakingQuestionEditor(
       )}
       {reviewWork && (
         <ExternalSpeakingFeedback
+          work={reviewWork}
+          currentWork={answer.currentWork}
+        />
+      )}
+      {reviewWork && (
+        <SpeakingHumanCalibration
+          plan={props.plan}
           work={reviewWork}
           currentWork={answer.currentWork}
         />
