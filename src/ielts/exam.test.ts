@@ -14,6 +14,15 @@ const date = (days: number) => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 };
 
+test("zero vocabulary minutes schedule no new words even without an exam date", () => {
+  const settings = { ...defaultSettings, examDate: "", dailyMinutes: 0, dailyNew: 10 };
+  assert.equal(examPlan(atlas, emptyProgress("t"), settings, tags, now).newPerDay, 0);
+});
+test("zero vocabulary minutes do not use the free-study minimum of three new words", () => {
+  const settings = { ...defaultSettings, examDate: "", dailyMinutes: 0, dailyNew: 10 };
+  assert.deepEqual(todayPlan(atlas, emptyProgress("t"), settings, tags, now, 0).fresh, []);
+});
+
 test("card keys round-trip", () => {
   assert.equal(cardKey("r", "abandon"), "abandon");
   assert.deepEqual(parseKey(cardKey("l", "abandon")), { track: "l", id: "abandon" });

@@ -23,23 +23,26 @@ import { Ring } from "../ui/Ring";
 import { Speak } from "../ui/Speak";
 import { shareSession } from "../ui/shareSession";
 import { toast } from "../ui/Toast";
+import { useVocabularyBudget } from "../study365/useVocabularyBudget";
 
 export function Learn() {
   const atlas = useAtlas();
   const session = useStore((s) => s.progress.session);
+  const budget = useVocabularyBudget();
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    const { progress, settings } = store.get();
+    if (!budget.ready) return;
+    const { progress } = store.get();
     if (!progress.session) {
-      const s = buildSession(atlas, progress, settings);
+      const s = buildSession(atlas, progress, budget.settings);
       if (!s.steps.length) {
         go({ page: "today" }, null, true);
         return;
       }
       store.progress((p) => ({ ...p, session: s }));
     }
-  }, [atlas]);
+  }, [atlas, budget.ready, budget.settings]);
 
   const ids = useMemo(() => [...new Set(session?.steps.map((s) => s.id) ?? [])], [session?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -57,10 +60,10 @@ export function Learn() {
 
   if (!session || !ready) return <div className="learn learn-loading"><span className="spinner" /></div>;
   if (session.finished || session.index >= session.steps.length) return <Summary session={session} />;
-  return <Runner session={session} />;
+  return <Runner session={session} budgetMinutes={budget.minutes} />;
 }
 
-function Runner({ session }: { session: ActiveSession }) {
+function Runner({ session, budgetMinutes }: { session: ActiveSession; budgetMinutes: number }) {
   const step = session.steps[session.index];
   const total = session.steps.length;
   const exit = () => {
@@ -83,6 +86,7 @@ function Runner({ session }: { session: ActiveSession }) {
         </span>
         <AmbiencePicker />
       </header>
+      <p className="muted small" style={{ textAlign: "center" }}>{budgetMinutes === 0 ? "今天不安排词汇；到期复习不计入120分钟。" : `今日词汇预算 ${budgetMinutes} 分钟`}</p>
       <main className="learn-stage" key={`${session.id}-${session.index}`}>
         {step.kind === "intro" ? <Intro step={step} /> : <Quiz step={(step.kind === "listen" ? { ...step, kind: "meaning" } : step) as Step & { kind: QuizKind }} session={session} />}
       </main>

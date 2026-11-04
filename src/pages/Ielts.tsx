@@ -4,6 +4,7 @@ import { useAtlas } from "../atlas/context";
 import { allCards, examPlan, parseKey, SPRINT_DAYS } from "../ielts/exam";
 import { useTags } from "../ielts/tags";
 import { go, type Route } from "../lib/router";
+import { useVocabularyBudget } from "../study365/useVocabularyBudget";
 import { store, useStore, type Step } from "../store/store";
 import { ExamFields } from "../ui/ExamSetup";
 import { toast } from "../ui/Toast";
@@ -76,7 +77,7 @@ function PlanTab() {
   const atlas = useAtlas();
   const tags = useTags();
   const progress = useStore((s) => s.progress);
-  const settings = useStore((s) => s.settings);
+  const { settings } = useVocabularyBudget();
   const now = Date.now();
   const plan = useMemo(() => examPlan(atlas, progress, settings, tags, now), [atlas, progress, settings, tags]); // eslint-disable-line react-hooks/exhaustive-deps
   const load = useMemo(() => {
