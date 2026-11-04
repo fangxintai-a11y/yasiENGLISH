@@ -266,7 +266,14 @@ export function SpeakingSession({
               </select>
             </label>
             {!selected && material && (
-              <label>
+              <label
+                style={{
+                  display: "block",
+                  width: "100%",
+                  minWidth: 0,
+                  maxWidth: "100%",
+                }}
+              >
                 本组题目
                 <select
                   aria-label="本组题目"
