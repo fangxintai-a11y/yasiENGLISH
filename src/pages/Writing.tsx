@@ -27,6 +27,7 @@ import {
 import { checkpointWriting, submitWriting } from "../study365/writingWorks";
 import { getLearningState, type LearningState } from "../study365/repository";
 import { saveMission } from "../study365/missionRecords";
+import { WritingReview } from "../study365/ui/writing/WritingReview";
 
 type WritingRoute = Extract<Route, { page: "writing" }>;
 const labelOf = (draft: WritingDraft) =>
@@ -563,7 +564,20 @@ function WritingEditor({
                   </p>
                 )}
                 {draft.stage === "submitted" ? (
-                  <p role="status">这版原稿已提交，只读。</p>
+                  <>
+                    <p role="status">这版原稿已提交，只读。</p>
+                    {works.find(
+                      (work) => work.revisionId === draft.submittedRevisionId,
+                    ) && (
+                      <WritingReview
+                        work={works.find(
+                          (work) =>
+                            work.revisionId === draft.submittedRevisionId,
+                        )!}
+                        materialSelfCheck={draft.materialSelfCheck}
+                      />
+                    )}
+                  </>
                 ) : (
                   <div className="data-actions">
                     <button
