@@ -80,17 +80,17 @@ function BankBody({ userId }: { userId: string | null }) {
         {fallback ? `，其中${fallback}份为内置离线兜底` : ""}。
       </p>
       <p className="muted">
-        题库原文和音频只放本机，作答记录随账号同步。音频在选定后联网准备这一份，之后可离线回听；JSON文件本身不含音频。清除浏览器数据会丢失本机题库，请保留原始题库包。
+        题库原文和音频只放本机，作答记录随账号同步。JSON本身不含音频，可选定后联网准备这一份；带音频的小ZIP导入后即可离线使用。清除浏览器数据会丢失本机题库，请保留原始题库包。
       </p>
       <label
         className="btn btn-ghost"
         style={{ display: "block", maxWidth: "100%", minWidth: 0 }}
       >
-        导入题库JSON
+        导入题库JSON或小ZIP
         <input
           aria-label="选择题库文件"
           type="file"
-          accept=".json,application/json"
+          accept=".json,.zip,application/json,application/zip"
           disabled={busy}
           style={{ display: "block", width: "100%", minWidth: 0 }}
           onChange={(event) => {

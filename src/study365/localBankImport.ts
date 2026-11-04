@@ -145,12 +145,17 @@ function acceptedAnswers(value: unknown): string[] {
     ...new Set(
       values
         .flatMap((answer) =>
-          /\((?:s|es)\)/.test(answer)
+          /^\([A-Za-z]+\) [A-Za-z][A-Za-z -]*$/.test(answer)
             ? [
-                answer.replace(/\((s|es)\)/, ""),
-                answer.replace(/\((s|es)\)/, "$1"),
+                answer.replace(/[()]/g, ""),
+                answer.replace(/^\([A-Za-z]+\) /, ""),
               ]
-            : [answer],
+            : /\((?:s|es)\)/.test(answer)
+              ? [
+                  answer.replace(/\((s|es)\)/, ""),
+                  answer.replace(/\((s|es)\)/, "$1"),
+                ]
+              : [answer],
         )
         .map((value) => value.trim())
         .filter(Boolean),
@@ -237,7 +242,7 @@ export async function mapNativeReading(
     );
   for (const group of groups) {
     const nodes = group.contentNodes,
-      groupText = promptText(nodes),
+      groupText = promptText([...array(group.leadNodes), ...array(nodes)]),
       type = groupType(String(group.kind), groupText, nodes);
     for (const qid of array(group.questionIds).map(String)) {
       const accepted = acceptedAnswers(answerKey[qid]);
@@ -303,6 +308,10 @@ export async function mapNativeReading(
           prompt || groupText || `Paragraph ${selectedParagraph?.label ?? qid}`,
         answer: {
           accepted,
+          ...(/completion|short-answer/.test(type) &&
+          /\bAND\s*\/\s*OR\s+A\s+NUMBER\b/i.test(groupText)
+            ? { allowNumber: true }
+            : {}),
           maxWords: ["true-false-not-given", "yes-no-not-given"].includes(type)
             ? 2
             : needsOptions
@@ -356,6 +365,13 @@ export async function mapNativeReading(
       ? { frequency: meta.frequency }
       : {}),
     questions: questionOrder.map((qid) => questions.get(qid)!),
+    instructions: [
+      ...new Set(
+        groups
+          .map((group) => compact(plain(group.leadNodes)))
+          .filter((value) => !!value && !/^Questions$/i.test(value)),
+      ),
+    ],
   };
   const material = LocalMaterialSchema.parse(body);
   if (material.skill !== "reading") throw new Error("阅读材料科目不符。");

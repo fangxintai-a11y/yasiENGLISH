@@ -34,6 +34,7 @@ export const LocalQuestionSchema = z.strictObject({
   answer: z.strictObject({
     accepted: z.array(text(500)).min(1).max(30),
     maxWords: z.number().int().min(1).max(100),
+    allowNumber: z.boolean().optional(),
   }),
   options: z
     .array(z.strictObject({ id: text(40), text: text(3000) }))
@@ -225,6 +226,17 @@ export const LocalMaterialSchema = z
             question,
           ]);
       }
+      if (
+        /completion|short-answer/.test(question.type) &&
+        !question.options &&
+        question.answer.accepted.every((answer) =>
+          exceedsLocalWordLimit(question.answer, answer),
+        )
+      )
+        issue(
+          [...path, "answer", "accepted"],
+          "所有接受答案均超过源题词数限制，材料待人工核对。",
+        );
     });
     for (const [groupId, questions] of multi) {
       const first = questions[0],
@@ -242,6 +254,37 @@ export const LocalMaterialSchema = z
   });
 export type LocalMaterial = z.infer<typeof LocalMaterialSchema>;
 export type LocalQuestion = z.infer<typeof LocalQuestionSchema>;
+export function localEnglishTokens(value: string): string[] {
+  return (
+    value.match(
+      /[0-9]+\.[0-9]+(?:[’'-][A-Za-z0-9]+)*|[A-Za-z0-9]+(?:[’'-][A-Za-z0-9]+)*/g,
+    ) ?? []
+  );
+}
+const numberWords = new Set(
+  "zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty thirty forty fifty sixty seventy eighty ninety first second third fourth fifth sixth seventh eighth ninth tenth eleventh twelfth thirteenth fourteenth fifteenth sixteenth seventeenth eighteenth nineteenth twentieth thirtieth fortieth fiftieth sixtieth seventieth eightieth ninetieth".split(
+    " ",
+  ),
+);
+export function exceedsLocalWordLimit(
+  answer: { maxWords: number; allowNumber?: boolean },
+  value: string,
+  optionBased = false,
+): boolean {
+  if (optionBased) return false;
+  const tokens = localEnglishTokens(value);
+  const numbers = tokens.filter(
+    (token) =>
+      /^(?:[0-9]+(?:\.[0-9]+)?|[0-9]+(?:st|nd|rd|th))$/i.test(token) ||
+      token
+        .toLowerCase()
+        .split("-")
+        .every((part) => numberWords.has(part)),
+  ).length;
+  return answer.allowNumber
+    ? tokens.length - numbers > answer.maxWords || numbers > 1
+    : tokens.length > answer.maxWords;
+}
 
 function canonical(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
@@ -265,9 +308,7 @@ export async function hashLocalMaterial(value: unknown): Promise<string> {
     byte.toString(16).padStart(2, "0"),
   ).join("");
 }
-export async function parseLocalBank(
-  input: unknown,
-): Promise<{
+export async function parseLocalBank(input: unknown): Promise<{
   materials: LocalMaterial[];
   duplicate: number;
   issues: string[];

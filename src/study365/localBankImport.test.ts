@@ -279,3 +279,105 @@ test("ordinary node CLI skips a bad article, logs its cause, and continues produ
     ),
   );
 });
+test("source instructions present only in leadNodes control the exact word limit and remain visible", async () => {
+  const source = fixture();
+  const groups = source.questionGroups.map((group) =>
+    group.groupId === "g5"
+      ? {
+          ...group,
+          kind: "short_answer",
+          leadNodes: [
+            element("p", [
+              text("Write NO MORE THAN TWO WORDS for each answer."),
+            ]),
+          ],
+          contentNodes: [
+            element("p", [
+              text("What does the garden collect? "),
+              { type: "textInput", questionId: "q5" },
+            ]),
+          ],
+        }
+      : group,
+  );
+  const material = await mapNativeReading(
+    { ...source, questionGroups: groups },
+    "lead-fixture-v1",
+  );
+  assert.equal(
+    material.questions.find((question) => question.id.endsWith("q5"))?.answer
+      .maxWords,
+    2,
+  );
+  assert.ok(
+    material.instructions?.some((value) =>
+      value.includes("NO MORE THAN TWO WORDS"),
+    ),
+  );
+});
+test("explicit words AND/OR A NUMBER keeps a separate numeric allowance without raising maxWords", async () => {
+  const source = fixture();
+  source.answerKey.q5 = "12 million years";
+  const groups = source.questionGroups.map((group) =>
+    group.groupId === "g5"
+      ? {
+          ...group,
+          contentNodes: [
+            element("p", [
+              text(
+                "Write NO MORE THAN TWO WORDS AND/OR A NUMBER. Time elapsed: ",
+              ),
+              { type: "textInput", questionId: "q5" },
+            ]),
+          ],
+        }
+      : group,
+  );
+  const material = await mapNativeReading(
+    { ...source, questionGroups: groups },
+    "number-fixture-v1",
+  );
+  const answer = material.questions.find((question) =>
+    question.id.endsWith("q5"),
+  )!.answer;
+  assert.equal(answer.maxWords, 2);
+  assert.equal(
+    (answer as typeof answer & { allowNumber?: boolean }).allowNumber,
+    true,
+  );
+  assert.deepEqual(answer.accepted, ["12 million years"]);
+});
+test("a source explicitly marking one optional parenthesized word expands both accepted forms", async () => {
+  const source = fixture();
+  source.answerKey.q5 = "(vigorous) exercise";
+  const groups = source.questionGroups.map((group) =>
+    group.groupId === "g5"
+      ? {
+          ...group,
+          contentNodes: [
+            element("p", [
+              text("Write NO MORE THAN TWO WORDS. Activity: "),
+              { type: "textInput", questionId: "q5" },
+            ]),
+          ],
+        }
+      : group,
+  );
+  const material = await mapNativeReading(
+    { ...source, questionGroups: groups },
+    "optional-fixture-v1",
+  );
+  assert.deepEqual(
+    material.questions.find((question) => question.id.endsWith("q5"))!.answer
+      .accepted,
+    ["vigorous exercise", "exercise"],
+  );
+});
+test("free completion with no accepted answer inside its actual source word limit rejects the article", async () => {
+  const source = fixture();
+  source.answerKey.q5 = "two words";
+  await assert.rejects(
+    mapNativeReading(source, "invalid-limit-v1"),
+    /词数|字数/,
+  );
+});

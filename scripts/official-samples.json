@@ -1,0 +1,222 @@
+{
+  "schemaVersion": 1,
+  "sourcePage": "https://ielts.org/take-a-test/preparation-resources/sample-test-questions/academic-test",
+  "verifiedOn": "2026-11-04",
+  "files": [
+    {
+      "id": "cambridge-samples",
+      "role": "archive",
+      "url": "https://www.cambridgeenglish.org/Images/23435-ielts-sample-papers.zip",
+      "path": "cambridge-sample-papers.zip",
+      "sha256": "586fa282be76d0a00a5ab36ca400868d81535d7d50d2e8ff905839ae377e399d"
+    },
+    {
+      "id": "listening-multiple-choice-one-answer-answer-key",
+      "skill": "listening",
+      "type": "multiple-choice",
+      "role": "answer-key",
+      "url": "https://ielts.org/cdn/computer-delivered-sample-tests-listening/ielts-listening-computer-delivered-multiple-choice-one-answer-answer-key.pdf",
+      "path": "ieltsorg/ielts-listening-computer-delivered-multiple-choice-one-answer-answer-key.pdf"
+    },
+    {
+      "id": "listening-multiple-choice-one-answer-transcript",
+      "skill": "listening",
+      "type": "multiple-choice",
+      "role": "transcript",
+      "url": "https://ielts.org/cdn/computer-delivered-sample-tests-listening/ielts-listening-computer-delivered-multiple-choice-one-answer-transcript.pdf",
+      "path": "ieltsorg/ielts-listening-computer-delivered-multiple-choice-one-answer-transcript.pdf"
+    },
+    {
+      "id": "listening-multiple-choice-more-than-one-answer-answer-key",
+      "skill": "listening",
+      "type": "multiple-choice",
+      "role": "answer-key",
+      "url": "https://ielts.org/cdn/computer-delivered-sample-tests-listening/ielts-listening-computer-delivered-multiple-choice-more-than-one-answer-answer-key.pdf",
+      "path": "ieltsorg/ielts-listening-computer-delivered-multiple-choice-more-than-one-answer-answer-key.pdf"
+    },
+    {
+      "id": "listening-multiple-choice-more-than-one-answer-transcript",
+      "skill": "listening",
+      "type": "multiple-choice",
+      "role": "transcript",
+      "url": "https://ielts.org/cdn/computer-delivered-sample-tests-listening/ielts-listening-computer-delivered-multiple-choice-more-than-one-answer-transcript.pdf",
+      "path": "ieltsorg/ielts-listening-computer-delivered-multiple-choice-more-than-one-answer-transcript.pdf"
+    },
+    {
+      "id": "listening-plan-map-diagram-labelling-answer-key",
+      "skill": "listening",
+      "type": "map-labeling",
+      "role": "answer-key",
+      "url": "https://ielts.org/cdn/computer-delivered-sample-tests-listening/ielts-listening-computer-delivered-plan-map-diagram-labelling-answer-key.pdf",
+      "path": "ieltsorg/ielts-listening-computer-delivered-plan-map-diagram-labelling-answer-key.pdf"
+    },
+    {
+      "id": "listening-plan-map-diagram-labelling-transcript",
+      "skill": "listening",
+      "type": "map-labeling",
+      "role": "transcript",
+      "url": "https://ielts.org/cdn/computer-delivered-sample-tests-listening/ielts-listening-computer-delivered-plan-map-diagram-labelling-transcript.pdf",
+      "path": "ieltsorg/ielts-listening-computer-delivered-plan-map-diagram-labelling-transcript.pdf"
+    },
+    {
+      "id": "listening-note-completion-answer-key",
+      "skill": "listening",
+      "type": "note-completion",
+      "role": "answer-key",
+      "url": "https://ielts.org/cdn/computer-delivered-sample-tests-listening/ielts-listening-computer-delivered-note-completion-answer-key.pdf",
+      "path": "ieltsorg/ielts-listening-computer-delivered-note-completion-answer-key.pdf"
+    },
+    {
+      "id": "listening-note-completion-transcript",
+      "skill": "listening",
+      "type": "note-completion",
+      "role": "transcript",
+      "url": "https://ielts.org/cdn/computer-delivered-sample-tests-listening/ielts-listening-computer-delivered-note-completion-transcript.pdf",
+      "path": "ieltsorg/ielts-listening-computer-delivered-note-completion-transcript.pdf"
+    },
+    {
+      "id": "listening-table-completion-answer-key",
+      "skill": "listening",
+      "type": "table-completion",
+      "role": "answer-key",
+      "url": "https://ielts.org/cdn/computer-delivered-sample-tests-listening/ielts-listening-computer-delivered-table-completion-answer-key.pdf",
+      "path": "ieltsorg/ielts-listening-computer-delivered-table-completion-answer-key.pdf"
+    },
+    {
+      "id": "listening-table-completion-transcript",
+      "skill": "listening",
+      "type": "table-completion",
+      "role": "transcript",
+      "url": "https://ielts.org/cdn/computer-delivered-sample-tests-listening/ielts-listening-computer-delivered-table-completion-transcript.pdf",
+      "path": "ieltsorg/ielts-listening-computer-delivered-table-completion-transcript.pdf"
+    },
+    {
+      "id": "listening-flow-chart-completion-answer-key",
+      "skill": "listening",
+      "type": "flow-chart-completion",
+      "role": "answer-key",
+      "url": "https://ielts.org/cdn/computer-delivered-sample-tests-listening/ielts-listening-computer-delivered-flow-chart-completion-answer-key.pdf",
+      "path": "ieltsorg/ielts-listening-computer-delivered-flow-chart-completion-answer-key.pdf"
+    },
+    {
+      "id": "listening-flow-chart-completion-transcript",
+      "skill": "listening",
+      "type": "flow-chart-completion",
+      "role": "transcript",
+      "url": "https://ielts.org/cdn/computer-delivered-sample-tests-listening/ielts-listening-computer-delivered-flow-chart-completion-transcript.pdf",
+      "path": "ieltsorg/ielts-listening-computer-delivered-flow-chart-completion-transcript.pdf"
+    },
+    {
+      "id": "listening-sentence-completion-answer-key",
+      "skill": "listening",
+      "type": "sentence-completion",
+      "role": "answer-key",
+      "url": "https://ielts.org/cdn/computer-delivered-sample-tests-listening/ielts-listening-computer-delivered-sentence-completion-answer-key.pdf",
+      "path": "ieltsorg/ielts-listening-computer-delivered-sentence-completion-answer-key.pdf"
+    },
+    {
+      "id": "listening-sentence-completion-transcript",
+      "skill": "listening",
+      "type": "sentence-completion",
+      "role": "transcript",
+      "url": "https://ielts.org/cdn/computer-delivered-sample-tests-listening/ielts-listening-computer-delivered-sentence-completion-transcript.pdf",
+      "path": "ieltsorg/ielts-listening-computer-delivered-sentence-completion-transcript.pdf"
+    },
+    {
+      "id": "listening-short-answer-answer-key",
+      "skill": "listening",
+      "type": "short-answer",
+      "role": "answer-key",
+      "url": "https://ielts.org/cdn/computer-delivered-sample-tests-listening/ielts-listening-computer-delivered-short-answer-answer-key.pdf",
+      "path": "ieltsorg/ielts-listening-computer-delivered-short-answer-answer-key.pdf"
+    },
+    {
+      "id": "listening-short-answer-transcript",
+      "skill": "listening",
+      "type": "short-answer",
+      "role": "transcript",
+      "url": "https://ielts.org/cdn/computer-delivered-sample-tests-listening/ielts-listening-computer-delivered-short-answer-transcript.pdf",
+      "path": "ieltsorg/ielts-listening-computer-delivered-short-answer-transcript.pdf"
+    },
+    {
+      "id": "reading-multiple-choice-one-answer-answer-key",
+      "skill": "reading",
+      "type": "multiple-choice",
+      "role": "answer-key",
+      "url": "https://ielts.org/cdn/computer-delivered-sample-tests-academic-reading/ielts-academic-reading-computer-delivered-multiple-choice-one-answer-answer-key.pdf",
+      "path": "ieltsorg/ielts-academic-reading-computer-delivered-multiple-choice-one-answer-answer-key.pdf"
+    },
+    {
+      "id": "reading-multiple-choice-more-than-one-answer-answer-key",
+      "skill": "reading",
+      "type": "multiple-choice",
+      "role": "answer-key",
+      "url": "https://ielts.org/cdn/computer-delivered-sample-tests-academic-reading/ielts-academic-reading-computer-delivered-multiple-choice-more-than-one-answer-answer-key.pdf",
+      "path": "ieltsorg/ielts-academic-reading-computer-delivered-multiple-choice-more-than-one-answer-answer-key.pdf"
+    },
+    {
+      "id": "reading-identifying-information-true-flase-not-given-answer-key",
+      "skill": "reading",
+      "type": "true-false-not-given",
+      "role": "answer-key",
+      "url": "https://ielts.org/cdn/computer-delivered-sample-tests-academic-reading/ielts-academic-reading-computer-delivered-identifying-information-true-flase-not-given-answer-key.pdf",
+      "path": "ieltsorg/ielts-academic-reading-computer-delivered-identifying-information-true-flase-not-given-answer-key.pdf"
+    },
+    {
+      "id": "reading-note-completion-answer-key",
+      "skill": "reading",
+      "type": "note-completion",
+      "role": "answer-key",
+      "url": "https://ielts.org/cdn/computer-delivered-sample-tests-academic-reading/ielts-academic-reading-computer-delivered-note-completion-answer-key.pdf",
+      "path": "ieltsorg/ielts-academic-reading-computer-delivered-note-completion-answer-key.pdf"
+    },
+    {
+      "id": "reading-table-completion-answer-key",
+      "skill": "reading",
+      "type": "table-completion",
+      "role": "answer-key",
+      "url": "https://ielts.org/cdn/computer-delivered-sample-tests-academic-reading/ielts-academic-reading-computer-delivered-table-completion-answer-key.pdf",
+      "path": "ieltsorg/ielts-academic-reading-computer-delivered-table-completion-answer-key.pdf"
+    },
+    {
+      "id": "reading-matching-features-answer-key",
+      "skill": "reading",
+      "type": "matching-features",
+      "role": "answer-key",
+      "url": "https://ielts.org/cdn/computer-delivered-sample-tests-academic-reading/ielts-academic-reading-computer-delivered-matching-features-answer-key.pdf",
+      "path": "ieltsorg/ielts-academic-reading-computer-delivered-matching-features-answer-key.pdf"
+    },
+    {
+      "id": "reading-summary-completion-selecting-words-from-text-answer-key",
+      "skill": "reading",
+      "type": "summary-completion",
+      "role": "answer-key",
+      "url": "https://ielts.org/cdn/computer-delivered-sample-tests-academic-reading/ielts-academic-reading-computer-delivered-summary-completion-selecting-words-from-text-answer-key.pdf",
+      "path": "ieltsorg/ielts-academic-reading-computer-delivered-summary-completion-selecting-words-from-text-answer-key.pdf"
+    },
+    {
+      "id": "reading-summary-completion-selecting-from-list-of-words-or-phrases-answer-key",
+      "skill": "reading",
+      "type": "summary-completion",
+      "role": "answer-key",
+      "url": "https://ielts.org/cdn/computer-delivered-sample-tests-academic-reading/ielts-academic-reading-computer-delivered-summary-completion-selecting-from-list-of-words-or-phrases-answer-key.pdf",
+      "path": "ieltsorg/ielts-academic-reading-computer-delivered-summary-completion-selecting-from-list-of-words-or-phrases-answer-key.pdf"
+    },
+    {
+      "id": "reading-sentence-completion-answer-key",
+      "skill": "reading",
+      "type": "sentence-completion",
+      "role": "answer-key",
+      "url": "https://ielts.org/cdn/computer-delivered-sample-tests-academic-reading/ielts-academic-reading-computer-delivered-sentence-completion-answer-key.pdf",
+      "path": "ieltsorg/ielts-academic-reading-computer-delivered-sentence-completion-answer-key.pdf"
+    },
+    {
+      "id": "reading-matching-sentence-endings-answer-key",
+      "skill": "reading",
+      "type": "matching-sentence-endings",
+      "role": "answer-key",
+      "url": "https://ielts.org/cdn/computer-delivered-sample-tests-academic-reading/ielts-academic-reading-computer-delivered-matching-sentence-endings-answer-key.pdf",
+      "path": "ieltsorg/ielts-academic-reading-computer-delivered-matching-sentence-endings-answer-key.pdf"
+    }
+  ]
+}

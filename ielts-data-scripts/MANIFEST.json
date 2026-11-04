@@ -1,0 +1,508 @@
+{
+ "generated": "2026-11-04 Asia/Shanghai",
+ "files": [
+  {
+   "path": "official/cambridge-sample-papers.zip",
+   "url": "https://www.cambridgeenglish.org/Images/23435-ielts-sample-papers.zip",
+   "bytes": 8210391,
+   "sha256": "586fa282be76d0a00a5ab36ca400868d81535d7d50d2e8ff905839ae377e399d"
+  },
+  {
+   "path": "official/ieltsorg/ielts-academic-reading-computer-delivered-identifying-information-true-flase-not-given-answer-key.pdf",
+   "url": "https://ielts.org/cdn/computer-delivered-sample-tests-academic-reading/ielts-academic-reading-computer-delivered-identifying-information-true-flase-not-given-answer-key.pdf",
+   "bytes": 16972,
+   "sha256": "8b6d70fdc1c939b0190351824f461143225fb40a21f0c401e2a765565c191613"
+  },
+  {
+   "path": "official/ieltsorg/ielts-academic-reading-computer-delivered-matching-features-answer-key.pdf",
+   "url": "https://ielts.org/cdn/computer-delivered-sample-tests-academic-reading/ielts-academic-reading-computer-delivered-matching-features-answer-key.pdf",
+   "bytes": 106574,
+   "sha256": "f64a8f9c8009f41907aa89441786282fc62837e8fd52209e7a9a56380393a15b"
+  },
+  {
+   "path": "official/ieltsorg/ielts-academic-reading-computer-delivered-matching-sentence-endings-answer-key.pdf",
+   "url": "https://ielts.org/cdn/computer-delivered-sample-tests-academic-reading/ielts-academic-reading-computer-delivered-matching-sentence-endings-answer-key.pdf",
+   "bytes": 17456,
+   "sha256": "3e18dbd4561db3c261810263c4cc1642f92d6b34e4a4c2a70b032611ad2b0400"
+  },
+  {
+   "path": "official/ieltsorg/ielts-academic-reading-computer-delivered-multiple-choice-more-than-one-answer-answer-key.pdf",
+   "url": "https://ielts.org/cdn/computer-delivered-sample-tests-academic-reading/ielts-academic-reading-computer-delivered-multiple-choice-more-than-one-answer-answer-key.pdf",
+   "bytes": 21301,
+   "sha256": "c020b41b7a11d84b9fe81eede01d8dffb7acc1d8b6cff42241cc9da22ef4c0bb"
+  },
+  {
+   "path": "official/ieltsorg/ielts-academic-reading-computer-delivered-multiple-choice-one-answer-answer-key.pdf",
+   "url": "https://ielts.org/cdn/computer-delivered-sample-tests-academic-reading/ielts-academic-reading-computer-delivered-multiple-choice-one-answer-answer-key.pdf",
+   "bytes": 21003,
+   "sha256": "897bb6f9eeecbb12978389f2248f5d6371ffc376d9c8a251f4ee95f33adc9ba2"
+  },
+  {
+   "path": "official/ieltsorg/ielts-academic-reading-computer-delivered-note-completion-answer-key.pdf",
+   "url": "https://ielts.org/cdn/computer-delivered-sample-tests-academic-reading/ielts-academic-reading-computer-delivered-note-completion-answer-key.pdf",
+   "bytes": 20917,
+   "sha256": "ea1cb74903509aa2c5e98824a89b5c377242ca550ac38c4d007dcd6d25c39985"
+  },
+  {
+   "path": "official/ieltsorg/ielts-academic-reading-computer-delivered-sentence-completion-answer-key.pdf",
+   "url": "https://ielts.org/cdn/computer-delivered-sample-tests-academic-reading/ielts-academic-reading-computer-delivered-sentence-completion-answer-key.pdf",
+   "bytes": 17153,
+   "sha256": "ff2ae0d1666da88fd52496b79d1e0f9f0587375e729ff23c78a28c3175e0fb6b"
+  },
+  {
+   "path": "official/ieltsorg/ielts-academic-reading-computer-delivered-summary-completion-selecting-from-list-of-words-or-phrases-answer-key.pdf",
+   "url": "https://ielts.org/cdn/computer-delivered-sample-tests-academic-reading/ielts-academic-reading-computer-delivered-summary-completion-selecting-from-list-of-words-or-phrases-answer-key.pdf",
+   "bytes": 18343,
+   "sha256": "dea7f5d3a88a0e999226685987b6cd2c9c0a01a8e980d171b29399b2ba969dea"
+  },
+  {
+   "path": "official/ieltsorg/ielts-academic-reading-computer-delivered-summary-completion-selecting-words-from-text-answer-key.pdf",
+   "url": "https://ielts.org/cdn/computer-delivered-sample-tests-academic-reading/ielts-academic-reading-computer-delivered-summary-completion-selecting-words-from-text-answer-key.pdf",
+   "bytes": 17450,
+   "sha256": "9a3f5a0ed57690b4e972bf1730fd74a3276eda3cab9f5398103e5a66a5101707"
+  },
+  {
+   "path": "official/ieltsorg/ielts-academic-reading-computer-delivered-table-completion-answer-key.pdf",
+   "url": "https://ielts.org/cdn/computer-delivered-sample-tests-academic-reading/ielts-academic-reading-computer-delivered-table-completion-answer-key.pdf",
+   "bytes": 16841,
+   "sha256": "117bf361f022c5a8a894a1d23683e3ebe3587e5888aaf263888bd605d6678ecb"
+  },
+  {
+   "path": "official/ieltsorg/ielts-academic-writing-example-responses-to-parts-1-and-2-with-band-scores-and-examiner-comments.pdf",
+   "url": "https://ielts.org/cdn/computer-delivered-sample-tests-academic-writing/ielts-academic-writing-example-responses-to-parts-1-and-2-with-band-scores-and-examiner-comments.pdf",
+   "bytes": 492279,
+   "sha256": "cb320fda1d1eb3311900747a856c6c01520203357b1951be466dcac7f2ee9e72"
+  },
+  {
+   "path": "official/ieltsorg/ielts-listening-computer-delivered-flow-chart-completion-answer-key.pdf",
+   "url": "https://ielts.org/cdn/computer-delivered-sample-tests-listening/ielts-listening-computer-delivered-flow-chart-completion-answer-key.pdf",
+   "bytes": 92066,
+   "sha256": "44604f2647ae202439b605b05ad13b5e8d6143a53e6ecd5c0612cf00261d3ee7"
+  },
+  {
+   "path": "official/ieltsorg/ielts-listening-computer-delivered-flow-chart-completion-transcript.pdf",
+   "url": "https://ielts.org/cdn/computer-delivered-sample-tests-listening/ielts-listening-computer-delivered-flow-chart-completion-transcript.pdf",
+   "bytes": 40257,
+   "sha256": "9b72a3e2abb1733817649a32adb14886aafe0d0f0c9ae0510866133046f039a3"
+  },
+  {
+   "path": "official/ieltsorg/ielts-listening-computer-delivered-multiple-choice-more-than-one-answer-answer-key.pdf",
+   "url": "https://ielts.org/cdn/computer-delivered-sample-tests-listening/ielts-listening-computer-delivered-multiple-choice-more-than-one-answer-answer-key.pdf",
+   "bytes": 22881,
+   "sha256": "71a140235562071d1d1c98c2de8206abd8637e8428c95601bad4ad979b1e5300"
+  },
+  {
+   "path": "official/ieltsorg/ielts-listening-computer-delivered-multiple-choice-more-than-one-answer-transcript.pdf",
+   "url": "https://ielts.org/cdn/computer-delivered-sample-tests-listening/ielts-listening-computer-delivered-multiple-choice-more-than-one-answer-transcript.pdf",
+   "bytes": 78147,
+   "sha256": "bfa1893bf49529365a471e60f13982b7f11b90c225e4021511b8be920199cdaa"
+  },
+  {
+   "path": "official/ieltsorg/ielts-listening-computer-delivered-multiple-choice-one-answer-answer-key.pdf",
+   "url": "https://ielts.org/cdn/computer-delivered-sample-tests-listening/ielts-listening-computer-delivered-multiple-choice-one-answer-answer-key.pdf",
+   "bytes": 24374,
+   "sha256": "3d81cac5ce6d2e07b586d148d2821013f8d0c72136c048f2eee846a62e577acc"
+  },
+  {
+   "path": "official/ieltsorg/ielts-listening-computer-delivered-multiple-choice-one-answer-transcript.pdf",
+   "url": "https://ielts.org/cdn/computer-delivered-sample-tests-listening/ielts-listening-computer-delivered-multiple-choice-one-answer-transcript.pdf",
+   "bytes": 83711,
+   "sha256": "704d73593ccfc19540f02f63f98d6ab2d2445a91468e11228e8e468753a0e668"
+  },
+  {
+   "path": "official/ieltsorg/ielts-listening-computer-delivered-note-completion-answer-key.pdf",
+   "url": "https://ielts.org/cdn/computer-delivered-sample-tests-listening/ielts-listening-computer-delivered-note-completion-answer-key.pdf",
+   "bytes": 22136,
+   "sha256": "483a09f35c3d7425d66bd57458b26e317091a89866a45fe69d379c18ca6ff676"
+  },
+  {
+   "path": "official/ieltsorg/ielts-listening-computer-delivered-note-completion-transcript.pdf",
+   "url": "https://ielts.org/cdn/computer-delivered-sample-tests-listening/ielts-listening-computer-delivered-note-completion-transcript.pdf",
+   "bytes": 92292,
+   "sha256": "945297e9bcfbc6b9ae7190b1473e31c0acbb5bf59fa12a16700a0b51348411ce"
+  },
+  {
+   "path": "official/ieltsorg/ielts-listening-computer-delivered-plan-map-diagram-labelling-answer-key.pdf",
+   "url": "https://ielts.org/cdn/computer-delivered-sample-tests-listening/ielts-listening-computer-delivered-plan-map-diagram-labelling-answer-key.pdf",
+   "bytes": 21412,
+   "sha256": "89f190a6979e56641e0ba577278c0b44e948e63cfedcb02585abc7bb6b99ec11"
+  },
+  {
+   "path": "official/ieltsorg/ielts-listening-computer-delivered-plan-map-diagram-labelling-transcript.pdf",
+   "url": "https://ielts.org/cdn/computer-delivered-sample-tests-listening/ielts-listening-computer-delivered-plan-map-diagram-labelling-transcript.pdf",
+   "bytes": 74970,
+   "sha256": "e12447f3b225be11d55c677affaabf9cf49473abf61a1354aad8660cd4d9a113"
+  },
+  {
+   "path": "official/ieltsorg/ielts-listening-computer-delivered-sentence-completion-answer-key.pdf",
+   "url": "https://ielts.org/cdn/computer-delivered-sample-tests-listening/ielts-listening-computer-delivered-sentence-completion-answer-key.pdf",
+   "bytes": 30272,
+   "sha256": "bb67c254372c85f9f09760da5d5c2d8f4033ea4613883af9ee3bbb0d115f491f"
+  },
+  {
+   "path": "official/ieltsorg/ielts-listening-computer-delivered-sentence-completion-transcript.pdf",
+   "url": "https://ielts.org/cdn/computer-delivered-sample-tests-listening/ielts-listening-computer-delivered-sentence-completion-transcript.pdf",
+   "bytes": 36914,
+   "sha256": "94e31f903ad391b7f22b6ee35fc5c040e53451efea9233d71cb2d685f0b27ed8"
+  },
+  {
+   "path": "official/ieltsorg/ielts-listening-computer-delivered-short-answer-answer-key.pdf",
+   "url": "https://ielts.org/cdn/computer-delivered-sample-tests-listening/ielts-listening-computer-delivered-short-answer-answer-key.pdf",
+   "bytes": 22348,
+   "sha256": "32cbd7fe1c53482966a67be0b6883424734814be5fc190e966cdd6079fca72df"
+  },
+  {
+   "path": "official/ieltsorg/ielts-listening-computer-delivered-short-answer-transcript.pdf",
+   "url": "https://ielts.org/cdn/computer-delivered-sample-tests-listening/ielts-listening-computer-delivered-short-answer-transcript.pdf",
+   "bytes": 77910,
+   "sha256": "4420cd6776e0f0eadc1ef0edec49753df57639dd4efd00d87831d0816c175a91"
+  },
+  {
+   "path": "official/ieltsorg/ielts-listening-computer-delivered-table-completion-answer-key.pdf",
+   "url": "https://ielts.org/cdn/computer-delivered-sample-tests-listening/ielts-listening-computer-delivered-table-completion-answer-key.pdf",
+   "bytes": 26474,
+   "sha256": "a72ed93f37b0015ef6efd634dbe8c701e9fd2837b6fe742245865f22403c4a03"
+  },
+  {
+   "path": "official/ieltsorg/ielts-listening-computer-delivered-table-completion-transcript.pdf",
+   "url": "https://ielts.org/cdn/computer-delivered-sample-tests-listening/ielts-listening-computer-delivered-table-completion-transcript.pdf",
+   "bytes": 30822,
+   "sha256": "45c5eb831de4d1f069bb4c19a59fb66f085c827d0325faeafadb7b8d877d4116"
+  },
+  {
+   "path": "official/ieltsorg/ielts-speaking-sample-tasks-2023.pdf",
+   "url": "https://ielts.org/cdn/ielts-downloadable-assets/ielts-sample-tests/ielts-speaking-sample-tasks-2023.pdf",
+   "bytes": 1338248,
+   "sha256": "70e542190a0628cb387e9f94ddc5750e4d647b876c2d3b85fcfab90ec4295096"
+  },
+  {
+   "path": "writing/hf/chillies_IELTS-writing-task-2-evaluation/test.csv",
+   "url": "https://huggingface.co/datasets/chillies/IELTS-writing-task-2-evaluation/resolve/main/test.csv",
+   "bytes": 2205447,
+   "sha256": "ea6031ed220037241c3fb9361c079300c063cc8a513b96e5b0e5159cbd47b90e"
+  },
+  {
+   "path": "writing/hf/chillies_IELTS-writing-task-2-evaluation/train.csv",
+   "url": "https://huggingface.co/datasets/chillies/IELTS-writing-task-2-evaluation/resolve/main/train.csv",
+   "bytes": 44455406,
+   "sha256": "fe6c5d929bae90398bf6cb240afce0d162615e8c218c1ddb9d9ebe24790e1d63"
+  },
+  {
+   "path": "writing/hf/hai2131_IELTS-essays-task-1/train-00000-of-00001.parquet",
+   "url": "https://huggingface.co/datasets/hai2131/IELTS-essays-task-1/resolve/main/train-00000-of-00001.parquet",
+   "bytes": 8639840,
+   "sha256": "05cdca522cad0ae239b8eaef2c29dea136f02356f7aa0b9a21eee842c5e95ed9"
+  },
+  {
+   "path": "writing/hf/ndtran0101_writing9-ielts-essays/test.jsonl",
+   "url": "https://huggingface.co/datasets/ndtran0101/writing9-ielts-essays/resolve/main/test.jsonl",
+   "bytes": 111329302,
+   "sha256": "84d2865ff33aa17252a4ef66b7125511b0512af01660f2f1760894b3095b0c79"
+  },
+  {
+   "path": "writing/hf/ndtran0101_writing9-ielts-essays/train.jsonl",
+   "url": "https://huggingface.co/datasets/ndtran0101/writing9-ielts-essays/resolve/main/train.jsonl",
+   "bytes": 259692521,
+   "sha256": "79379203c22146dfb96d6ce4864660ac4801979ee8e1096bdfd6a39dba2e1601"
+  },
+  {
+   "path": "official/zeeklog/IELTS16_体验版.pdf",
+   "url": "https://github.com/zeeklog/IELTS/blob/HEAD/IELTS16_体验版.pdf",
+   "bytes": 117548,
+   "sha256": "08db76c95868186c08124d776428108fed3f5036ace4e571bbb920c017ca2640"
+  },
+  {
+   "path": "official/zeeklog/剑桥雅思真题10.pdf",
+   "url": "https://github.com/zeeklog/IELTS/blob/HEAD/剑桥雅思真题10.pdf",
+   "bytes": 40769281,
+   "sha256": "924bf69326e33aacf54dff62009ff5badf01d17d41340c3e242f86d278b6420d"
+  },
+  {
+   "path": "official/zeeklog/剑桥雅思真题11.pdf",
+   "url": "https://github.com/zeeklog/IELTS/blob/HEAD/剑桥雅思真题11.pdf",
+   "bytes": 27547169,
+   "sha256": "6dfc84371b9d08e31b450ede3a20e64f13f505b1e52261894681a31d733b3fe3"
+  },
+  {
+   "path": "official/zeeklog/剑桥雅思真题12.pdf",
+   "url": "https://github.com/zeeklog/IELTS/blob/HEAD/剑桥雅思真题12.pdf",
+   "bytes": 37202777,
+   "sha256": "c9b61939ce31049dd9552020dbaf3deb979cbb6244b4cac0ac64f13b3ce049c6"
+  },
+  {
+   "path": "official/zeeklog/剑桥雅思真题13.pdf",
+   "url": "https://github.com/zeeklog/IELTS/blob/HEAD/剑桥雅思真题13.pdf",
+   "bytes": 18981385,
+   "sha256": "48bd75f7020065184a228ff32775802b887c8da18f77bccdb44c3e569e06a3bf"
+  },
+  {
+   "path": "official/zeeklog/剑桥雅思真题14.pdf",
+   "url": "https://github.com/zeeklog/IELTS/blob/HEAD/剑桥雅思真题14.pdf",
+   "bytes": 9566815,
+   "sha256": "f0f0d86e7cf93b37154696851b2e61be4f1194b05bd1651c1711e221720018ba"
+  },
+  {
+   "path": "official/zeeklog/剑桥雅思真题15.pdf",
+   "url": "https://github.com/zeeklog/IELTS/blob/HEAD/剑桥雅思真题15.pdf",
+   "bytes": 29210249,
+   "sha256": "8d632033a6576c06ed86732a51b8ca361a7bdc7735c0aebac2ca1806c52f6fed"
+  },
+  {
+   "path": "official/zeeklog/剑桥雅思真题16.pdf",
+   "url": "https://github.com/zeeklog/IELTS/blob/HEAD/剑桥雅思真题16.pdf",
+   "bytes": 37220433,
+   "sha256": "11675fa3dcb124e93afbf44371c174f676a78a260b01ebc190aae5f5fed3912e"
+  },
+  {
+   "path": "official/zeeklog/剑桥雅思真题17.pdf",
+   "url": "https://github.com/zeeklog/IELTS/blob/HEAD/剑桥雅思真题17.pdf",
+   "bytes": 36521253,
+   "sha256": "73b39f0fb941a647267c9907407af1cc34a81d66864da8a06759aa869d63794d"
+  },
+  {
+   "path": "official/zeeklog/剑桥雅思真题18.pdf",
+   "url": "https://github.com/zeeklog/IELTS/blob/HEAD/剑桥雅思真题18.pdf",
+   "bytes": 54929571,
+   "sha256": "03d25578e46e5ccf27f3fb5d728c057f5e5819b22d6c346f45d45f9f9bdbb3e9"
+  },
+  {
+   "path": "official/zeeklog/剑桥雅思真题4.pdf",
+   "url": "https://github.com/zeeklog/IELTS/blob/HEAD/剑桥雅思真题4.pdf",
+   "bytes": 1031150,
+   "sha256": "c019fb8d269d8df4783443c2351fc2cd5c71cc063c584b9397ef37a165cf2fe1"
+  },
+  {
+   "path": "official/zeeklog/剑桥雅思真题5.pdf",
+   "url": "https://github.com/zeeklog/IELTS/blob/HEAD/剑桥雅思真题5.pdf",
+   "bytes": 13800808,
+   "sha256": "7df6a474e84e69a622dd48fc009e69dd7fd711a64b713671bdf492311f5f58cc"
+  },
+  {
+   "path": "official/zeeklog/剑桥雅思真题6.pdf",
+   "url": "https://github.com/zeeklog/IELTS/blob/HEAD/剑桥雅思真题6.pdf",
+   "bytes": 21967415,
+   "sha256": "a5d4812f970087a7c6dcd7333450c875ed9a401b294a6237c1071ff2629dfc6f"
+  },
+  {
+   "path": "official/zeeklog/剑桥雅思真题7.pdf",
+   "url": "https://github.com/zeeklog/IELTS/blob/HEAD/剑桥雅思真题7.pdf",
+   "bytes": 16265932,
+   "sha256": "b0d7be939b192c4ea7601b2315049770b7705542f04ae9b87a19e37daac1c971"
+  },
+  {
+   "path": "official/zeeklog/剑桥雅思真题8.pdf",
+   "url": "https://github.com/zeeklog/IELTS/blob/HEAD/剑桥雅思真题8.pdf",
+   "bytes": 15260010,
+   "sha256": "2f3cdf0c049ecac93bafafd034c2316ac7ed66b0694bea8a2a7c152042923e23"
+  },
+  {
+   "path": "official/zeeklog/剑桥雅思真题9.pdf",
+   "url": "https://github.com/zeeklog/IELTS/blob/HEAD/剑桥雅思真题9.pdf",
+   "bytes": 6028946,
+   "sha256": "c3fbc2d06b1b60fe8e7d27936150a09c38714e4bd23e6351a09b93c9555ee890"
+  },
+  {
+   "path": "official/zeeklog/雅思作文资料/2022年1-4月大作文真题范文.pdf",
+   "url": "https://github.com/zeeklog/IELTS/blob/HEAD/雅思作文资料/2022年1-4月大作文真题范文.pdf",
+   "bytes": 988941,
+   "sha256": "11ec7888ec1e8371e6295dbf62c52f2d4a2190d5eb7959e259fbb74c415bebb8"
+  },
+  {
+   "path": "official/zeeklog/雅思作文资料/7周突破雅思写作7分-杨凡.pdf",
+   "url": "https://github.com/zeeklog/IELTS/blob/HEAD/雅思作文资料/7周突破雅思写作7分-杨凡.pdf",
+   "bytes": 41125282,
+   "sha256": "7dc4409eb09e2ca07f6efe1b643b7d0f65774243db9000676a7f800a891920f5"
+  },
+  {
+   "path": "official/zeeklog/雅思作文资料/Ideas-for-IELTS-Topics.pdf",
+   "url": "https://github.com/zeeklog/IELTS/blob/HEAD/雅思作文资料/Ideas-for-IELTS-Topics.pdf",
+   "bytes": 1094957,
+   "sha256": "0d8996046f7b82878c510469d71179b36392f4fe7f81e2944e548235c91232ac"
+  },
+  {
+   "path": "official/zeeklog/雅思作文资料/剑桥图表题大全.pdf",
+   "url": "https://github.com/zeeklog/IELTS/blob/HEAD/雅思作文资料/剑桥图表题大全.pdf",
+   "bytes": 1320162,
+   "sha256": "2589560d31e7167f878eab2a8e3ebdc3ae75d0477be57b0a0b6e635d711a8fc4"
+  },
+  {
+   "path": "official/zeeklog/雅思作文资料/剑桥雅思写作高分范文.pdf",
+   "url": "https://github.com/zeeklog/IELTS/blob/HEAD/雅思作文资料/剑桥雅思写作高分范文.pdf",
+   "bytes": 41245334,
+   "sha256": "b3c0b40fc10de90d11ceffddbe7459dc42933c6a7b912aa5b2e8507a15f8afb2"
+  },
+  {
+   "path": "official/zeeklog/雅思作文资料/过雅思写作6.5.pdf",
+   "url": "https://github.com/zeeklog/IELTS/blob/HEAD/雅思作文资料/过雅思写作6.5.pdf",
+   "bytes": 22165881,
+   "sha256": "e57c57d1d30a85d0d6c83c6c19fd9f3d5b7b02273fd8d49cf0c2267050eee3ff"
+  },
+  {
+   "path": "official/zeeklog/雅思作文资料/雅思写作7分288词.pdf",
+   "url": "https://github.com/zeeklog/IELTS/blob/HEAD/雅思作文资料/雅思写作7分288词.pdf",
+   "bytes": 758002,
+   "sha256": "43ec21b8f79f24ec71177128f2cb96c1b9b3a3cf9d9ccca3bea1c1a001b9fefd"
+  },
+  {
+   "path": "official/zeeklog/雅思作文资料/雅思写作7范文.pdf",
+   "url": "https://github.com/zeeklog/IELTS/blob/HEAD/雅思作文资料/雅思写作7范文.pdf",
+   "bytes": 11723143,
+   "sha256": "3241cb2773602e49bf0d402ce1af624c319788576926cea642bfb4e7ebfd0135"
+  },
+  {
+   "path": "official/zeeklog/雅思作文资料/雅思写作真经.pdf",
+   "url": "https://github.com/zeeklog/IELTS/blob/HEAD/雅思作文资料/雅思写作真经.pdf",
+   "bytes": 30764129,
+   "sha256": "958c0c7400f1943c317dbe3706ec031e7d5e2ad1f626051e16da3ea2528fbda6"
+  },
+  {
+   "path": "official/zeeklog/雅思作文资料/雅思写作词汇.pdf",
+   "url": "https://github.com/zeeklog/IELTS/blob/HEAD/雅思作文资料/雅思写作词汇.pdf",
+   "bytes": 2033865,
+   "sha256": "e5151929d1323c2f25504866e91ad36761214a97e75dc7a0aea4440a6804387c"
+  },
+  {
+   "path": "official/zeeklog/雅思作文资料/黑眼睛雅思写作教程.pdf",
+   "url": "https://github.com/zeeklog/IELTS/blob/HEAD/雅思作文资料/黑眼睛雅思写作教程.pdf",
+   "bytes": 21776135,
+   "sha256": "ee0bfb5a2f18e7f6ac532dc0cb47a083effcb3eb291e103e21495fb6c900b4a0"
+  },
+  {
+   "path": "writing/practicepte/",
+   "url": "https://practicepteonline.com/ielts-writing-test-{1..128}/",
+   "bytes": 19704406,
+   "count": 242,
+   "sha256": null,
+   "note": "127 HTML + Task1 images"
+  },
+  {
+   "path": "official/band-descriptors/ielts-writing-band-descriptors.pdf",
+   "url": "https://ielts.org/cdn/ielts-guides/ielts-writing-band-descriptors.pdf",
+   "bytes": 141876,
+   "sha256": "e3c88943ef92d98988ce4db454fd7fa8d8435f0b25e9ec667e3720a5c1168d1b"
+  },
+  {
+   "path": "official/band-descriptors/ielts-speaking-band-descriptors.pdf",
+   "url": "https://ielts.org/cdn/ielts-guides/ielts-speaking-band-descriptors.pdf",
+   "bytes": 91142,
+   "sha256": "8f8f556a64da18eefdcd68bb6addcc261f0299d72e0461bcf9a2c1d2a5b9c56b"
+  }
+ ],
+ "repos": [
+  {
+   "path": "reading/hwt",
+   "url": "https://github.com/hwttop5/ielts-reading-past-papers.git",
+   "commit": "05b95b595142b4568551490844df840e9c1853fc",
+   "bytes": 25171007,
+   "files": 438
+  },
+  {
+   "path": "reading/lincoh-cam1-20",
+   "url": "https://github.com/lincohlesteban-art/ielts-academic-platform.git",
+   "commit": "ecea2d2f50cde296e77b70483acb24b2f008864d",
+   "bytes": 4308643,
+   "files": 242
+  },
+  {
+   "path": "reading/yanbo-cam4-18",
+   "url": "https://github.com/yanboishere/ielts-mock.git",
+   "commit": "4ffc48397c44e011166ee4de24eae31eb3768e51",
+   "bytes": 79611964,
+   "files": 432
+  },
+  {
+   "path": "reading/sallowayma",
+   "url": "https://github.com/sallowayma-git/IELTS-practice.git",
+   "commit": "a69d55a201723eb7758c2f8f11b4ad933bae48d1",
+   "bytes": 39944393,
+   "files": 971
+  },
+  {
+   "path": "listening/maslow-cam1-20",
+   "url": "https://github.com/maslow/EnglishLearning.git",
+   "commit": "2064b88bb70fe43420fa87436d44648a2db7bb26",
+   "bytes": 2594787193,
+   "files": 371
+  },
+  {
+   "path": "listening/taroflink-cam16-20",
+   "url": "https://github.com/TaroFlink/ielts-listening-practice.git",
+   "commit": "3867097641f119b2cf8071714404f8c06e0b3075",
+   "bytes": 977763441,
+   "files": 561
+  },
+  {
+   "path": "official/zeeklog",
+   "url": "https://github.com/zeeklog/IELTS.git",
+   "commit": "7e09d1939927f84aa1156c506aea6a81134b6dfd",
+   "bytes": 541416573,
+   "files": 27
+  },
+  {
+   "path": "speaking/tutuhua_IELTS-Speaking-Lab",
+   "url": "https://github.com/tutuhua/IELTS-Speaking-Lab.git",
+   "commit": "84598b18cd2a0367c82481781bd3eee7c46cbb3f",
+   "bytes": 1608781,
+   "files": 11
+  },
+  {
+   "path": "speaking/TuuuuTuu_ielts-speaking-study",
+   "url": "https://github.com/TuuuuTuu/ielts-speaking-study.git",
+   "commit": "b2bff3ae70538b887cc7e9317535888585ed60a0",
+   "bytes": 171431,
+   "files": 2
+  },
+  {
+   "path": "speaking/WendyCoding31_ielts-speaking-studio",
+   "url": "https://github.com/WendyCoding31/ielts-speaking-studio.git",
+   "commit": "a261b4bc566594b6f70041285d88a2e010d7cfcc",
+   "bytes": 1113052,
+   "files": 28
+  },
+  {
+   "path": "speaking/murph232439_ielts-speaking-practice",
+   "url": "https://github.com/murph232439/ielts-speaking-practice.git",
+   "commit": "b7fe4c8c39164fccb8cdd39e03a37829c55b8ca1",
+   "bytes": 5779025,
+   "files": 49
+  },
+  {
+   "path": "speaking/xiaojianzhao731-web_ielts-speaking",
+   "url": "https://github.com/xiaojianzhao731-web/ielts-speaking.git",
+   "commit": "803094b21ba2b8549b2bf52531aab8932c8973da",
+   "bytes": 267168,
+   "files": 8
+  },
+  {
+   "path": "speaking/SEU-Prime_ielts-speaking",
+   "url": "https://github.com/SEU-Prime/ielts-speaking.git",
+   "commit": "ed300fb2ae8caad8af04ff7a6de251f1012c56f5",
+   "bytes": 411389,
+   "files": 7
+  },
+  {
+   "path": "listening/xiahua",
+   "url": "https://github.com/ivy11220911-droid/XiaHua-IELTS-Listening.git",
+   "commit": "ce97ba0cdf4805588f879ebc07715e9ff810f901",
+   "bytes": 1500428167,
+   "files": 615
+  },
+  {
+   "path": "reading/zyz",
+   "url": "https://github.com/ivy11220911-droid/ZYZ-IELTS-Reading.git",
+   "commit": "20307021cfc2f25e69e55f3a6fe3314cfebb7878",
+   "bytes": 395751559,
+   "files": 812
+  }
+ ],
+ "derived": [
+  {
+   "path": "structured/",
+   "bytes": 2056789,
+   "files": 78,
+   "note": "由 parse_lincoh.py / parse_taro.py 从本机缓存生成；C3-T1-L.MISMAPPED 为源站映射错误"
+  }
+ ],
+ "updated": "2026-11-04 Asia/Shanghai (round 2)",
+ "cleanup": "本轮未删除任何文件（磁盘充足）"
+}

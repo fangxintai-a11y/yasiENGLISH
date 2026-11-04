@@ -1,5 +1,6 @@
 import samples from "../../public/curriculum365/v1/samples.json";
 import audioProvenance from "../../public/curriculum365/v1/audio/provenance.json";
+import { decodeLocalBankArchive } from "./localBankArchive";
 import {
   LocalMaterialSchema,
   hashLocalMaterial,
@@ -16,6 +17,7 @@ type StoredMaterial = {
   id: string;
   version: string;
   material: LocalMaterial;
+  importedAt?: number;
 };
 type StoredAudio = { scope: string; path: string; blob: Blob; sha256: string };
 export interface BankImportResult {
@@ -85,6 +87,11 @@ async function readStored(
         ) as Promise<StoredAudio[]>,
       ]);
       await done;
+      materials.sort(
+        (a, b) =>
+          (b.importedAt ?? 0) - (a.importedAt ?? 0) ||
+          b.version.localeCompare(a.version),
+      );
       return { materials, audio };
     } catch (error) {
       await done.catch(() => undefined);
@@ -167,12 +174,17 @@ async function saveBank(
       done = completed(tx),
       scope = scopeFor(userId);
     try {
-      for (const material of accepted)
+      const importedAt = existing.materials.reduce(
+        (latest, item) => Math.max(latest, (item.importedAt ?? 0) + 1),
+        Date.now(),
+      );
+      for (const [index, material] of accepted.entries())
         tx.objectStore("materials").add({
           scope,
           id: material.id,
           version: material.version,
           material,
+          importedAt: importedAt + index,
         } satisfies StoredMaterial);
       for (const item of audio) {
         const previous = existing.audio.find(
@@ -233,15 +245,37 @@ export async function importLocalBank(
     issues: [...issues, ...result.issues],
   };
   issuesByScope.set(scopeFor(userId), combined.issues);
-  window.dispatchEvent(
-    new CustomEvent("band-local-bank-changed", { detail: userId }),
-  );
+  if (result.imported || audio.length)
+    window.dispatchEvent(
+      new CustomEvent("band-local-bank-changed", { detail: userId }),
+    );
   return combined;
 }
 export async function importLocalBankFile(
   userId: string | null,
   file: File,
 ): Promise<BankImportResult> {
+  const header = new Uint8Array(await file.slice(0, 4).arrayBuffer());
+  if (/\.zip$/i.test(file.name) || (header[0] === 0x50 && header[1] === 0x4b)) {
+    const decoded = await decodeLocalBankArchive(file);
+    const result = await saveBank(
+      userId,
+      decoded.materials,
+      decoded.audio.map((item) => ({ ...item, scope: "" })),
+    );
+    const combined = {
+      ...result,
+      duplicate: result.duplicate + decoded.duplicate,
+      skipped: result.skipped + decoded.issues.length,
+      issues: [...decoded.issues, ...result.issues],
+    };
+    issuesByScope.set(scopeFor(userId), combined.issues);
+    if (result.imported || decoded.audio.length)
+      window.dispatchEvent(
+        new CustomEvent("band-local-bank-changed", { detail: userId }),
+      );
+    return combined;
+  }
   if (file.size > 64 * 1024 * 1024)
     throw new Error("题库JSON超过64 MB，请分批导入。");
   let parsed: unknown;
@@ -324,7 +358,7 @@ export async function loadLocalBank(
     const importedMaterials = materials.filter(
       (material) => !material.source.sourceRef.startsWith("builtin:"),
     );
-    if (importedMaterials.length) {
+    if (importedMaterials.length && !navigator.onLine) {
       issuesByScope.set(scope, issues);
       return importedMaterials;
     }
@@ -356,6 +390,17 @@ export async function loadLocalBank(
               )
             )
               throw new Error("材料路径无效。");
+            const descriptor = entry as Record<string, unknown>;
+            const known = materials.find(
+              (material) =>
+                material.id === descriptor.id &&
+                material.version === descriptor.version &&
+                material.contentHash === descriptor.contentHash,
+            );
+            if (known) {
+              raw.push(known);
+              continue;
+            }
             const file = await fetch(entry.path, {
               cache: "no-store",
               signal: AbortSignal.timeout(10000),
@@ -385,6 +430,10 @@ export async function loadLocalBank(
       issues.push(
         error instanceof Error ? error.message : "本机题库目录不可用。",
       );
+    }
+    if (importedMaterials.length) {
+      issuesByScope.set(scope, issues);
+      return importedMaterials;
     }
     const fallback = await builtinLocalBank();
     issuesByScope.set(scope, issues);
