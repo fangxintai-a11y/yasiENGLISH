@@ -1,8 +1,17 @@
 import { flushSync } from "react-dom";
 
-type VTDocument = Document & { startViewTransition?: (cb: () => void) => { finished: Promise<void> } };
+type ViewTransitionResult = { ready: Promise<void>; updateCallbackDone: Promise<void>; finished: Promise<void> };
+type VTDocument = Document & { startViewTransition?: (cb: () => void) => ViewTransitionResult };
 
 const reduced = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/** Each browser promise can reject independently; observing finished alone is insufficient. */
+function observeTransition(t: ViewTransitionResult, cleanup?: () => void) {
+  void t.ready.catch(() => {});
+  void t.updateCallbackDone.catch(() => {});
+  if (cleanup) void t.finished.then(cleanup, cleanup);
+  else void t.finished.catch(() => {});
+}
 
 /** Run a DOM-changing update inside a View Transition when the browser supports it. */
 export function transition(update: () => void) {
@@ -11,7 +20,7 @@ export function transition(update: () => void) {
     update();
     return;
   }
-  d.startViewTransition(() => flushSync(update));
+  observeTransition(d.startViewTransition(() => flushSync(update)));
 }
 
 /** Morph an element (e.g. a gallery tile's illustration) into the word card. */
@@ -26,5 +35,5 @@ export function morphFrom(el: HTMLElement | null | undefined, update: () => void
     el.style.viewTransitionName = "";
     flushSync(update);
   });
-  t.finished.finally(() => (el.style.viewTransitionName = ""));
+  observeTransition(t, () => { el.style.viewTransitionName = ""; });
 }
