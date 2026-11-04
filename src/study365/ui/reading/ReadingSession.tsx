@@ -1,3 +1,5 @@
+import { ReadingReview } from "./ReadingReview";
+import { ReadingErrorBook } from "./ReadingErrorBook";
 import {
   PracticeClock,
   practiceDraftKey,
@@ -65,11 +67,18 @@ export function ReadingSession({
     initialWorkId ?? null,
   );
   const [busy, setBusy] = useState(false),
-    [pane, setPane] = useState<"passage" | "questions">("passage");
+    [pane, setPane] = useState<"passage" | "questions">(
+      skill === "reading" ? "passage" : "questions",
+    );
   const [playbackReady, setPlaybackReady] = useState(skill === "reading");
   const playbackReadyRef = useRef(skill === "reading");
   const activeClock = useRef(new PracticeClock());
   const submittedDraftKey = useRef<string | null>(null);
+  const [highlight, setHighlight] = useState<{
+    quote: string;
+    paragraphId?: string;
+    offset?: number;
+  } | null>(null);
   const inFlight = useRef(false),
     alive = useRef(true),
     conditions = useRef<PlaybackConditions>({
@@ -213,6 +222,7 @@ export function ReadingSession({
       return;
     }
     setError("");
+    setHighlight(null);
     setMessage("");
     activeClock.current = new PracticeClock();
     submittedDraftKey.current = null;
@@ -284,6 +294,10 @@ export function ReadingSession({
   };
   const complete = async () => {
     if (!work || !context.block || busy) return;
+    if (!reviewFinished) {
+      setError("请先完成A-B复盘并为错题选择错因，或标答案存疑并说明。");
+      return;
+    }
     setBusy(true);
     setError("");
     try {
@@ -322,6 +336,15 @@ export function ReadingSession({
       if (alive.current) setBusy(false);
     }
   };
+  const evidenceVisible = !!work && Array.isArray(work.payload.reviewAnswers);
+  const reviewFinished =
+    !!work &&
+    Array.isArray(work.payload.questionResults) &&
+    work.payload.questionResults.length === material?.questions.length &&
+    work.payload.questionResults.every(
+      (q) =>
+        typeof (q as { reviewCorrect?: unknown }).reviewCorrect === "boolean",
+    );
   const result =
     material && work
       ? gradeMaterial(material, work.payload.answers as string[])
@@ -425,15 +448,17 @@ export function ReadingSession({
                       playbackReadyRef.current = ready;
                       setPlaybackReady(ready);
                     },
-                    true,
+                    evidenceVisible,
                   )}
                 <div className="r4-mobile-switch">
-                  <button
-                    className="btn btn-ghost"
-                    onClick={() => setPane("passage")}
-                  >
-                    查看原文
-                  </button>
+                  {(skill === "reading" || evidenceVisible) && (
+                    <button
+                      className="btn btn-ghost"
+                      onClick={() => setPane("passage")}
+                    >
+                      查看原文
+                    </button>
+                  )}
                   <button
                     className="btn btn-ghost"
                     onClick={() => setPane("questions")}
@@ -441,16 +466,40 @@ export function ReadingSession({
                     查看题目
                   </button>
                 </div>
-                <div className={`r4-columns r4-show-${pane}`}>
+                <div
+                  className={`r4-columns r4-show-${pane} ${skill === "listening" ? "r4-listening" : ""} ${evidenceVisible ? "r4-has-transcript" : ""}`}
+                >
                   <article className="r4-passage" aria-label="阅读原文">
                     {skill === "reading" &&
                       paragraphs.map((p, i) => (
                         <p key={p.id} data-paragraph-id={p.id}>
                           <b>{p.label ?? String.fromCharCode(65 + i)}.</b>{" "}
-                          {p.text}
+                          {evidenceVisible &&
+                          highlight &&
+                          (!highlight.paragraphId ||
+                            highlight.paragraphId === p.id) &&
+                          p.text.includes(highlight.quote) ? (
+                            <>
+                              {p.text.slice(
+                                0,
+                                highlight.offset ??
+                                  p.text.indexOf(highlight.quote),
+                              )}
+                              <mark>{highlight.quote}</mark>
+                              {p.text.slice(
+                                (highlight.offset ??
+                                  p.text.indexOf(highlight.quote)) +
+                                  highlight.quote.length,
+                              )}
+                            </>
+                          ) : (
+                            p.text
+                          )}
                         </p>
                       ))}
-                    {skill === "listening" && work && <p>{transcript}</p>}
+                    {skill === "listening" && evidenceVisible && (
+                      <p>{transcript}</p>
+                    )}
                   </article>
                   <section className="r4-questions" aria-label="作答题目">
                     <ReadingQuestions
@@ -517,22 +566,22 @@ export function ReadingSession({
                     ：实际试卷分界可能不同；原始分低于本表范围时仅保留正确数。
                   </p>
                 )}
-                {material.questions.map((q, i) => (
-                  <details key={q.id}>
-                    <summary>
-                      第{q.number ?? i + 1}题 ·{" "}
-                      {result.questionResults[i].correct ? "正确" : "错误"}
-                    </summary>
-                    <p>接受答案：{q.answer.accepted.join(" / ")}</p>
-                    <p>
-                      {q.answer.accepted.includes("NOT GIVEN")
-                        ? "相关语境"
-                        : "原文证据"}
-                      ：<mark>{q.evidence.quote ?? "未定位，答案待核"}</mark>
-                    </p>
-                    {q.evidence.rationale && <p>{q.evidence.rationale}</p>}
-                  </details>
-                ))}
+                <ReadingReview
+                  key={work.id}
+                  material={material}
+                  work={work}
+                  userId={userId}
+                  onSaved={(record) => setActiveWorkId(record.id)}
+                  onEvidence={(quote, paragraphId, offset) => {
+                    setHighlight({ quote, paragraphId, offset });
+                    setPane("passage");
+                    window.requestAnimationFrame(() =>
+                      document
+                        .querySelector(".r4-passage mark")
+                        ?.scrollIntoView({ block: "center" }),
+                    );
+                  }}
+                />
                 <p>
                   目标词覆盖：
                   {work.payload.coverage &&
@@ -543,7 +592,7 @@ export function ReadingSession({
                 {context.block && (
                   <button
                     className="btn btn-primary"
-                    disabled={busy}
+                    disabled={busy || !reviewFinished}
                     onClick={() => void complete()}
                   >
                     完成本次任务
@@ -616,6 +665,12 @@ export function ReadingSession({
             </article>
           ))}
       </section>
+      <ReadingErrorBook
+        records={learning.records}
+        planId={plan.id}
+        bank={bank}
+        today={context.date}
+      />
     </div>
   );
 }

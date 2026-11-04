@@ -75,3 +75,10 @@
 .r4-page legend {
   white-space: pre-wrap;
 }
+
+.r4-listening:not(.r4-has-transcript) {
+  grid-template-columns: minmax(0, 1fr);
+}
+.r4-listening:not(.r4-has-transcript) .r4-passage {
+  display: none;
+}

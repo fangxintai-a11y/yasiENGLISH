@@ -9,11 +9,11 @@ import { toast } from "../../ui/Toast";
 
 const STATUS = { new: "没学过", weak: "快忘了", known: "已掌握" } as const;
 
-export function ImportTab() {
+export function ImportTab({ initialText = "" }: { initialText?: string } = {}) {
   const atlas = useAtlas();
   const progress = useStore((s) => s.progress);
   const retention = useStore((s) => s.settings.retention);
-  const [text, setText] = useState("");
+  const [text, setText] = useState(initialText);
   const [report, setReport] = useState<TextReport | null>(null);
   const index = useMemo(() => lookupIndex(atlas.words), [atlas]);
   const run = () => setReport(analyzeText(text, index, progress.cards, Date.now(), retention));
