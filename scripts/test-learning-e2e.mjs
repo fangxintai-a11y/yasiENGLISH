@@ -2,7 +2,8 @@
 /**
  * P1 learning-record integration checks. Uses Vite dev, a disposable SQLite DB,
  * two fresh browser contexts, and temporary accounts. Does not use production,
- * an existing Chrome profile, or a user's study data. No build is required.
+ * an existing Chrome profile, or a user's study data. The appended R1 suite
+ * uses production preview and its service worker: run npm run build first.
  */
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
@@ -14,7 +15,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const root = path.resolve(process.env.BAND_LEARNING_E2E_ROOT || path.join(path.dirname(fileURLToPath(import.meta.url)), ".."));
 const apiPort = Number(process.env.BAND_LEARNING_E2E_API_PORT || 16189);
 const webPort = Number(process.env.BAND_LEARNING_E2E_WEB_PORT || 16188);
 assert.ok(Number.isInteger(apiPort) && apiPort > 1024 && apiPort < 65536);
@@ -54,6 +55,7 @@ async function eventually(check, message, timeout = 30000) {
   }
   throw new Error(`${message}${last ? `: ${last.message}` : ""}`);
 }
+
 function launch(command, args, env = {}) {
   const child = spawn(command, args, { cwd: root, env: { ...process.env, ...env }, stdio: ["ignore", "pipe", "pipe"] });
   for (const output of [child.stdout, child.stderr]) output.on("data", (chunk) => {
@@ -283,7 +285,14 @@ try {
   await moduleCall(desktop, "startLearningRecords");
   await eventually(async () => { const s = await state(desktop); return s.ready && s.userId === userA && s.quarantined === 1; }, "quarantine did not survive a page reload");
   await sync(desktop);
+  await desktop.getByRole("navigation", { name: "主导航", exact: true }).getByRole("link", { name: "今日", exact: true }).click();
+  const syncHint = desktop.locator('a[href="#/me?section=learning-sync"]').filter({ hasText: "查看同步问题" });
+  await syncHint.waitFor({ timeout: 6000 });
+  assert.match(await syncHint.innerText(), /有\s*1\s*条学习记录未同步/);
+  await syncHint.click();
+  await eventually(() => new URL(desktop.url()).hash === "#/me?section=learning-sync", "Today sync issue hint did not open the focused Me route");
   const issuesPanel = desktop.getByRole("region", { name: "未能同步的学习记录" });
+  await issuesPanel.waitFor();
   assert.match(await issuesPanel.innerText(), /有 1 条记录未能同步/);
   const originalDownload = desktop.waitForEvent("download");
   await issuesPanel.getByRole("button", { name: "导出未同步原文", exact: true }).click();
@@ -305,7 +314,7 @@ try {
   const retried = (await serverRevisions(desktop, rejectedEssay.id)).filter((r) => r.revisionId === rejectedEssay.revisionId);
   assert.equal(retried.length, 1);
   assert.equal(retried[0].payload.text, rejectedEssay.payload.text);
-  checks.push("单条400坏记录持久隔离、后续好记录上传；我的页面可导出原文并原ID重试清除");
+  checks.push("单条400坏记录持久隔离、后续好记录上传；今日提示可跳回我的页面导出原文并原ID重试清除");
 
   phase = "recording ZIP downloads and restores original bytes through Me";
   const recordingPanel = desktop.getByRole("region", { name: "学习录音备份" });
@@ -528,4 +537,11 @@ try {
 } finally {
   await cleanup();
   console.log(JSON.stringify({ success, checks, ...(failure ? { failedPhase: phase, error: failure } : {}) }, null, 2));
+}
+
+// Keep the P1 regression above intact, then verify the learner-facing R1 flow
+// in an independent account/database and a genuine production offline shell.
+if (success) {
+  const { runR1LearningE2E } = await import("./test-r1-e2e.mjs");
+  if (!(await runR1LearningE2E()).success) process.exitCode = 1;
 }

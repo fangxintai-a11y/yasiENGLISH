@@ -1,6 +1,6 @@
 /* Band Galaxy offline cache: app shell network-first, everything else cache-first.
    The 「离线包」 downloader (src/lib/offline.ts) fills its own `band-pack-*` cache; caches.match() searches it too. */
-const VERSION = "band-v4";
+const VERSION = "band-v5";
 const SHELL = `${VERSION}-shell`;
 const MEDIA = `${VERSION}-media`;
 
