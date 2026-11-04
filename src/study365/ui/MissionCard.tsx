@@ -49,6 +49,7 @@ export function MissionCard({ plan, dayPlan, block, mission, userId, index, onRe
       {!material.materials.length && !material.externalReferences.length && <p>外部材料：请使用合法取得、适合当天任务的练习材料。</p>}
     </details>}
     {skill === "writing" && <p><a className="btn btn-primary" href={`#/writing?${new URLSearchParams({ task: missionTaskId(dayPlan.day, block.id), date: dayPlan.date, day: String(dayPlan.day), minutes: String(planned) })}`}>开始写作</a></p>}
+    {skill === "reading" && <p><a className="btn btn-primary" href={`#/reading?${new URLSearchParams({ task: missionTaskId(dayPlan.day, block.id), date: dayPlan.date, day: String(dayPlan.day), minutes: String(planned) })}`}>开始练习</a><small>题库导入后自动加入</small></p>}
     {skill === "speaking" && <p><a className="btn btn-primary" href={`#/speaking?${new URLSearchParams({ task: missionTaskId(dayPlan.day, block.id), date: dayPlan.date, day: String(dayPlan.day), minutes: String(planned) })}`}>开始口语</a></p>}
     <p>{block.route ? <a className="btn btn-ghost" href={block.route}>进入词汇学习</a> :
       <button type="button" className="btn btn-ghost" onClick={() => onRegister ? onRegister(skill) : input.current?.focus()}>外部完成后登记</button>}</p>

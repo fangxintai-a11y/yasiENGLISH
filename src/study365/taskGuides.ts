@@ -3,7 +3,7 @@ const names: Record<string, string> = { vocabulary: "词汇", listening: "听力
 const base: Record<string, string> = {
   vocabulary: "先完成到期复习，再按今日词汇预算学习新词；把词放回语境核对意思与拼写。",
   listening: "使用未做过的材料独立作答，保留原始正确数；复盘时定位原文证据。",
-  reading: "先限时独立作答，再找原文依据并记录错因；分数按这份材料的换算表登记。",
+  reading: "点击开始练习，限时首答后判分，再查原文证据；也可在外部完成后登记。",
   writing: "在外部完成独立写作，保存原稿与题目；写作分等待真人或正式评估。",
   speaking: "在外部录音并回听，保留题目与原音频；口语分等待真人或正式评估。",
   review: "对照答案或反馈找出一个具体问题，记录证据和下一次要改的做法。",
