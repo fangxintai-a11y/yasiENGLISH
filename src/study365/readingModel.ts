@@ -5,10 +5,50 @@ import {
   type LocalQuestion,
 } from "./localBankSchema";
 import {
+  isObject,
   validateNewListeningReadingAttempt,
   type LearningPayload,
   type Revision,
 } from "./protocol";
+import { baseForms } from "../ielts/textimport";
+
+/** Snapshot the learner's targets against this original passage, never its synonyms. */
+export function readingCoverage(
+  text: string,
+  words: readonly { id: string; word: string }[],
+) {
+  const requested = [...new Map(words.map((w) => [w.id, w])).values()].slice(
+    0,
+    50,
+  );
+  const forms = new Set(
+    (text.match(/[A-Za-z]+(?:['’-][A-Za-z]+)*/g) ?? []).flatMap(baseForms),
+  );
+  const covered = requested.filter((w) => forms.has(w.word.toLowerCase()));
+  const coveredIds = new Set(covered.map((w) => w.id));
+  return {
+    requestedWordIds: requested.map((w) => w.id),
+    coveredWordIds: covered.map((w) => w.id),
+    uncoveredWordIds: requested
+      .filter((w) => !coveredIds.has(w.id))
+      .map((w) => w.id),
+    matcherVersion: "headword-inflection-v1",
+  };
+}
+
+/** Metadata remains useful on a device which has not imported this private original. */
+export function readingCoverageLabel(coverage: unknown): string {
+  if (
+    !isObject(coverage) ||
+    !Array.isArray(coverage.requestedWordIds) ||
+    !Array.isArray(coverage.coveredWordIds) ||
+    !Array.isArray(coverage.uncoveredWordIds)
+  )
+    return "未知";
+  return coverage.requestedWordIds.length
+    ? `原文包含 ${coverage.coveredWordIds.length} / ${coverage.requestedWordIds.length} 个目标词；${coverage.uncoveredWordIds.length} 个未覆盖（首答时保存）`
+    : "首答时没有设置错词目标";
+}
 
 export const READING_WORD_COUNTER = "english-words-v1";
 export function countReadingWords(text: string): number {
@@ -193,6 +233,7 @@ export function attemptPayload(
     transcriptViewed: boolean;
     replays: number;
   },
+  coverage?: ReturnType<typeof readingCoverage>,
 ): LearningPayload {
   const firstAttempt = isFirstMaterialAttempt(
     records,
@@ -218,6 +259,7 @@ export function attemptPayload(
     conditions: { ...conditions, firstAttempt, unseen: firstAttempt },
     firstAttempt,
     isCheckpoint: material.pool === "holdout",
+    ...(coverage ? { coverage } : {}),
   };
   validateNewListeningReadingAttempt(payload);
   return payload;

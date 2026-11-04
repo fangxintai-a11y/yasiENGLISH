@@ -2277,7 +2277,6 @@ code {
 @keyframes stage-in {
   from {
     opacity: 0;
-    transform: translateX(18px);
   }
 }
 .stage-label {

@@ -2,6 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   attemptPayload,
+  readingCoverage,
+  readingCoverageLabel,
   countReadingWords,
   gradeMaterial,
   gradeQuestion,
@@ -368,5 +370,63 @@ test("T6: an explicit paragraph anchor takes precedence over a repeated quote el
       questions,
     }).map((item) => item.id),
     ["q1", "q2"],
+  );
+});
+
+// T11: a persisted partition, rather than a view-only percentage.
+test("T11: coverage matches inflections, preserves requested IDs and does not count synonyms", () => {
+  const coverage = readingCoverage("The children studied habitats.", [
+    { id: "child", word: "child" },
+    { id: "study", word: "study" },
+    { id: "home", word: "home" },
+    { id: "study", word: "study" },
+  ]);
+  assert.deepEqual(coverage, {
+    requestedWordIds: ["child", "study", "home"],
+    coveredWordIds: ["child", "study"],
+    uncoveredWordIds: ["home"],
+    matcherVersion: "headword-inflection-v1",
+  });
+});
+test("T11: target list is bounded and duplicate IDs cannot cross the saved partition", () => {
+  const words = Array.from({ length: 60 }, (_, i) => ({
+    id: `w${i}`,
+    word: i === 0 ? "river" : "hazard",
+  }));
+  const coverage = readingCoverage("Rivers flow.", [words[0], ...words]);
+  assert.equal(coverage.requestedWordIds.length, 50);
+  assert.deepEqual(coverage.coveredWordIds, ["w0"]);
+  assert.equal(coverage.uncoveredWordIds.length, 49);
+  assert.equal(
+    new Set([...coverage.coveredWordIds, ...coverage.uncoveredWordIds]).size,
+    50,
+  );
+});
+
+test("T11: saved coverage can be read without the source bank; only missing metadata is unknown", () => {
+  const saved = {
+    requestedWordIds: ["river", "hazard"],
+    coveredWordIds: ["river"],
+    uncoveredWordIds: ["hazard"],
+    matcherVersion: "headword-inflection-v1",
+  };
+  assert.match(readingCoverageLabel(saved), /1 \/ 2.*1 个未覆盖/);
+  assert.equal(readingCoverageLabel(undefined), "未知");
+  assert.equal(
+    readingCoverageLabel({
+      ...saved,
+      requestedWordIds: [],
+      coveredWordIds: [],
+      uncoveredWordIds: [],
+    }),
+    "首答时没有设置错词目标",
+  );
+  assert.match(
+    readingCoverageLabel({
+      ...saved,
+      coveredWordIds: [],
+      uncoveredWordIds: saved.requestedWordIds,
+    }),
+    /0 \/ 2/,
   );
 });

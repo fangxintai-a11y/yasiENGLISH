@@ -1,0 +1,39 @@
+{
+  "fixtureVersion": 1,
+  "purpose": "Self-authored R4 UI fixtures. Source labels exercise behavior and do not certify real official materials.",
+  "materials": [
+    {
+      "id": "r4-ui-official-drill", "version": "1", "skill": "reading", "title": "R4 synthetic official-type drill", "deliveryMode": "local-import", "scope": "type-drill", "pool": "practice",
+      "source": {"materialSource": "official", "sourceRef": "synthetic:official-drill", "rights": "Self-authored test fixture, not an official exam", "answerVerified": true},
+      "passage": "A volunteer painted the gate blue. The archive keeps a record of the work.",
+      "paragraphs": [{"id": "p1", "text": "A volunteer painted the gate blue. The archive keeps a record of the work."}],
+      "questions": [
+        {"id":"d1","number":1,"type":"true-false-not-given","prompt":"The gate is blue.","answer":{"accepted":["TRUE"],"maxWords":2},"evidence":{"paragraphId":"p1","quote":"A volunteer painted the gate blue."},"answerVerified":true},
+        {"id":"d2","number":2,"type":"sentence-completion","prompt":"The archive keeps a ____.","answer":{"accepted":["record"],"maxWords":1},"evidence":{"paragraphId":"p1","quote":"The archive keeps a record of the work."},"answerVerified":true}
+      ]
+    },
+    {
+      "id": "r4-ui-reference-reading", "version": "1", "skill": "reading", "title": "R4 synthetic river survey", "deliveryMode": "local-import", "scope": "section", "pool": "practice", "frequency": "high", "passageNumber": 1,
+      "source": {"materialSource": "unofficial", "sourceRef": "synthetic:river-survey", "rights": "Self-authored test fixture", "answerVerified": true},
+      "passage": "Volunteers tested the river water every Monday. Their report recorded rainfall before each visit. The project leader coordinated the timetable. Samples were stored in cool boxes before analysis.",
+      "paragraphs": [{"id":"p1","text":"Volunteers tested the river water every Monday. Their report recorded rainfall before each visit."},{"id":"p2","text":"The project leader coordinated the timetable. Samples were stored in cool boxes before analysis."}],
+      "questions": [
+        {"id":"r1","number":1,"type":"true-false-not-given","prompt":"Water testing took place every Monday.","answer":{"accepted":["TRUE"],"maxWords":2},"evidence":{"paragraphId":"p1","quote":"Volunteers tested the river water every Monday."},"answerVerified":true},
+        {"id":"r2","number":2,"type":"sentence-completion","prompt":"The report recorded ____ before each visit.","answer":{"accepted":["rainfall"],"maxWords":1},"evidence":{"paragraphId":"p1","quote":"Their report recorded rainfall before each visit."},"answerVerified":true},
+        {"id":"r3","number":3,"type":"multiple-choice","prompt":"Where were the samples stored?","answer":{"accepted":["B"],"maxWords":1},"options":[{"id":"A","text":"A warm office"},{"id":"B","text":"Cool boxes"},{"id":"C","text":"A vehicle"}],"evidence":{"paragraphId":"p2","quote":"Samples were stored in cool boxes before analysis."},"answerVerified":true},
+        {"id":"r4","number":4,"type":"true-false-not-given","prompt":"The project leader was born in 1975.","answer":{"accepted":["NOT GIVEN"],"maxWords":2},"evidence":{"paragraphId":"p2","quote":"The project leader coordinated the timetable.","rationale":"This related context gives a role but does not report a birth year."},"answerVerified":true}
+      ]
+    },
+    {
+      "id": "r4-ui-reference-listening", "version": "1", "skill": "listening", "title": "R4 built-in lecture audio excerpt", "deliveryMode": "local-import", "scope": "section", "pool": "practice", "section": 4,
+      "source": {"materialSource": "unofficial", "sourceRef": "synthetic:builtin-lecture-excerpt", "rights": "Self-authored prompts and an excerpt of the project-authored built-in sample", "answerVerified": true},
+      "audio": {"path":"audio/r4-test.wav","durationSeconds":10},
+      "transcript": "Today we will examine how researchers evaluate rain gardens in urban neighbourhoods.",
+      "notes": ["Only the opening sentence is assessed. The clip may include the start of the following sentence."],
+      "questions": [
+        {"id":"l1","number":1,"type":"sentence-completion","prompt":"Researchers evaluate rain ____.","answer":{"accepted":["gardens"],"maxWords":1},"evidence":{"quote":"researchers evaluate rain gardens","startSeconds":0,"endSeconds":10},"answerVerified":true},
+        {"id":"l2","number":2,"type":"sentence-completion","prompt":"The neighbourhoods described are ____.","answer":{"accepted":["urban"],"maxWords":1},"evidence":{"quote":"urban neighbourhoods","startSeconds":0,"endSeconds":10},"answerVerified":true}
+      ]
+    }
+  ]
+}

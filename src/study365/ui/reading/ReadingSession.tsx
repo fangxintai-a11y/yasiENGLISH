@@ -6,6 +6,8 @@ import {
   PRACTICE_SCOPE_LABELS,
 } from "./ListeningReadingPlan";
 import { ShortStudy } from "./ShortStudy";
+import { useAtlas } from "../../../atlas/context";
+import { store } from "../../../store/store";
 import { OfficialResources } from "../OfficialResources";
 import { ReadingReview } from "./ReadingReview";
 import { ReadingErrorBook } from "./ReadingErrorBook";
@@ -28,6 +30,8 @@ import {
   estimatedReadingListeningBand,
   gradeMaterial,
   orderedReadingQuestions,
+  readingCoverage,
+  readingCoverageLabel,
 } from "../../readingModel";
 import type { PracticeContext } from "../../listeningReadingTasks";
 import type { Revision } from "../../protocol";
@@ -64,6 +68,7 @@ export function ReadingSession({
   onAttemptSaved?: (material: LocalMaterial) => void;
 }) {
   const learning = useLearning();
+  const atlas = useAtlas();
   const [bank, setBank] = useState<LocalMaterial[]>([]),
     [loaded, setLoaded] = useState(false),
     [error, setError] = useState(""),
@@ -312,6 +317,15 @@ export function ReadingSession({
         state.records,
         seconds,
         { timed: seconds <= minutes * 60, ...conditions.current },
+        skill === "reading"
+          ? readingCoverage(
+              passage,
+              store.get().progress.mistakes.flatMap((id) => {
+                const word = atlas.byId.get(id);
+                return word ? [word] : [];
+              }),
+            )
+          : undefined,
       );
       payload.actualMinutes = activeClock.current.value() / 60;
       const record = await saveRecord({
@@ -716,10 +730,7 @@ export function ReadingSession({
                     />
                     <p>
                       目标词覆盖：
-                      {work.payload.coverage &&
-                      typeof work.payload.coverage === "object"
-                        ? "已保存覆盖记录"
-                        : "未知"}
+                      {readingCoverageLabel(work.payload.coverage)}
                     </p>
                     {context.block && (
                       <button
@@ -763,7 +774,7 @@ export function ReadingSession({
             </h2>
             <p>
               材料来源：{String(work.payload.materialSource ?? "未分类")} ·
-              目标词覆盖：未知
+              目标词覆盖：{readingCoverageLabel(work.payload.coverage)}
             </p>
           </section>
         )}

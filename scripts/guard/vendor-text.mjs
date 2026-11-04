@@ -12,7 +12,11 @@ const roots = ['src', 'docs', 'server', 'scripts', 'ops', '.github'];
 const files = ['README.md', 'SECURITY.md', 'CONTRIBUTING.md', 'index.html', 'vite.config.ts', 'package.json', 'package-lock.json'];
 const publicText = new Set(['.js', '.mjs', '.css', '.html', '.json', '.md', '.txt', '.webmanifest', '.map']);
 const sourceText = new Set([...publicText, '.ts', '.tsx', '.py', '.yml', '.yaml', '.sh', '.svg', '']);
+// Imported papers are private user content, including their copied build output.
+// Keep this boundary exact: default materials and similarly named UI code are scanned.
+const privateMaterialRoots = ['local-content', 'public/local-bank', 'dist/local-bank'];
 async function walk(root, relative, extensions) {
+  if (privateMaterialRoots.some(directory => relative === directory || relative.startsWith(`${directory}/`))) return [];
   let entries;
   try { entries = await readdir(path.join(root, relative), { withFileTypes: true }); }
   catch (error) { if (error.code === 'ENOENT') return []; throw error; }

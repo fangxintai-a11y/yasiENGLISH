@@ -20,6 +20,17 @@ test('allowed words cannot hide a longer product identifier', async (t) => { ass
 test('conditional training slogan fails', async (t) => { assert.equal((await scanRepository(await fixture(t, '不接 ' + 'AI 也能练')))[0].rule, 'wording'); });
 test('raw third party sources are excluded', async (t) => { assert.deepEqual(await scanRepository(await fixture(t, name, 'data/sources/raw.txt')), []); });
 test('build output is checked after compilation', async (t) => { assert.equal((await scanRepository(await fixture(t, name, 'dist/assets/chunk.js'), { dist: true }))[0].rule, 'vendor'); });
+for (const file of ['public/local-bank/reading/source.json', 'local-content/source.txt', 'dist/local-bank/listening/source.json']) {
+  test(`private imported material is excluded at ${file}`, async (t) => {
+    assert.deepEqual(await scanRepository(await fixture(t, name, file), { dist: true }), []);
+  });
+}
+test('local material exclusion does not hide UI code, default materials or similarly named paths', async (t) => {
+  const paths = ['src/local-bank/view.tsx', 'public/local-bank-ui.json', 'public/curriculum365/v1/samples.json', 'dist/assets/local-bank-controller.js'];
+  const root = await fixture(t, name, paths[0]);
+  for (const file of paths.slice(1)) { await mkdir(path.dirname(path.join(root, file)), { recursive: true }); await writeFile(path.join(root, file), name); }
+  assert.deepEqual((await scanRepository(root, { dist: true })).map(issue => issue.file), [...paths].sort());
+});
 test('the actual repository passes its text policy', async () => {
   const root = path.resolve(import.meta.dirname, '../..');
   assert.deepEqual(await scanRepository(root), []);
