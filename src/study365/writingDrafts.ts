@@ -32,5 +32,5 @@ export function draftFromRevision(work: Revision): WritingDraft {
     date: String(p.date), prompt: String(p.prompt ?? ''), text: String(p.text ?? ''),
     timer: { elapsedSeconds: Number(p.elapsedSeconds ?? 0), runningSince: null, limitSeconds: p.taskType === 'task1' ? 1200 : 2400, timed: !!(p.conditions as Record<string, unknown> | undefined)?.timed },
     conditions: { firstAttempt: !!(p.conditions as Record<string, unknown> | undefined)?.firstAttempt, unseen: !!(p.conditions as Record<string, unknown> | undefined)?.unseen },
-    ...Object.fromEntries(['day', 'taskId', 'contentId', 'contentVersion', 'sourceRef', 'parentRevisionId', 'correctionId'].filter(key => p[key] !== undefined && p[key] !== null).map(key => [key, p[key]])) });
+    ...Object.fromEntries(['day', 'taskId', 'contentId', 'contentVersion', 'sourceRef', 'parentRevisionId', 'correctionId', 'retestOf'].filter(key => p[key] !== undefined && p[key] !== null).map(key => [key, p[key]])) });
 }

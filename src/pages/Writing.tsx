@@ -35,7 +35,7 @@ import {
   resolveConflict,
   type LearningState,
 } from "../study365/repository";
-import { saveMission } from "../study365/missionRecords";
+import { saveMission, selectMission } from "../study365/missionRecords";
 import { WritingReview } from "../study365/ui/writing/WritingReview";
 import { ExternalWritingFeedback } from "../study365/ui/writing/ExternalWritingFeedback";
 import { WritingHumanCalibration } from "../study365/ui/writing/WritingHumanCalibration";
@@ -51,6 +51,21 @@ import {
 import { feedbackForWork } from "../study365/writingReview";
 import { writingCauseOptions } from "../study365/writingRubric";
 import { calibrationForWork } from "../study365/writingCalibration";
+import { usePromptBank } from "../study365/usePromptBank";
+import {
+  promptKey,
+  canChooseWritingPrompt,
+  writingWithPrompt,
+  retestWorkId,
+  matchesRetestWork,
+} from "../study365/promptWorkSelection";
+import {
+  PromptPicker,
+  PromptStimulus,
+} from "../study365/ui/prompts/PromptPicker";
+import type { LocalPrompt } from "../study365/promptBankSchema";
+import { writingRetestDraft } from "../study365/retestWorkDrafts";
+import { withRevisionReferences } from "../study365/revisionReferences";
 
 type WritingRoute = Extract<Route, { page: "writing" }>;
 const labelOf = (draft: WritingDraft) =>
@@ -129,11 +144,12 @@ export function Writing({ route }: { route: WritingRoute }) {
     const context = resolveWritingContext(plan, learning.records, route);
     return (
       <WritingEditor
-        key={`${learning.userId ?? "guest"}:${plan.id}:${context.date}:${context.taskId}:${route.work ?? "new"}`}
+        key={`${learning.userId ?? "guest"}:${plan.id}:${context.date}:${context.taskId}:${route.work ?? "new"}:${route.correctionId ?? ""}:${route.retestOf ?? ""}:${route.material ?? ""}`}
         plan={plan}
         context={context}
         learning={learning}
         selectedWorkId={route.work}
+        selectedMaterial={route.material}
       />
     );
   } catch (error) {
@@ -153,14 +169,19 @@ function WritingEditor({
   context,
   learning,
   selectedWorkId,
+  selectedMaterial,
 }: {
   plan: Revision;
   context: WritingContext;
   learning: LearningState;
   selectedWorkId?: string;
+  selectedMaterial?: string;
 }) {
   const scope = writingScope(learning.userId),
     userId = learning.userId;
+  const promptBank = usePromptBank(userId),
+    retest = !!context.retestOf;
+  const [retestError, setRetestError] = useState("");
   const [mode, setMode] = useState<WritingMode>(context.defaultMode),
     [now, setNow] = useState(Date.now);
   const [drafts, setDrafts] = useState<WritingDraft[]>([]),
@@ -217,7 +238,7 @@ function WritingEditor({
       return [...next.values()];
     });
   const withTaskTimer = (draft: WritingDraft): WritingDraft =>
-    draft.scope === "paragraph" && context.plannedMinutes > 0
+    !draft.retestOf && draft.scope === "paragraph" && context.plannedMinutes > 0
       ? {
           ...draft,
           timer: { ...draft.timer, limitSeconds: context.plannedMinutes * 60 },
@@ -230,6 +251,11 @@ function WritingEditor({
   useEffect(() => {
     let active = true;
     setLoaded(false);
+    setRetestError("");
+    if (retest && !promptBank.loaded)
+      return () => {
+        active = false;
+      };
     void (async () => {
       const all = (await listWritingDrafts(scope)).filter(
         (draft) => draft.planId === plan.id,
@@ -248,7 +274,47 @@ function WritingEditor({
         );
       };
       let restored: WritingDraft[] = [];
-      if (selectedWorkId) {
+      if (retest) {
+        const prompt = promptBank.prompts.find(
+          (value) =>
+            promptKey(value) === selectedMaterial && value.skill === "writing",
+        );
+        if (!prompt)
+          throw new Error(
+            "本机缺少复测指定的原版写作题。请到“我的”导入题库，再从订正页进入；当前草稿保留。",
+          );
+        const id = await retestWorkId(
+          scope,
+          plan.id,
+          context,
+          selectedMaterial!,
+        );
+        const head = works.find((work) =>
+          matchesRetestWork(work, id, plan.id, context, prompt),
+        );
+        const local = all.find(
+          (draft) =>
+            draft.recordId === id &&
+            draft.retestOf === context.retestOf &&
+            draft.correctionId === context.correctionId &&
+            draft.contentId === prompt.id &&
+            draft.contentVersion === prompt.version &&
+            prompt.skill === "writing" &&
+            draft.taskType === prompt.taskType,
+        );
+        if (local) restored = [await reconcile(local)];
+        else if (head) restored = [draftFromRevision(head)];
+        else {
+          const next = await writingRetestDraft(
+            plan,
+            context,
+            prompt,
+            withRevisionReferences(learning.records),
+            promptBank.prompts,
+          );
+          restored = [{ ...next, id, recordId: id }];
+        }
+      } else if (selectedWorkId) {
         const local = all.find((draft) => draft.recordId === selectedWorkId);
         if (local) restored = [await reconcile(local)];
         else if (selected)
@@ -266,7 +332,9 @@ function WritingEditor({
       } else {
         const candidates = all.filter(
           (draft) =>
-            draft.date === context.date && draft.taskId === context.taskId,
+            draft.date === context.date &&
+            draft.taskId === context.taskId &&
+            !draft.retestOf,
         );
         const byType = new Map<string, WritingDraft>();
         for (const draft of candidates)
@@ -293,7 +361,7 @@ function WritingEditor({
       setMode(
         restoredWritingMode(
           restored,
-          selectedWorkId ? restored[0].taskType : context.defaultMode,
+          selectedWorkId || retest ? restored[0].taskType : context.defaultMode,
         ),
       );
       setDrafts(restored);
@@ -306,7 +374,15 @@ function WritingEditor({
     })().catch((error) => {
       if (active) {
         setLoaded(true);
-        setDrafts(context.block ? [createDraft(plan, context, "task1")] : []);
+        setDrafts(
+          !retest && context.block ? [createDraft(plan, context, "task1")] : [],
+        );
+        if (retest)
+          setRetestError(
+            error instanceof Error
+              ? error.message
+              : "复测题未读取，请从订正页重新进入。",
+          );
         setLocalStatus(
           `草稿未保存：${error instanceof Error ? error.message : "读取失败，请保留正文。"}`,
         );
@@ -315,7 +391,7 @@ function WritingEditor({
     return () => {
       active = false;
     };
-  }, [scope, selectedWorkId]);
+  }, [scope, selectedWorkId, retest ? promptBank.loaded : true]);
   // Remote heads are reconciled against the latest in-memory text, including
   // keystrokes still inside the 300ms local-save window. Never reload over it.
   const remoteHeadsKey = works
@@ -523,7 +599,7 @@ function WritingEditor({
       allRevisions,
     );
   const unresolved = (draft: WritingDraft) => unresolvedFor(draft).length > 0;
-  const updateMission = async () => {
+  const updateMission = async (includeRetestCheckpoint = false) => {
     if (!context.block) return;
     checkAccount();
     const submitted = getLearningState().records.filter(
@@ -532,12 +608,22 @@ function WritingEditor({
         work.planId === plan.id &&
         !work.deleted &&
         !work.conflict &&
-        work.payload.stage !== "draft" &&
+        (work.payload.stage !== "draft" ||
+          (includeRetestCheckpoint && !!work.payload.retestOf)) &&
         work.payload.date === context.date &&
         work.payload.taskId === context.taskId,
     );
+    const isRetest =
+      retest || draftsRef.current.some((draft) => !!draft.retestOf);
+    const old = selectMission(
+      getLearningState().records,
+      plan.id,
+      context.date,
+      context.taskId,
+    );
     const complete =
-      context.plannedMinutes < 60
+      !isRetest &&
+      (context.plannedMinutes < 60
         ? submitted.length > 0
         : ["task1", "task2"].every((type) =>
             submitted.some(
@@ -545,7 +631,7 @@ function WritingEditor({
                 work.payload.taskType === type &&
                 work.payload.scope !== "paragraph",
             ),
-          );
+          ));
     const seconds = submitted.reduce(
       (sum, work) => sum + Number(work.payload.elapsedSeconds ?? 0),
       0,
@@ -555,8 +641,13 @@ function WritingEditor({
       day: context.day,
       date: context.date,
       block: context.block,
-      status: complete ? "completed" : "partial",
-      actualMinutes: seconds / 60,
+      status:
+        (isRetest && old?.payload.status === "completed") || complete
+          ? "completed"
+          : "partial",
+      actualMinutes: isRetest
+        ? Math.max(Number(old?.payload.actualMinutes ?? 0), seconds / 60)
+        : seconds / 60,
       timeSource: "timer",
       expectedUserId: userId,
     });
@@ -724,11 +815,15 @@ function WritingEditor({
             ? "检查点已保存在本机，等待同步到账号。"
             : "本机检查点已保存。要跨设备同步，请先登录后在账号下写作。",
       );
-      if (submit) {
+      if (submit || draft.retestOf) {
         try {
-          await updateMission();
+          await updateMission(!!draft.retestOf);
           if (alive.current)
-            setMessage("作品已提交，今日任务已按实际计时更新。");
+            setMessage(
+              draft.retestOf
+                ? `${submit ? "复测作品已提交" : "复测检查点已保存"}，只更新原写作块的部分进度。完成后请回订正页自查；当前没有生成评分。`
+                : "作品已提交，今日任务已按实际计时更新。",
+            );
         } catch (error) {
           if (alive.current)
             setMessage(
@@ -775,7 +870,13 @@ function WritingEditor({
     try {
       checkAccount();
       const next = rewriteWriting(work);
-      if (context.correctionId) Object.assign(next, { correctionId: context.correctionId, date: context.date, day: context.day, taskId: context.taskId });
+      if (context.correctionId && !context.retestOf)
+        Object.assign(next, {
+          correctionId: context.correctionId,
+          date: context.date,
+          day: context.day,
+          taskId: context.taskId,
+        });
       const result = await checkpointWriting(next, {
         scope,
         expectedUserId: userId,
@@ -784,7 +885,9 @@ function WritingEditor({
       go({
         page: "writing",
         work: result.work.id,
-        ...(context.correctionId ? { correctionId: context.correctionId } : {}),
+        ...(context.correctionId && !context.retestOf
+          ? { correctionId: context.correctionId }
+          : {}),
         date: String(result.work.payload.date),
         ...(typeof result.work.payload.day === "number"
           ? { day: result.work.payload.day }
@@ -814,7 +917,16 @@ function WritingEditor({
         <h1>写作工作台</h1>
         <p>今日写作计划 {context.plannedMinutes} 分钟。提纲时间计入写作。</p>
         <a href="#/">返回今日任务</a>
-        {!loaded ? (
+        {retest && (
+          <p>
+            跨天新题复测：保留原练习范围和题型。提交后请回订正页完成自查，未做反馈前不会判为通过。
+          </p>
+        )}
+        {retestError ? (
+          <p role="alert">
+            {retestError} <a href="#/review">返回订正</a>
+          </p>
+        ) : !loaded ? (
           <p role="status">正在恢复本机草稿…</p>
         ) : !context.block && !drafts.length ? (
           <p>这一天没有写作任务。可以打开已保存作品。</p>
@@ -825,7 +937,12 @@ function WritingEditor({
               <select
                 aria-label="练习类型"
                 value={mode}
-                disabled={busy || !!selectedWorkId}
+                disabled={
+                  busy ||
+                  !!selectedWorkId ||
+                  retest ||
+                  drafts.some((draft) => !!draft.retestOf)
+                }
                 onChange={(event) =>
                   changeMode(event.target.value as WritingMode)
                 }
@@ -849,6 +966,8 @@ function WritingEditor({
                     draft={draft}
                     now={now}
                     materials={availableWritingMaterials(context.day)}
+                    prompts={promptBank.prompts}
+                    promptLocked={retest || !!draft.retestOf}
                     onChange={(change) => update(draft.id, change)}
                     onStart={() => start(draft.id)}
                     onPause={() => pause(draft.id)}
@@ -1061,18 +1180,20 @@ function WritingEditor({
         data-testid="writing-work-list"
       >
         <h2>我的作品</h2>
-        {context.block && (
-          <button
-            type="button"
-            className="btn btn-ghost"
-            disabled={busy || !loaded}
-            onClick={() => {
-              void newWork();
-            }}
-          >
-            新写一篇
-          </button>
-        )}
+        {context.block &&
+          !retest &&
+          !drafts.some((draft) => !!draft.retestOf) && (
+            <button
+              type="button"
+              className="btn btn-ghost"
+              disabled={busy || !loaded}
+              onClick={() => {
+                void newWork();
+              }}
+            >
+              新写一篇
+            </button>
+          )}
         {!works.length && !localArchive.length && <p>暂无已保存作品。</p>}
         {works.map((work) => {
           const self = feedbackForWork(learning.records, work).find(
@@ -1197,6 +1318,8 @@ function WritingEditor({
 function DraftEditor({
   draft,
   materials,
+  prompts,
+  promptLocked,
   now,
   onChange,
   onStart,
@@ -1204,6 +1327,8 @@ function DraftEditor({
 }: {
   draft: WritingDraft;
   materials: WritingMaterial[];
+  prompts: readonly LocalPrompt[];
+  promptLocked: boolean;
   now: number;
   onChange: (change: (draft: WritingDraft) => WritingDraft) => void;
   onStart: () => void;
@@ -1222,6 +1347,13 @@ function DraftEditor({
           ? "custom"
           : "external",
   );
+  const imported = prompts.find(
+    (prompt) =>
+      prompt.skill === "writing" &&
+      prompt.id === draft.contentId &&
+      prompt.version === draft.contentVersion,
+  );
+  const locked = promptLocked || !!imported;
   const elapsed = elapsedWritingSeconds(draft, now),
     remaining = Math.max(0, draft.timer.limitSeconds - elapsed),
     count = words(draft.text).length;
@@ -1248,6 +1380,19 @@ function DraftEditor({
       data-draft-id={draft.id}
     >
       <h2>{labelOf(draft).replace("写作 ", "")}</h2>
+      {!promptLocked && (
+        <PromptPicker
+          prompts={prompts}
+          skill="writing"
+          taskType={draft.taskType}
+          value={imported && promptKey(imported)}
+          disabled={!canChooseWritingPrompt(draft)}
+          onChoose={(prompt) =>
+            onChange((previous) => writingWithPrompt(previous, prompt))
+          }
+        />
+      )}
+      <PromptStimulus prompt={imported} />
       <fieldset
         disabled={draft.stage === "submitted"}
         style={{ border: 0, padding: 0, minWidth: 0 }}
@@ -1256,7 +1401,8 @@ function DraftEditor({
           <span>题目来源</span>
           <select
             aria-label="题目来源"
-            value={source}
+            disabled={locked}
+            value={imported ? "external" : source}
             onChange={(event) =>
               chooseSource(event.target.value as typeof source)
             }
@@ -1268,12 +1414,13 @@ function DraftEditor({
             <option value="custom">自定义题</option>
           </select>
         </label>
-        {source === "builtin" && (
+        {source === "builtin" && !imported && (
           <>
             <label>
               内置题目
               <select
                 aria-label="内置题目"
+                disabled={locked}
                 value={draft.contentId}
                 onChange={(event) => {
                   const item = available.find(
@@ -1299,11 +1446,12 @@ function DraftEditor({
             <p className="muted">自编练习材料，尚待独立人工审校。</p>
           </>
         )}
-        {source === "external" && (
+        {(source === "external" || imported) && (
           <label className="field">
             <span>外部题出处（必填）</span>
             <input
               aria-label="外部题出处"
+              readOnly={locked}
               value={draft.sourceRef ?? ""}
               maxLength={300}
               placeholder="例如：剑桥20 Test 1 Task 2"
@@ -1321,7 +1469,7 @@ function DraftEditor({
           <textarea
             aria-label="题目"
             value={draft.prompt}
-            readOnly={source === "builtin"}
+            readOnly={locked || source === "builtin"}
             maxLength={8000}
             rows={4}
             style={{ width: "100%" }}
@@ -1356,7 +1504,7 @@ function DraftEditor({
             </table>
           </div>
         )}
-        {source !== "builtin" && draft.taskType === "task1" && (
+        {source !== "builtin" && !imported && draft.taskType === "task1" && (
           <label style={{ display: "block" }}>
             题图文字说明
             <textarea

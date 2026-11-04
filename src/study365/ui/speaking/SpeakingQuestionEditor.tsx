@@ -13,7 +13,11 @@ import {
   type SpeakingAnswerOptions,
 } from "./useSpeakingAnswer";
 export function SpeakingQuestionEditor(
-  props: SpeakingAnswerOptions & { plan: Revision; context: SpeakingContext },
+  props: SpeakingAnswerOptions & {
+    plan: Revision;
+    context: SpeakingContext;
+    promptLocked?: boolean;
+  },
 ) {
   const { context } = props;
   const answer = useSpeakingAnswer(props),
@@ -79,7 +83,7 @@ export function SpeakingQuestionEditor(
             : "逐题回答，展开理由、比较与举例。"}
       </p>
       <fieldset
-        disabled={busy || !!work || recording}
+        disabled={busy || !!work || recording || props.promptLocked}
         style={{ border: 0, padding: 0 }}
       >
         <label>
@@ -119,7 +123,7 @@ export function SpeakingQuestionEditor(
           <textarea
             aria-label="口语题目"
             value={draft.prompt}
-            readOnly={source === "builtin"}
+            readOnly={source === "builtin" || props.promptLocked}
             rows={3}
             maxLength={8000}
             style={{ width: "100%" }}

@@ -46,6 +46,7 @@ export function Reading({
         userId={learning.userId}
         initialWorkId={route.work}
         initialMaterialId={route.material}
+        workflow={{ correctionId: route.correctionId, retestOf: route.retestOf }}
       />
     );
   } catch (e) {

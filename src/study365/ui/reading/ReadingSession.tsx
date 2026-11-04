@@ -1,3 +1,6 @@
+import { assertRetestMaterialEligible, selectRetest, estimatedRetestMinutes } from '../../retestSelection';
+import { correctionOriginal } from '../../correctionModel';
+import { withRevisionReferences } from '../../revisionReferences';
 import {
   ListeningReadingPlan,
   practiceSelection,
@@ -22,7 +25,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { loadLocalBank } from "../../localBank";
 import type { LocalMaterial } from "../../localBankSchema";
 import { useLearning, getLearningState, saveRecord } from "../../repository";
-import { saveMission } from "../../missionRecords";
+import { selectMission, saveMission } from "../../missionRecords";
 import {
   attemptPayload,
   countReadingWords,
@@ -48,6 +51,7 @@ export function ReadingSession({
   userId,
   initialWorkId,
   initialMaterialId,
+  workflow,
   skill = "reading",
   playback,
   onAttemptSaved,
@@ -57,6 +61,7 @@ export function ReadingSession({
   userId: string | null;
   initialWorkId?: string;
   initialMaterialId?: string;
+  workflow?: { correctionId?: string; retestOf?: string };
   skill?: "reading" | "listening";
   playback?: (
     material: LocalMaterial,
@@ -268,7 +273,21 @@ export function ReadingSession({
       window.removeEventListener("pagehide", hide);
     };
   }, [draftKey, work?.id, started, answers]);
+  const assertRetest = () => {
+    if (!workflow?.retestOf) return;
+    if (!material || !workflow.correctionId) throw new Error('复测关联不完整，请从订正页重新进入。');
+    const state = liveAccount(), records = withRevisionReferences(state.records);
+    const correction = state.records.find(r => r.id === workflow.correctionId && r.kind === 'correction' && r.planId === plan.id && !r.conflict);
+    if (!correction) throw new Error('这条订正尚未同步，请先回订正页。');
+    const ctx = { planId: plan.id, date: context.date, day: context.day, records, materials: bank, prompts: [] };
+    if (selectRetest(correction, ctx).retestOf !== workflow.retestOf) throw new Error('复测未绑定原问题的准确修订。');
+    assertRetestMaterialEligible(correction, material, ctx);
+    const original = correctionOriginal(correction, records)!;
+    const used = Number(selectMission(state.records, plan.id, context.date, context.taskId)?.payload.actualMinutes ?? 0);
+    if (!context.block || estimatedRetestMinutes(material, original) > Math.max(0, context.plannedMinutes - used)) throw new Error('当天同科预算不足，复测留到能容纳的任务。');
+  };
   const start = () => {
+    try { assertRetest(); } catch (e) { setError(e instanceof Error ? e.message : '复测不能开始。'); return; }
     if (context.day < 1 || context.day > 365) {
       setError("当天不在365天计划内，可以查看已有作答，或从今日进入有效任务。");
       return;
@@ -300,6 +319,7 @@ export function ReadingSession({
     setBusy(true);
     setError("");
     try {
+      assertRetest();
       const state = liveAccount();
       const seconds = Math.min(
         86400,
@@ -327,6 +347,7 @@ export function ReadingSession({
             )
           : undefined,
       );
+      if (workflow?.retestOf && workflow.correctionId) Object.assign(payload, { retestOf: workflow.retestOf, correctionId: workflow.correctionId });
       payload.actualMinutes = activeClock.current.value() / 60;
       const record = await saveRecord({
         id: `attempt-${crypto.randomUUID()}`,
@@ -480,7 +501,7 @@ export function ReadingSession({
             <input
               type="checkbox"
               aria-label="独立检查池"
-              disabled={started !== null || busy}
+              disabled={started !== null || busy || !!workflow?.retestOf}
               checked={holdout}
               onChange={(e) => {
                 setHoldout(e.target.checked);
@@ -490,6 +511,7 @@ export function ReadingSession({
             查看独立检查池（不用于日常选材）
           </label>
         )}
+        {workflow?.retestOf && <p role="status">这是隔天未见新题复测。完成首答和A-B复盘后，请返回订正页记录本轮结果。</p>}
         {!work && (
           <label className="field">
             <span>练习材料</span>
@@ -501,7 +523,7 @@ export function ReadingSession({
                 maxWidth: "100%",
                 minWidth: 0,
               }}
-              disabled={started !== null || busy}
+              disabled={started !== null || busy || !!workflow?.retestOf}
               value={selected ? materialKey(selected) : ""}
               onChange={(e) => setChosen(e.target.value)}
             >

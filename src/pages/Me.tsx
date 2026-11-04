@@ -11,6 +11,7 @@ import { toast } from "../ui/Toast";
 import { FeedbackPanel } from "./me/FeedbackPanel";
 import { SyncIssues } from "../study365/ui/SyncIssues";
 import { RecordingsBackup } from "../study365/ui/RecordingsBackup";
+import { LocalPromptBankPanel } from "../study365/ui/LocalPromptBankPanel";
 import { LocalBankPanel } from "../study365/ui/LocalBankPanel";
 import { OfficialResources } from "../study365/ui/OfficialResources";
 import { CalibrationStatus } from "../study365/ui/CalibrationStatus";
@@ -150,6 +151,7 @@ export function Me({ privateAvailable, focusSync = false }: { privateAvailable: 
 
         <RecordingsBackup />
         <LocalBankPanel />
+        <LocalPromptBankPanel />
         <OfficialResources />
 
         <CalibrationStatus />

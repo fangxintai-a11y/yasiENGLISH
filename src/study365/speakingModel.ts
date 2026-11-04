@@ -19,6 +19,7 @@ export interface SpeakingDraft {
   baseRevision: string | null;
   parentRevisionId?: string;
   correctionId?: string;
+  retestOf?: string;
   planId: string;
   date: string;
   day?: number;
@@ -150,6 +151,7 @@ export function speakingPayload(draft: SpeakingDraft): LearningPayload {
     "sourceRef",
     "parentRevisionId",
     "correctionId",
+    "retestOf",
   ] as const)
     if (draft[key] !== undefined && draft[key] !== "")
       payload[key] = draft[key];
@@ -195,6 +197,7 @@ export function speakingDraftFromRevision(work: Revision): SpeakingDraft {
         "sourceRef",
         "parentRevisionId",
     "correctionId",
+    "retestOf",
       ]
         .filter((key) => p[key] !== undefined && p[key] !== null)
         .map((key) => [key, p[key]]),

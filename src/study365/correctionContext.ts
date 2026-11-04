@@ -7,10 +7,11 @@ export function correctionContextBlock(
   plan: Revision,
   records: readonly Revision[],
   dayPlan: DayPlan,
-  route: { correctionId?: string; work?: string; task?: string },
+  route: { correctionId?: string;
+    retestOf?: string; work?: string; task?: string },
   skill: "writing" | "speaking",
 ) {
-  if (!route.correctionId) return undefined;
+  if (!route.correctionId || route.retestOf) return undefined;
   const correction = records.find(
     (r) =>
       r.kind === "correction" &&

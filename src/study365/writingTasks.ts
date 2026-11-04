@@ -11,7 +11,7 @@ import type { Revision } from './protocol';
 export type WritingMaterial = Extract<Material, { skill: 'writing' }>;
 export type WritingMode = 'task1' | 'task2' | 'paragraph' | 'pair';
 export interface WritingContext {
-  date: string; day: number; taskId: string; correctionId?: string; plannedMinutes: number; block: DayBlock | null; defaultMode: WritingMode;
+  date: string; day: number; taskId: string; correctionId?: string; retestOf?: string; plannedMinutes: number; block: DayBlock | null; defaultMode: WritingMode;
 }
 export const WRITING_OUTLINE_HINTS = {
   task1: ['一句话概括最明显的总体特征。', '找出两组值得比较的数据。', '只描述图表信息，核对单位和时间。'],
@@ -26,7 +26,7 @@ export function defaultWritingMode(minutes: number): WritingMode {
   return minutes >= 60 ? 'pair' : minutes >= 40 ? 'task2' : minutes <= 20 ? 'task1' : 'paragraph';
 }
 /** A route carries context; the plan and saved mission own its date and budget. */
-export function resolveWritingContext(plan: Revision, records: readonly Revision[], route: { date?: string; day?: number; task?: string; minutes?: number; correctionId?: string; work?: string }, now = Date.now()): WritingContext {
+export function resolveWritingContext(plan: Revision, records: readonly Revision[], route: { date?: string; day?: number; task?: string; minutes?: number; correctionId?: string; retestOf?: string; work?: string }, now = Date.now()): WritingContext {
   const date = route.date ?? todayInTimeZone(now, String(plan.payload.timeZone));
   const scores = scoreView(latestAssessment(records, plan.id)?.payload ?? {}, records).effectiveScores;
   const dayPlan = buildDayPlan(bundledRules, plan.payload, date, selectLatestBaseline(materialQualifiedRecords(records, plan.id), plan.id), { scores });
@@ -38,7 +38,7 @@ export function resolveWritingContext(plan: Revision, records: readonly Revision
   const taskId = missionTaskId(dayPlan.day, selected.id);
   const saved = selectMission(records, plan.id, date, taskId);
   const plannedMinutes = Number(saved?.payload.plannedMinutes ?? selected.minutes);
-  return { date, day: dayPlan.day, taskId, plannedMinutes, correctionId: route.correctionId, block: correctionBlock ? { ...selected, minutes: plannedMinutes } : { ...selected, skill: 'writing', minutes: plannedMinutes }, defaultMode: defaultWritingMode(plannedMinutes) };
+  return { date, day: dayPlan.day, taskId, plannedMinutes, correctionId: route.correctionId, retestOf: route.retestOf, block: correctionBlock ? { ...selected, minutes: plannedMinutes } : { ...selected, skill: 'writing', minutes: plannedMinutes }, defaultMode: defaultWritingMode(plannedMinutes) };
 }
 export function externalWritingId(date: string, sequence: number): string {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isInteger(sequence) || sequence < 1) throw new Error('外部题标识无效。');

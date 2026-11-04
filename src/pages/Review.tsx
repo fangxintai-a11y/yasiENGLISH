@@ -1,3 +1,7 @@
+import { RetestPanel } from "../study365/ui/review/RetestPanel";
+import { loadPromptBank } from "../study365/promptBank";
+import { withPromptOrigins } from "../study365/promptOrigins";
+import type { RetestPrompt } from "../study365/retestSelection";
 import { useEffect, useState } from "react";
 import type { Route } from "../lib/router";
 import { useActivePlan } from "../study365/useActivePlan";
@@ -10,11 +14,23 @@ export function Review({
   route: Extract<Route, { page: "review" }>;
 }) {
   const { learning, plan, dayPlan, error } = useActivePlan();
+  const [prompts, setPrompts] = useState<RetestPrompt[]>([]);
   const [bank, setBank] = useState<LocalMaterial[]>([]),
     [bankError, setBankError] = useState("");
   useEffect(() => {
     let live = true;
     setBank([]);
+    setPrompts([]);
+    void loadPromptBank(learning.userId)
+      .then(withPromptOrigins)
+      .then(
+        (value) => {
+          if (live) setPrompts(value);
+        },
+        (e) => {
+          if (live) setBankError(String(e));
+        },
+      );
     setBankError("");
     void loadLocalBank(learning.userId).then(
       (value) => {
@@ -70,6 +86,16 @@ export function Review({
           dayPlan={dayPlan}
           records={learning.records}
           bank={bank}
+          userId={learning.userId}
+        />
+      )}
+      {(route.tab === undefined || route.tab === "corrections") && (
+        <RetestPanel
+          plan={plan}
+          dayPlan={dayPlan}
+          records={learning.records}
+          bank={bank}
+          prompts={prompts}
           userId={learning.userId}
         />
       )}

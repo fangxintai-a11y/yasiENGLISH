@@ -10,14 +10,14 @@ import type { Revision } from './protocol';
 
 export type SpeakingMaterial = Extract<Material, { skill: 'speaking' }>;
 export interface SpeakingContext {
-  date: string; day: number; taskId: string; correctionId?: string; plannedMinutes: number; block: DayBlock | null; defaultPart: 1 | 2 | 3;
+  date: string; day: number; taskId: string; correctionId?: string; retestOf?: string; plannedMinutes: number; block: DayBlock | null; defaultPart: 1 | 2 | 3;
 }
 const materials: SpeakingMaterial[] = samples.materials.filter(item => item.skill === 'speaking').map(item => MaterialSchema.parse(item)).filter((item): item is SpeakingMaterial => item.skill === 'speaking');
 export function availableSpeakingMaterials(day: number): SpeakingMaterial[] {
   const ids: readonly string[] = bundledInventory.days.find(item => item.day === day)?.materialIds ?? [];
   return materials.filter(item => ids.includes(item.id));
 }
-export function resolveSpeakingContext(plan: Revision, records: readonly Revision[], route: { date?: string; day?: number; task?: string; minutes?: number; correctionId?: string; work?: string }, now = Date.now()): SpeakingContext {
+export function resolveSpeakingContext(plan: Revision, records: readonly Revision[], route: { date?: string; day?: number; task?: string; minutes?: number; correctionId?: string; retestOf?: string; work?: string }, now = Date.now()): SpeakingContext {
   const date = route.date ?? todayInTimeZone(now, String(plan.payload.timeZone));
   const scores = scoreView(latestAssessment(records, plan.id)?.payload ?? {}, records).effectiveScores;
   const dayPlan = buildDayPlan(bundledRules, plan.payload, date, selectLatestBaseline(materialQualifiedRecords(records, plan.id), plan.id), { scores });
@@ -29,5 +29,5 @@ export function resolveSpeakingContext(plan: Revision, records: readonly Revisio
   const taskId = missionTaskId(dayPlan.day, selected.id);
   const saved = selectMission(records, plan.id, date, taskId);
   const plannedMinutes = Number(saved?.payload.plannedMinutes ?? selected.minutes);
-  return { date, day: dayPlan.day, taskId, plannedMinutes, correctionId: route.correctionId, block: correctionBlock ? { ...selected, minutes: plannedMinutes } : { ...selected, skill: 'speaking', minutes: plannedMinutes }, defaultPart: (availableSpeakingMaterials(dayPlan.day)[0]?.part ?? 1) as 1 | 2 | 3 };
+  return { date, day: dayPlan.day, taskId, plannedMinutes, correctionId: route.correctionId, retestOf: route.retestOf, block: correctionBlock ? { ...selected, minutes: plannedMinutes } : { ...selected, skill: 'speaking', minutes: plannedMinutes }, defaultPart: (availableSpeakingMaterials(dayPlan.day)[0]?.part ?? 1) as 1 | 2 | 3 };
 }

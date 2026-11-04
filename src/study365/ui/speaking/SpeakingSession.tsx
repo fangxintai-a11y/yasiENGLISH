@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { go } from "../../../lib/router";
+import { go, useLocation } from "../../../lib/router";
 import { saveMission, selectMission } from "../../missionRecords";
 import type { Revision } from "../../protocol";
 import {
@@ -24,6 +24,16 @@ import { SpeakingQuestionEditor } from "./SpeakingQuestionEditor";
 import { RecordingsBackup } from "../RecordingsBackup";
 import { listSpeakingWorks } from "../../speakingList";
 import { SpeakingWorkList } from "./SpeakingWorkList";
+import { usePromptBank } from "../../usePromptBank";
+import {
+  promptKey,
+  speakingWithPrompt,
+  retestWorkId,
+  matchesRetestWork,
+} from "../../promptWorkSelection";
+import { PromptPicker } from "../prompts/PromptPicker";
+import { speakingRetestDraft } from "../../retestWorkDrafts";
+import { withRevisionReferences } from "../../revisionReferences";
 function seedFor(
   plan: Revision,
   context: SpeakingContext,
@@ -46,17 +56,41 @@ function seedFor(
     contentVersion: material?.version,
   });
 }
-export function SpeakingSession({
+type SessionProps = {
+  plan: Revision;
+  context: SpeakingContext;
+  learning: LearningState;
+  initialWorkId?: string;
+};
+export function SpeakingSession(props: SessionProps) {
+  const { route } = useLocation();
+  const selectedMaterial =
+    route.page === "speaking" ? route.material : undefined;
+  return (
+    <SpeakingSessionEditor
+      key={`${props.context.correctionId ?? ""}:${props.context.retestOf ?? ""}:${selectedMaterial ?? ""}`}
+      {...props}
+      selectedMaterial={selectedMaterial}
+    />
+  );
+}
+function SpeakingSessionEditor({
   plan,
   context,
   learning,
   initialWorkId,
+  selectedMaterial,
 }: {
   plan: Revision;
   context: SpeakingContext;
   learning: LearningState;
   initialWorkId?: string;
+  selectedMaterial?: string;
 }) {
+  const retest = !!context.retestOf,
+    promptBank = usePromptBank(learning.userId);
+  const [retestReady, setRetestReady] = useState(!retest),
+    [retestError, setRetestError] = useState("");
   const works = listSpeakingWorks(learning.records, plan.id);
   const initial = works.find((work) => work.id === initialWorkId);
   const [selected, setSelected] = useState<Revision | null>(initial ?? null),
@@ -95,6 +129,57 @@ export function SpeakingSession({
       setSeed(speakingDraftFromRevision(initial));
     }
   }, [initialWorkId, initial?.revisionId]);
+  useEffect(() => {
+    if (!retest || !promptBank.loaded) return;
+    let active = true;
+    void (async () => {
+      const prompt = promptBank.prompts.find(
+        (value) =>
+          promptKey(value) === selectedMaterial && value.skill === "speaking",
+      );
+      if (!prompt)
+        throw new Error(
+          "本机缺少复测指定的原版口语题。请到“我的”导入题库，再从订正页进入。",
+        );
+      const id = await retestWorkId(
+        learning.userId ?? "guest",
+        plan.id,
+        context,
+        selectedMaterial!,
+      );
+      const head = works.find((work) =>
+        matchesRetestWork(work, id, plan.id, context, prompt),
+      );
+      const next = head
+        ? speakingDraftFromRevision(head)
+        : {
+            ...(await speakingRetestDraft(
+              plan,
+              context,
+              prompt,
+              withRevisionReferences(learning.records),
+              promptBank.prompts,
+            )),
+            id,
+            recordId: id,
+          };
+      if (!active) return;
+      setSelected(head ?? null);
+      setPart(next.part);
+      setSeed(next);
+      setRetestReady(true);
+    })().catch((error) => {
+      if (active) {
+        setRetestError(
+          error instanceof Error ? error.message : "复测题未读到，请重新进入。",
+        );
+        setRetestReady(true);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [retest, promptBank.loaded]);
   const updateMission = async (status: "partial" | "completed") => {
     if (!context.block) return;
     const state = getLearningState();
@@ -136,7 +221,12 @@ export function SpeakingSession({
       day: context.day,
       date: context.date,
       block: context.block,
-      status: old?.payload.status === "completed" ? "completed" : status,
+      status:
+        old?.payload.status === "completed"
+          ? "completed"
+          : retest || seed.retestOf
+            ? "partial"
+            : status,
       actualMinutes: Math.max(0, prior) + pending / 60,
       timeSource: "timer",
       expectedUserId: learning.userId,
@@ -188,7 +278,11 @@ export function SpeakingSession({
     inFlight.current = true;
     try {
       await updateMission("completed");
-      setMessage("本次口语任务已完成，实际用时已记录。");
+      setMessage(
+        retest || seed.retestOf
+          ? "复测作答与用时已保存。请回订正页完成自查；本次作答只记入原口语块的部分进度。"
+          : "本次口语任务已完成，实际用时已记录。",
+      );
     } catch (error) {
       setMessage(
         `任务未保存：${error instanceof Error ? error.message : "请重试。"}`,
@@ -248,14 +342,25 @@ export function SpeakingSession({
           分钟。每题独立保存，最后再完成本次任务。
         </p>
         <a href="#/">返回今日</a>
-        {context.block || selected ? (
+        {retest && (
+          <p>
+            跨天新题复测：保留原Part。请先保存转写或录音，再离开页面；已保存作答可从同一链接恢复。
+          </p>
+        )}
+        {!retestReady ? (
+          <p role="status">正在读取本机复测题…</p>
+        ) : retestError ? (
+          <p role="alert">
+            {retestError} <a href="#/review">返回订正</a>
+          </p>
+        ) : context.block || selected ? (
           <>
             <label className="field">
               <span>口语部分</span>
               <select
                 aria-label="口语部分"
                 value={part}
-                disabled={dirty || deleting}
+                disabled={dirty || deleting || retest || !!seed.retestOf}
                 onChange={(event) =>
                   choosePart(Number(event.target.value) as SpeakingPart)
                 }
@@ -265,33 +370,66 @@ export function SpeakingSession({
                 <option value={3}>Part 3</option>
               </select>
             </label>
-            {!selected && material && (
-              <label
-                style={{
-                  display: "block",
-                  width: "100%",
-                  minWidth: 0,
-                  maxWidth: "100%",
-                }}
-              >
-                本组题目
-                <select
-                  aria-label="本组题目"
-                  style={{ width: "100%", maxWidth: "100%", minWidth: 0 }}
-                  value={question}
-                  disabled={dirty || deleting}
-                  onChange={(event) =>
-                    choosePart(part, Number(event.target.value))
+            {!retest && !seed.retestOf && !selected && (
+              <PromptPicker
+                prompts={promptBank.prompts}
+                skill="speaking"
+                part={part}
+                value={(() => {
+                  const prompt = promptBank.prompts.find(
+                    (value) =>
+                      value.id === seed.contentId &&
+                      value.version === seed.contentVersion,
+                  );
+                  return prompt && promptKey(prompt);
+                })()}
+                disabled={dirty || deleting}
+                onChoose={(prompt) => {
+                  if (dirty || deleting) return;
+                  const next = speakingWithPrompt(seed, prompt);
+                  if (next !== seed) {
+                    setSeed(next);
+                    setSelected(null);
+                    setMessage("已选择本机原题，作答后保留本题。");
                   }
-                >
-                  {material.prompts.map((prompt, index) => (
-                    <option key={index} value={index}>
-                      第{index + 1}题 · {prompt}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                }}
+              />
             )}
+            {!retest &&
+              !seed.retestOf &&
+              !selected &&
+              material &&
+              !promptBank.prompts.some(
+                (prompt) =>
+                  prompt.id === seed.contentId &&
+                  prompt.version === seed.contentVersion,
+              ) && (
+                <label
+                  style={{
+                    display: "block",
+                    width: "100%",
+                    minWidth: 0,
+                    maxWidth: "100%",
+                  }}
+                >
+                  本组题目
+                  <select
+                    aria-label="本组题目"
+                    style={{ width: "100%", maxWidth: "100%", minWidth: 0 }}
+                    value={question}
+                    disabled={dirty || deleting}
+                    onChange={(event) =>
+                      choosePart(part, Number(event.target.value))
+                    }
+                  >
+                    {material.prompts.map((prompt, index) => (
+                      <option key={index} value={index}>
+                        第{index + 1}题 · {prompt}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
             {deleting ? (
               <p role="status">正在删除作答…</p>
             ) : liveSelected && !speakingPart(liveSelected.payload.part) ? (
@@ -312,24 +450,42 @@ export function SpeakingSession({
                 userId={learning.userId}
                 onDirty={setDirty}
                 onSaved={saved}
+                promptLocked={
+                  retest ||
+                  !!seed.retestOf ||
+                  promptBank.prompts.some(
+                    (prompt) =>
+                      prompt.id === seed.contentId &&
+                      prompt.version === seed.contentVersion,
+                  )
+                }
               />
             )}
-            {selected && speakingPart(selected.payload.part) && (
-              <button
-                type="button"
-                className="btn btn-ghost"
-                disabled={dirty || deleting}
-                onClick={() => {
-                  const next = rerecordSpeaking(liveSelected!);
-                  if (context.correctionId) Object.assign(next, { correctionId: context.correctionId, date: context.date, day: context.day, taskId: context.taskId });
-                  setSeed(next);
-                  setSelected(null);
-                  setMessage("上一版仍保留，这次是新的作答。");
-                }}
-              >
-                重录这题
-              </button>
-            )}
+            {!retest &&
+              !seed.retestOf &&
+              selected &&
+              speakingPart(selected.payload.part) && (
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  disabled={dirty || deleting}
+                  onClick={() => {
+                    const next = rerecordSpeaking(liveSelected!);
+                    if (context.correctionId && !context.retestOf)
+                      Object.assign(next, {
+                        correctionId: context.correctionId,
+                        date: context.date,
+                        day: context.day,
+                        taskId: context.taskId,
+                      });
+                    setSeed(next);
+                    setSelected(null);
+                    setMessage("上一版仍保留，这次是新的作答。");
+                  }}
+                >
+                  重录这题
+                </button>
+              )}
             {selected && (
               <button
                 type="button"
@@ -342,16 +498,24 @@ export function SpeakingSession({
                 删除作答
               </button>
             )}
-            {material && currentQuestion + 1 < material.prompts.length && (
-              <button
-                type="button"
-                className="btn btn-ghost"
-                disabled={dirty || deleting}
-                onClick={() => choosePart(part, currentQuestion + 1)}
-              >
-                下一题
-              </button>
-            )}
+            {!retest &&
+              !seed.retestOf &&
+              !promptBank.prompts.some(
+                (prompt) =>
+                  prompt.id === seed.contentId &&
+                  prompt.version === seed.contentVersion,
+              ) &&
+              material &&
+              currentQuestion + 1 < material.prompts.length && (
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  disabled={dirty || deleting}
+                  onClick={() => choosePart(part, currentQuestion + 1)}
+                >
+                  下一题
+                </button>
+              )}
             {seed.parentRevisionId &&
               works.find(
                 (work) => work.revisionId === seed.parentRevisionId,
@@ -389,7 +553,7 @@ export function SpeakingSession({
                 void finish();
               }}
             >
-              完成本次口语
+              {retest || seed.retestOf ? "保存本次复测进度" : "完成本次口语"}
             </button>
           </>
         ) : (
