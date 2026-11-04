@@ -2290,3 +2290,22 @@ input[type="date"],
 .flash-round {
   scroll-margin-top: calc(var(--top) + 8px);
 }
+
+.study365-task {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+  overflow-wrap: anywhere;
+}
+.study365-plan .field > span:first-child {
+  display: grid;
+  gap: 4px;
+}
+.study365-plan progress {
+  width: 100%;
+  accent-color: var(--sage);
+}
+.study365-material summary {
+  cursor: pointer;
+  color: var(--ink-2);
+}
