@@ -1,3 +1,5 @@
+import { acceptedMaterialPreferences, prioritizeCorrections } from '../../weeklyReview';
+import { calibrationWeekIndex } from '../../writingCalibration';
 import { withRevisionReferences } from "../../revisionReferences";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Revision } from "../../protocol";
@@ -50,13 +52,14 @@ export function CorrectionPanel(props: Props) {
     [message, setMessage] = useState(""),
     [error, setError] = useState("");
   const budget = reviewBudget(dayPlan, records, plan.id);
-  const corrections = records.filter(
+  const preferences = acceptedMaterialPreferences(records, plan.id, calibrationWeekIndex(plan, dayPlan.date));
+  const corrections = prioritizeCorrections(records.filter(
     (r) =>
       r.kind === "correction" &&
       r.planId === plan.id &&
       !r.deleted &&
       !r.conflict,
-  );
+  ), preferences);
   const drafts = useMemo(
     () =>
       records

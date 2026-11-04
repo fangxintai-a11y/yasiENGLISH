@@ -698,3 +698,6 @@ export function evaluateRetest(
     : null;
   return { payload: next, outcomes, nextRound, estimate, pending: null };
 }
+
+/** Shared practice boundary; an alias cannot expose an independent check-pool original. */
+export { heldOutListeningReading as isHeldOutListeningReading };

@@ -38,6 +38,7 @@ function ActiveTasks({ plan, today, learning }: { plan: Revision; today: DayPlan
     <progress aria-label="当天完成度" max={completion.totalMinutes} value={completion.completedMinutes} />
     <p className="muted">实际用时 {completion.actualMinutes} 分钟 · 连续达成80%：{streak}天</p>
     <section className="panel" aria-label="订正与复测入口"><h3>订正与复测</h3><p>待订正 {learning.records.filter(r => r.kind === 'correction' && r.planId === plan.id && !r.conflict).reduce((sum,r) => sum + (Array.isArray(r.payload.items) ? r.payload.items.filter(item => !!item && typeof item === 'object' && 'status' in item && item.status === 'open').length : 0), 0)} 项；订正使用当天已有复盘块，排不下的顺延。</p><a className="btn btn-ghost" href="#/review">打开订正与复测</a></section>
+    {dayPlan.blocks.some(block => block.id === "human-calibration-handoff") && <section className="panel" aria-label="本周校准入口"><h3>本周校准与待决建议</h3><p>使用当天原有校准交付／登记15分钟，复核同稿偏差、错因与证据后逐条决定。</p><a className="btn btn-ghost" href="#/review?tab=weekly">查看本周校准</a></section>}
     {dayPlan.blocks.map((block, index) => <MissionCard key={`${learning.userId ?? "guest"}:${plan.id}:${date}:${block.id}`} plan={plan} dayPlan={dayPlan} block={block} index={index} userId={learning.userId} pendingWritingReviews={pendingReviews}
       mission={selectMission(learning.records, plan.id, date, missionTaskId(dayPlan.day, block.id))} onRegister={skill => setRegistration({ blockId: block.id, skill, date })} />)}
     <ExtensivePractice key={`${learning.userId ?? 'guest'}:${plan.id}:${date}`} plan={plan} dayPlan={dayPlan} userId={learning.userId} />

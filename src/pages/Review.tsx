@@ -1,3 +1,4 @@
+import { WeeklyReview } from '../study365/ui/review/WeeklyReview';
 import { RetestPanel } from "../study365/ui/review/RetestPanel";
 import { loadPromptBank } from "../study365/promptBank";
 import { withPromptOrigins } from "../study365/promptOrigins";
@@ -77,7 +78,9 @@ export function Review({
         <a className="btn btn-ghost" href="#/review">
           订正与复测
         </a>
+        <a className="btn btn-ghost" href="#/review?tab=weekly">本周校准</a>
       </nav>
+      {route.tab === "weekly" && <WeeklyReview plan={plan} records={learning.records} bank={bank} date={dayPlan.date} userId={learning.userId} />}
       {error && <p role="alert">{error}</p>}
       {bankError && <p role="alert">{bankError}</p>}
       {(route.tab === undefined || route.tab === "corrections") && (

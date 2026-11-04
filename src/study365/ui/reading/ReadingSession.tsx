@@ -1,3 +1,5 @@
+import { acceptedMaterialPreferences } from '../../weeklyReview';
+import { calibrationWeekIndex } from '../../writingCalibration';
 import { assertRetestMaterialEligible, selectRetest, estimatedRetestMinutes } from '../../retestSelection';
 import { correctionOriginal } from '../../correctionModel';
 import { withRevisionReferences } from '../../revisionReferences';
@@ -150,6 +152,7 @@ export function ReadingSession({
   );
   const materialKey = (m: LocalMaterial) =>
     `${m.id}@${m.version}@${m.contentHash}`;
+  const preferences = useMemo(() => acceptedMaterialPreferences(learning.records, plan.id, calibrationWeekIndex(plan, context.date)), [learning.records, plan, context.date]);
   const selection = useMemo(
     () =>
       practiceSelection(
@@ -160,6 +163,7 @@ export function ReadingSession({
         context.date,
         skill,
         context.requiresFull,
+        preferences,
       ),
     [
       bank,
@@ -169,6 +173,7 @@ export function ReadingSession({
       context.date,
       skill,
       context.requiresFull,
+      preferences,
     ],
   );
   const preferred = holdout
@@ -487,6 +492,7 @@ export function ReadingSession({
             date={context.date}
             skill={skill}
             requiresFull={context.requiresFull}
+            preferences={preferences}
             disabled={started !== null || !!work || busy}
             onChoose={(m) => {
               if (started !== null || work || busy) return;

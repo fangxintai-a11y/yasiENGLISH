@@ -1,3 +1,5 @@
+import { preferPracticeMaterial } from '../../materialPreferences';
+import type { AcceptedPreferences } from '../../weeklyReview';
 import type { LocalMaterial } from "../../localBankSchema";
 import type { Revision } from "../../protocol";
 import {
@@ -26,6 +28,7 @@ export function practiceSelection(
   date: string,
   skill: "reading" | "listening",
   requiresFull: boolean,
+  preferences?: AcceptedPreferences,
 ) {
   const schedule = buildListeningReadingSchedule(bank),
     attempts = currentAttempts(records, planId);
@@ -125,6 +128,11 @@ export function practiceSelection(
           "还缺带音频和题答的新听力单节，不重复旧材料充数。可以使用下方官方题型练习或本周BBC泛听。";
     }
   }
+  if (!requiresFull && preferences) {
+    const adjusted = preferPracticeMaterial(practice, bank, records, planId, skill, preferences);
+    practice = adjusted.material;
+    if (adjusted.missingTypes.length) notice += ` 本周已采纳的偏重题型还缺新材料：${adjusted.missingTypes.join('、')}。`;
+  }
   const preferred = official && !officialDone ? official : practice;
   return { schedule, official, practice, preferred, officialDone, notice };
 }
@@ -136,6 +144,7 @@ export function ListeningReadingPlan({
   date,
   skill,
   requiresFull,
+  preferences,
   onChoose,
   disabled,
 }: {
@@ -146,6 +155,7 @@ export function ListeningReadingPlan({
   date: string;
   skill: "reading" | "listening";
   requiresFull: boolean;
+  preferences?: AcceptedPreferences;
   onChoose: (m: LocalMaterial) => void;
   disabled: boolean;
 }) {
@@ -157,12 +167,14 @@ export function ListeningReadingPlan({
       date,
       skill,
       requiresFull,
+      preferences,
     ),
     calibration = officialTypeCalibration(records, bank, planId).filter(
       (item) => item.skill === skill,
     );
   return (
     <section aria-label="听读选材计划">
+      {!!preferences?.questionTypes[skill].length && <p>本周日常选材按已采纳建议优先弱项题型；整套测评和分钟预算保持原安排。</p>}
       <h2>{requiresFull ? "本次整套测评" : "今天的听读选材"}</h2>
       {selected.official && (
         <p>
