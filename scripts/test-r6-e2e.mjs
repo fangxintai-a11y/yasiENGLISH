@@ -1436,11 +1436,11 @@ export async function runR6ReleaseE2E({ historyOnly = false } = {}) {
     const buildInfo = JSON.parse(
       await fs.readFile(path.join(dist, "build-info.json"), "utf8"),
     );
-    assert.equal(buildInfo.version, "365.0.0-rc1");
+    assert.equal(buildInfo.version, "365.0.0-rc2");
     assert.match(buildInfo.fullCommit, /^[a-f0-9]{40}$/);
     const buildDisplay = page.getByTestId("about-build");
     await buildDisplay.waitFor();
-    assert.match(await buildDisplay.innerText(), /365\.0\.0-rc1/);
+    assert.match(await buildDisplay.innerText(), /365\.0\.0-rc2/);
     assert.ok(
       (await buildDisplay.innerText()).includes(
         buildInfo.fullCommit.slice(0, 9),
