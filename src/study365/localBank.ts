@@ -1,3 +1,7 @@
+import {
+  parsePrivateBankManifest,
+  type PrivateAudioTransport,
+} from "./privateBankManifest";
 import samples from "../../public/curriculum365/v1/samples.json";
 import audioProvenance from "../../public/curriculum365/v1/audio/provenance.json";
 import { decodeLocalBankArchive } from "./localBankArchive";
@@ -19,7 +23,13 @@ type StoredMaterial = {
   material: LocalMaterial;
   importedAt?: number;
 };
-type StoredAudio = { scope: string; path: string; blob: Blob; sha256: string };
+type StoredAudio = {
+  scope: string;
+  path: string;
+  blob?: Blob;
+  sha256: string;
+  transport?: PrivateAudioTransport;
+};
 export interface BankImportResult {
   imported: number;
   duplicate: number;
@@ -114,19 +124,62 @@ function audioURL(path: string): string {
     throw new Error("音频路径不在本机题库允许范围。");
   return path.startsWith("audio/") ? `/local-bank/${path}` : path;
 }
+function matchingAudio(
+  material: LocalMaterial,
+  known: readonly StoredAudio[],
+): StoredAudio | undefined {
+  if (material.skill !== "listening" || !material.audio) return undefined;
+  const metadata = material.audio;
+  const original = known.find(
+    (item) =>
+      !!item.blob &&
+      item.path === metadata.path &&
+      (!metadata.sha256 || item.sha256 === metadata.sha256),
+  );
+  if (original) return original;
+  const compressed = known.find(
+    (item) =>
+      !!item.blob &&
+      item.transport?.originalPath === metadata.path &&
+      item.transport.sourceSha256 === metadata.sha256 &&
+      item.sha256 === item.transport.sha256,
+  );
+  if (compressed) return compressed;
+  const descriptor = known.find(
+    (item) =>
+      item.transport?.originalPath === metadata.path &&
+      item.transport.sourceSha256 === metadata.sha256,
+  )?.transport;
+  return descriptor
+    ? known.find(
+        (item) =>
+          !!item.blob &&
+          item.path === descriptor.path &&
+          item.sha256 === descriptor.sha256,
+      )
+    : undefined;
+}
 async function fetchAudio(
   material: LocalMaterial,
   known: readonly StoredAudio[],
 ): Promise<StoredAudio | null> {
   if (material.skill !== "listening" || !material.audio) return null;
   const metadata = material.audio,
-    existing = known.find((item) => item.path === metadata.path);
-  if (existing && (!metadata.sha256 || existing.sha256 === metadata.sha256))
-    return existing;
-  const response = await fetch(audioURL(metadata.path), {
+    existing = matchingAudio(material, known);
+  if (existing?.blob) return existing;
+  const prepared = known.find(
+    (item) =>
+      item.transport?.originalPath === metadata.path &&
+      item.transport.sourceSha256 === metadata.sha256,
+  );
+  const transport = prepared?.transport;
+  const response = await fetch(transport?.path ?? audioURL(metadata.path), {
     cache: "no-store",
+    credentials: "same-origin",
     signal: AbortSignal.timeout(30000),
   });
+  if (response.status === 401 || response.status === 403)
+    throw new Error("登录已过期，请重新登录后准备私有音频；已缓存材料保留。");
   if (!response.ok) throw new Error(`${material.title}：本机音频文件未找到。`);
   const declared = Number(response.headers.get("Content-Length") ?? 0);
   if (declared > MAX_AUDIO_BYTES)
@@ -134,10 +187,21 @@ async function fetchAudio(
   const blob = await response.blob();
   if (!blob.size || blob.size > MAX_AUDIO_BYTES)
     throw new Error(`${material.title}：音频为空或超过50 MB。`);
+  if (transport && blob.size !== transport.bytes)
+    throw new Error(`${material.title}：私有音频大小与目录不一致。`);
   const sha256 = await digest(blob);
-  if (metadata.sha256 && metadata.sha256 !== sha256)
+  if (
+    (transport?.sha256 ?? metadata.sha256) &&
+    (transport?.sha256 ?? metadata.sha256) !== sha256
+  )
     throw new Error(`${material.title}：音频校验失败。`);
-  return { scope: "", path: metadata.path, blob, sha256 };
+  return {
+    scope: "",
+    path: transport?.path ?? metadata.path,
+    blob,
+    sha256,
+    ...(transport ? { transport } : {}),
+  };
 }
 async function saveBank(
   userId: string | null,
@@ -190,11 +254,20 @@ async function saveBank(
         const previous = existing.audio.find(
           (value) => value.path === item.path,
         );
-        if (previous && previous.sha256 !== item.sha256)
+        const metadataUpdate =
+          !!previous?.transport &&
+          !previous.blob &&
+          !!item.transport &&
+          !item.blob &&
+          previous.transport.originalPath === item.transport.originalPath &&
+          previous.transport.sourceSha256 === item.transport.sourceSha256;
+        if (previous && previous.sha256 !== item.sha256 && !metadataUpdate)
           throw new Error(
             "同路径音频内容不同，请使用新的路径和材料版本，原件未被覆盖。",
           );
         if (!previous) tx.objectStore("audio").add({ ...item, scope });
+        else if ((!previous.blob && item.blob) || metadataUpdate)
+          tx.objectStore("audio").put({ ...previous, ...item, scope });
       }
     } catch (error) {
       tx.abort();
@@ -358,7 +431,10 @@ export async function loadLocalBank(
     const importedMaterials = materials.filter(
       (material) => !material.source.sourceRef.startsWith("builtin:"),
     );
-    if (importedMaterials.length && !navigator.onLine) {
+    if (
+      importedMaterials.length &&
+      (!navigator.onLine || stored.audio.some((item) => item.transport))
+    ) {
       issuesByScope.set(scope, issues);
       return importedMaterials;
     }
@@ -451,22 +527,108 @@ export async function resolveLocalAudio(
   if (material.skill !== "listening" || !material.audio)
     throw new Error("这份材料没有可用的本机音频。");
   const stored = await readStored(userId);
-  let item = stored.audio.find((value) => value.path === material.audio!.path);
-  if (
-    (!item ||
-      (material.audio.sha256 && item.sha256 !== material.audio.sha256)) &&
-    navigator.onLine
-  ) {
+  let item = matchingAudio(material, stored.audio);
+  if (!item?.blob && navigator.onLine) {
     const downloaded = await fetchAudio(material, stored.audio);
     if (downloaded) {
       await saveBank(userId, [], [downloaded]);
       item = downloaded;
     }
   }
-  if (!item || (material.audio.sha256 && item.sha256 !== material.audio.sha256))
+  if (!item?.blob)
     throw new Error(
       "这台设备没有匹配的音频，请联网准备这一份音频，或导入包含音频的小题库包。",
     );
   const url = URL.createObjectURL(item.blob);
   return { url, release: () => URL.revokeObjectURL(url) };
+}
+
+const MAX_PRIVATE_MANIFEST_BYTES = 64 * 1024 * 1024;
+async function privateJSON(
+  url: "/private/manifest.json" | "/private/prompts.json",
+  maximum: number,
+): Promise<unknown> {
+  const response = await fetch(url, {
+    credentials: "same-origin",
+    cache: "no-store",
+    signal: AbortSignal.timeout(30000),
+  });
+  if (response.status === 401 || response.status === 403)
+    throw new Error("登录已过期，请重新登录；本机题库与待同步作答保留。");
+  if (!response.ok)
+    throw new Error("服务器私有题库尚未就绪，请稍后重试或导入本机题库包。");
+  if (Number(response.headers.get("Content-Length") ?? 0) > maximum)
+    throw new Error("私有题库目录超过大小限制。");
+  const reader = response.body?.getReader();
+  if (!reader) throw new Error("私有题库目录为空。");
+  const chunks: Uint8Array[] = [];
+  let bytes = 0;
+  try {
+    for (;;) {
+      const chunk = await reader.read();
+      if (chunk.done) break;
+      bytes += chunk.value.byteLength;
+      if (bytes > maximum) {
+        await reader.cancel();
+        throw new Error("私有题库目录超过大小限制。");
+      }
+      chunks.push(chunk.value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  const buffer = new Uint8Array(bytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    buffer.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  try {
+    return JSON.parse(new TextDecoder().decode(buffer));
+  } catch {
+    throw new Error("私有题库目录不是有效JSON。");
+  }
+}
+/** Explicit authenticated preparation only; no audio is downloaded until a listening part is selected. */
+export async function importPrivateBankManifest(
+  userId: string | null,
+): Promise<BankImportResult> {
+  if (!userId) throw new Error("请先登录，再准备服务器私有题库。");
+  const { getLearningState } = await import("./repository");
+  if (getLearningState().userId !== userId)
+    throw new Error("账号已切换，请重新打开题库。");
+  const manifest = await parsePrivateBankManifest(
+    await privateJSON("/private/manifest.json", MAX_PRIVATE_MANIFEST_BYTES),
+  );
+  if (getLearningState().userId !== userId)
+    throw new Error("账号已切换，题库未导入。");
+  const result = await saveBank(
+    userId,
+    manifest.materials,
+    manifest.audioTransports.map((transport) => ({
+      scope: "",
+      path: `private-meta:${transport.originalPath}@${transport.sourceSha256}`,
+      sha256: transport.sha256,
+      transport,
+    })),
+  );
+  issuesByScope.set(scopeFor(userId), result.issues);
+  if (result.imported || manifest.audioTransports.length)
+    window.dispatchEvent(
+      new CustomEvent("band-local-bank-changed", { detail: userId }),
+    );
+  return result;
+}
+export async function importPrivatePromptManifest(userId: string | null) {
+  if (!userId) throw new Error("请先登录，再准备服务器写说题库。");
+  const { getLearningState } = await import("./repository");
+  const { importPromptBank } = await import("./promptBank");
+  const { MAX_PROMPT_BANK_BYTES } = await import("./promptBankSchema");
+  const input = await privateJSON(
+    "/private/prompts.json",
+    MAX_PROMPT_BANK_BYTES,
+  );
+  if (getLearningState().userId !== userId)
+    throw new Error("账号已切换，写说题库未导入。");
+  return importPromptBank(userId, input);
 }

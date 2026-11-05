@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import {
   importLocalBankFile,
+  importPrivateBankManifest,
+  importPrivatePromptManifest,
   loadLocalBank,
   localBankIssues,
 } from "../localBank";
@@ -65,6 +67,34 @@ function BankBody({ userId }: { userId: string | null }) {
       if (alive.current) setBusy(false);
     }
   };
+  const preparePrivate = async (prompts = false) => {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    setBusy(true);
+    setMessage("正在读取登录后的私有题库目录…");
+    try {
+      const result = prompts
+        ? await importPrivatePromptManifest(userId)
+        : await importPrivateBankManifest(userId);
+      if (!alive.current) return;
+      await reload();
+      if (alive.current) setIssues(result.issues);
+      if (alive.current)
+        setMessage(
+          `已准备${result.imported}份${prompts ? "写说题目" : "听读原件"}；跳过${result.duplicate}份相同内容、${result.skipped}项待修复。${prompts ? "" : "选听一节时才下载并校验该节音频，缓存后可离线回听。"}`,
+        );
+    } catch (error) {
+      if (alive.current)
+        setMessage(
+          error instanceof Error
+            ? error.message
+            : "私有题库尚未准备好，原有题库保留。",
+        );
+    } finally {
+      inFlight.current = false;
+      if (alive.current) setBusy(false);
+    }
+  };
   const fallback = materials.filter((item) =>
     item.source.sourceRef.startsWith("builtin:"),
   ).length;
@@ -80,9 +110,31 @@ function BankBody({ userId }: { userId: string | null }) {
         {fallback ? `，其中${fallback}份为内置离线兜底` : ""}。
       </p>
       <p className="muted">
-        题库原文和音频只放本机，作答记录随账号同步。JSON本身不含音频，可选定后联网准备这一份；带音频的小ZIP导入后即可离线使用。清除浏览器数据会丢失本机题库，请保留原始题库包。
+        服务器私有题库需登录后准备，每台设备分别缓存；作答记录随账号同步。JSON本身不含音频，可选定后联网准备这一份；带音频的小ZIP导入后即可离线使用。清除浏览器数据会丢失本机题库，请保留原始题库包。
       </p>
-      <p><a className="btn btn-ghost" href="#/review?tab=coverage">题库完整性与缺口</a></p>
+      <p>
+        <a className="btn btn-ghost" href="#/review?tab=coverage">
+          题库完整性与缺口
+        </a>
+      </p>
+      {userId && (
+        <div className="data-actions">
+          <button
+            className="btn btn-ghost"
+            disabled={busy}
+            onClick={() => void preparePrivate()}
+          >
+            准备服务器私有听读题库
+          </button>
+          <button
+            className="btn btn-ghost"
+            disabled={busy}
+            onClick={() => void preparePrivate(true)}
+          >
+            准备服务器私有写说题库
+          </button>
+        </div>
+      )}
       <label
         className="btn btn-ghost"
         style={{ display: "block", maxWidth: "100%", minWidth: 0 }}
