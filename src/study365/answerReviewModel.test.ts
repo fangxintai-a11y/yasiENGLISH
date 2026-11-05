@@ -643,14 +643,12 @@ test("first-only snapshots never inflate weekly accuracy before B and completed 
     Object.assign(attempt.payload, {
       score,
       correct: score,
-      questionResults: m.questions
-        .slice(0, score)
-        .map((question) => ({
-          questionId: question.id,
-          correct: true,
-          confidence: "unsure",
-          errorCause: null,
-        })),
+      questionResults: m.questions.slice(0, score).map((question) => ({
+        questionId: question.id,
+        correct: true,
+        confidence: "unsure",
+        errorCause: null,
+      })),
     });
     delete attempt.payload.reviewAnswers;
     const raw = structuredClone(attempt),
@@ -697,4 +695,145 @@ test("first-only snapshots never inflate weekly accuracy before B and completed 
     assert.equal(afterB.types[0].correct, score);
     assert.deepEqual(attempt, raw);
   }
+});
+
+test("bulk projection shares latest ambiguous decisions across4380 attempts without sorting unrelated history for each one", () => {
+  const m = material(),
+    decision = review(m, "ambiguous"),
+    records: Revision[] = [decision];
+  for (let i = 0; i < 4380; i++)
+    records.push({ ...work(m, false), id: `bulk-attempt-${i}` });
+  for (let i = 0; i < 10619; i++)
+    records.push(
+      record(
+        "mission",
+        {
+          planId: "review-plan",
+          date: "2026-11-09",
+          day: 1,
+          taskId: `bulk-mission-${i}`,
+          skill: "reading",
+          status: "partial",
+          plannedMinutes: 0,
+          actualMinutes: 0,
+          timeSource: "timer",
+        },
+        `bulk-mission-${i}`,
+      ),
+    );
+  assert.equal(records.length, 15000);
+  let timestampReads = 0;
+  const budget = records.length * 20;
+  for (const row of records) {
+    const createdAt = row.createdAt;
+    Object.defineProperty(row, "createdAt", {
+      enumerable: true,
+      get() {
+        timestampReads++;
+        if (timestampReads > budget)
+          throw new Error(
+            "Bulk answer projection exceeded a shared-history sorting budget",
+          );
+        return createdAt;
+      },
+    });
+  }
+  const projected = projectReviewedAttempts(records, [], "review-plan");
+  assert.equal(projected.blockedAttemptIds.length, 4380);
+  assert.equal(new Set(projected.blockedAttemptIds).size, 4380);
+  assert.ok(timestampReads > 0 && timestampReads <= budget);
+  assert.equal(projected.records.length, 15000);
+  assert.equal(
+    projected.attempts.length,
+    0,
+    "missing local originals must not hide exact review qualification exclusions",
+  );
+});
+
+test("bulk ambiguous tuple lookup is equivalent to single-record verdict logic across revisions and raw identity values", () => {
+  const m = material(),
+    attempt = work(m),
+    original = structuredClone(attempt);
+  for (const verdict of ["key-correct", "key-wrong", "ambiguous"] as const) {
+    const decision = review(m, verdict),
+      records = [attempt, decision];
+    assert.deepEqual(
+      projectReviewedAttempts(records, [m], "review-plan").blockedAttemptIds,
+      hasAmbiguousAnswerReview(attempt.payload, records, "review-plan")
+        ? [attempt.id]
+        : [],
+    );
+    assert.deepEqual(attempt, original);
+  }
+  const ambiguous = review(m, "ambiguous"),
+    corrected = {
+      ...review(m, "key-correct", "q2", [], ambiguous.id),
+      baseRevision: ambiguous.revisionId,
+    };
+  for (const records of [
+    [attempt, ambiguous, corrected],
+    [attempt, ambiguous, { ...corrected, deleted: true, payload: {} }],
+    [attempt, ambiguous, { ...corrected, conflict: true }],
+  ]) {
+    assert.deepEqual(
+      projectReviewedAttempts(records, [], "review-plan").blockedAttemptIds,
+      hasAmbiguousAnswerReview(attempt.payload, records, "review-plan")
+        ? [attempt.id]
+        : [],
+    );
+  }
+  for (const patch of [
+    { contentVersion: "2" },
+    { contentHash: "b".repeat(64) },
+    { contentId: undefined },
+    { contentId: null },
+    { contentId: { toJSON: () => m.id } },
+  ]) {
+    const changed = { ...attempt, payload: { ...attempt.payload, ...patch } },
+      records = [changed, ambiguous];
+    assert.deepEqual(
+      projectReviewedAttempts(records, [], "review-plan").blockedAttemptIds,
+      [],
+      "raw identity fields must not be coerced into matching material IDs",
+    );
+  }
+  const literalUndefined = material({ id: "undefined" }),
+    undefinedDecision = review(literalUndefined, "ambiguous");
+  const absentId = {
+    ...attempt,
+    payload: { ...attempt.payload, contentId: undefined },
+  };
+  assert.deepEqual(
+    projectReviewedAttempts([absentId, undefinedDecision], [], "review-plan")
+      .blockedAttemptIds,
+    [],
+  );
+  const unknownQuestion = {
+    ...ambiguous,
+    payload: {
+      ...ambiguous.payload,
+      questionId: "unknown-but-valid-identifier",
+    },
+  };
+  assert.deepEqual(
+    projectReviewedAttempts([attempt, unknownQuestion], [], "review-plan")
+      .blockedAttemptIds,
+    [attempt.id],
+    "retain the existing whole-material exclusion even when the local bank lacks the reviewed question",
+  );
+  assert.deepEqual(
+    projectReviewedAttempts(
+      [
+        attempt,
+        {
+          ...ambiguous,
+          planId: "other-plan",
+          payload: { ...ambiguous.payload, planId: "other-plan" },
+        },
+      ],
+      [],
+      "review-plan",
+    ).blockedAttemptIds,
+    [],
+  );
 });

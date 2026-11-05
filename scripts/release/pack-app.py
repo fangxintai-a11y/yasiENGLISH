@@ -58,6 +58,12 @@ def package(source_root, dist, out, commit, atlas_out):
     source_atlas = dist/'atlas'
     if not all((source_atlas/p).is_file() for p in ('index.json',)):
         raise ValueError('Missing shared atlas')
+    if not any(path.is_file() and not path.is_symlink() and path.stat().st_size > 0
+               for path in (source_atlas/'audio').rglob('*.mp3')):
+        raise ValueError('Missing shared atlas audio: provide at least one nonempty MP3')
+    if not any(path.is_file() and not path.is_symlink() and path.stat().st_size > 0
+               for path in (source_atlas/'img').glob('*.webp')):
+        raise ValueError('Missing shared atlas image: provide at least one nonempty WEBP')
     # Validate inputs before touching either output. Private banks are excluded, never copied.
     selected, shared = [], []
     for path in files(dist):

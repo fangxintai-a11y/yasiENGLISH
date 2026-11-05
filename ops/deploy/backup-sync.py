@@ -85,7 +85,7 @@ def backup_database(database, directory, prefix="daily", now=None, keep=14):
     pattern = re.compile(r"(?:daily|predeploy)-\d{8}T\d{12}Z-[a-f0-9]{6}\.sqlite3")
     complete = sorted((old for old in directory.glob("*.sqlite3")
                        if pattern.fullmatch(old.name) and not old.is_symlink() and old.is_file()),
-                      key=lambda old: old.name, reverse=True)
+                      key=lambda old: (old.name.split('-')[1], old.name), reverse=True)
     for old in complete[keep:]:
         old.unlink()
     return target

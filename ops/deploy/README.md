@@ -95,15 +95,18 @@ server/<运行清单中的模块>
 | 变量 | 用途 |
 | --- | --- |
 | BAND_DEPLOY_FIRST_INSTALL=1 | 仅在current不存在时明确允许空机首次安装；有current时保留正常原子更新 |
-| BAND_DEPLOY_SINGLE_USER=1 | 启用认证后的公网健康/音频Range检查 |
+| BAND_DEPLOY_SINGLE_USER=1 | 启用认证后的公网健康/音频Range检查，并以API服务用户执行数据库操作 |
+| BAND_DEPLOY_API_USER | 默认fangxintai，须与systemctl读取的实际非root User一致，否则拒绝发布/回滚 |
 | BAND_DEPLOY_ATLAS_ROOT | 共享atlas和_public媒体目录的绝对路径 |
 | BAND_DEPLOY_OWNER_USERNAME | 首次users表为空时的owner名称；后续部署无需设置 |
 | BAND_DEPLOY_OWNER_PASSWORD_FILE | 首次owner密码文件的mode600绝对路径；不在包内，成功后由操作者删除 |
 | BAND_DEPLOY_SITE_CHECK_SCRIPT | 默认backup helper同目录的check-site.py |
 
+单用户模式读取systemctl的实际API User并与预期用户核对；owner创建、SQLite读取与备份、兼容性检查、短效核验会话都经runuser在该身份下执行，DB/WAL/SHM及0600备份不归sudo调用者root，不放宽文件权限。首次密码文件须由该服务用户创建且mode600可读。
+
 首次部署失败会撤销新建代码链接并停止新API，数据库与共享媒体保留；后续失败恢复上一份已核验代码。只保留当前和上一份应用/API，数据库和图集不随代码版本复制或回滚。`check-site.py` 使用既有owner的300秒临时会话做健康检查，cookie仅放mode600临时文件；无论成功失败均撤销该会话，不需要用户密码做每次健康检查。
 
-`backup-sync.py` 经SQLite backup API写一致性备份，成功后仅保留最近14份由本工具产生的daily/predeploy完整副本，其他文件不删。timer固定Shanghai04:00，部署前另作predeploy备份。周备份拉回Mac的命令在runbook。
+`backup-sync.py` 经SQLite backup API写一致性备份，成功后仅保留最近14份由本工具产生的daily/predeploy完整副本，其他文件不删。timer固定Shanghai04:00，部署及回滚切换前另作predeploy备份；备份失败不切代码链接、不重启服务。周备份拉回Mac的命令在runbook。
 
 证书由Caddy内置ACME按HTTP-01自动签发/续期，TLS-ALPN验证关闭。`band-galaxy-cert-renew.timer` 每日Shanghai04:15校验配置、实际证书链和到期日；临近到期异常只可reload专用 `band-galaxy-web.service` 并报错供排查，reload不被描述成强制续期。生产安装前必须重新确认DNS、HTTP验证入口与GCP入站规则。
 

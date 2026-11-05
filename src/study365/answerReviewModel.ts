@@ -397,8 +397,23 @@ export function projectReviewedAttempts(
   planId: string,
 ) {
   const attempts: ReviewedAttempt[] = [],
-    decisions = reviewMap(records, planId);
-  for (const work of currentAttempts(records, planId)) {
+    decisions = reviewMap(records, planId),
+    workHeads = currentAttempts(records, planId);
+  // Use the same latest decisions as grading, once per report rather than sorting
+  // the entire history again for every attempt. Raw keys preserve strict equality.
+  const ambiguousMaterials = new Map<unknown, Map<unknown, Set<unknown>>>();
+  for (const decision of decisions.values()) {
+    if (decision.payload.verdict !== "ambiguous") continue;
+    const payload = decision.payload;
+    const versions =
+      ambiguousMaterials.get(payload.materialId) ??
+      new Map<unknown, Set<unknown>>();
+    const hashes = versions.get(payload.contentVersion) ?? new Set<unknown>();
+    hashes.add(payload.contentHash);
+    versions.set(payload.contentVersion, hashes);
+    ambiguousMaterials.set(payload.materialId, versions);
+  }
+  for (const work of workHeads) {
     const material = bank.find(
       (item) =>
         item.id === work.payload.contentId &&
@@ -421,8 +436,14 @@ export function projectReviewedAttempts(
       (record) => byRevision.get(record.revisionId)?.correctionRecord ?? record,
     ),
     attempts,
-    blockedAttemptIds: currentAttempts(records, planId)
-      .filter((work) => hasAmbiguousAnswerReview(work.payload, records, planId))
+    blockedAttemptIds: workHeads
+      .filter(
+        (work) =>
+          ambiguousMaterials
+            .get(work.payload.contentId)
+            ?.get(work.payload.contentVersion)
+            ?.has(work.payload.contentHash) === true,
+      )
       .map((work) => work.id),
   };
 }

@@ -101,7 +101,7 @@ export default defineConfig({
       generateBundle() {
         const runtimeFiles = JSON.parse(fs.readFileSync("server/runtime-files.json", "utf8")) as string[];
         const apiFiles = Object.fromEntries(runtimeFiles.map(name => [name, createHash("sha256").update(fs.readFileSync(path.join("server", name))).digest("hex")]));
-        const dirty = execFileSync("git", ["status", "--porcelain", "--untracked-files=normal", "--", "src", "server", "vite.config.ts", "package.json", "public/sw.js"], { encoding: "utf8" }).trim();
+        const dirty = execFileSync("git", ["status", "--porcelain", "--untracked-files=normal", "--", "src", "server", "vite.config.ts", "package.json", "public"], { encoding: "utf8" }).trim();
         this.emitFile({ type: "asset", fileName: "build-info.json", source: JSON.stringify({ version: packageInfo.version, fullCommit: buildCommit, sourceDirty: !!dirty, apiFiles }) });
       },
       closeBundle() {

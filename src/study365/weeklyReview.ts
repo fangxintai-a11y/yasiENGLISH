@@ -121,6 +121,7 @@ const items = (record: Revision): CorrectionItem[] =>
     ? (record.payload.items.filter(isObject) as unknown as CorrectionItem[])
     : [];
 function validCorrection(record: Revision) {
+  if (record.kind !== "correction") return false;
   try {
     validatePayload("correction", record.payload);
     return record.kind === "correction";
@@ -362,13 +363,26 @@ export function buildWeeklyReview(input: WeeklyReviewInput) {
         })),
     };
   });
+  // Exact work bindings are reused across all feedback. Preserve candidate order for
+  // malformed duplicate revision IDs rather than changing the former find() winner.
+  const worksByRevision = new Map<string, Revision[]>();
+  for (const record of current) {
+    if (record.kind !== "essay" && record.kind !== "speaking") continue;
+    const candidates = worksByRevision.get(record.revisionId);
+    if (candidates) candidates.push(record);
+    else worksByRevision.set(record.revisionId, [record]);
+  }
   for (const skill of ["writing", "speaking"] as const) {
     const chosen = new Map<string, { feedback: Revision; work: Revision }>();
     for (const feedback of current.filter(
       (record) =>
         record.kind === "feedback" && Array.isArray(record.payload.errorCauses),
     )) {
-      const work = current.find(
+      const candidates =
+        typeof feedback.payload.workRevisionId === "string"
+          ? (worksByRevision.get(feedback.payload.workRevisionId) ?? [])
+          : [];
+      const work = candidates.find(
         (record) =>
           record.revisionId === feedback.payload.workRevisionId &&
           record.id === feedback.payload.workId &&

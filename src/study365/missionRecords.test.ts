@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { dayCompletion, editableDates, missionRecordId, missionStreak, missionTaskId, saveMission, selectMission, totalActualMinutes } from "./missionRecords";
+import { dayCompletion, editableDates, missionProgress, missionRecordId, missionStreak, missionTaskId, saveMission, selectMission, totalActualMinutes } from "./missionRecords";
 import { bundledRules } from "./planData";
 import { buildDayPlan } from "./planEngine";
 import { validatePayload, type LearningPayload, type Revision } from "./protocol";
@@ -13,6 +13,26 @@ function mission(taskId: string, fields: LearningPayload = {}, at = ++serial): R
     baseRevision: null, seq: at, createdAt: at, contentHash: "a".repeat(64), deleted: false, conflict: false,
     payload: { planId, taskId, day: 4, date, skill: "listening", status: "completed", plannedMinutes: 30, actualMinutes: 20, timeSource: "manual", ...fields } };
 }
+
+test("multi-day progress preserves cross-kind heads, duplicate tasks, tombstones and exact sums", () => {
+  const old = mission("hidden", { actualMinutes: 90 }, 1);
+  const otherKind = { ...old, kind: "attempt" as const, seq: 9, createdAt: 9 };
+  const deleted = mission("deleted", { actualMinutes: 80 }, 2);
+  const invalidated = mission("invalidated", { actualMinutes: 60 }, 11);
+  const records = [old, otherKind, deleted, { ...deleted, seq: 10, createdAt: 10, deleted: true },
+    invalidated, { ...invalidated, seq: 12, createdAt: 12, payload: { ...invalidated.payload, actualMinutes: -1 } },
+    mission("same-task", { actualMinutes: 75 }, 3), { ...mission("same-task", { actualMinutes: .1 }, 4), id: "duplicate" },
+    mission("fraction", { actualMinutes: .2 }, 5), mission("tomorrow", { date: "2026-11-13", actualMinutes: .3 }, 6),
+    { ...mission("conflict", { actualMinutes: 70 }, 7), conflict: true }];
+  const dates = [date, "2026-11-13", "2026-11-14", date];
+  const before = JSON.stringify(records);
+  assert.deepEqual(missionProgress(records, planId, dates), {
+    actualMinutes: totalActualMinutes(records, planId),
+    recentDays: dates.map(date => ({ date, ...dayCompletion(records, planId, date) })),
+  });
+  assert.equal(missionProgress(records, planId, dates).recentDays[0].actualMinutes, .2 + .1);
+  assert.equal(JSON.stringify(records), before);
+});
 
 test("same block operations produce revisions on one stable record, keeping historical planned minutes", async () => {
   const records: Revision[] = [], writes: Revision[] = [];

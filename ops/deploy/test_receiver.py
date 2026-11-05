@@ -96,12 +96,20 @@ elif name == 'npm':
         if case == 'missing': pathlib.Path('dist/sw.js').unlink()
 elif name == 'nginx':
     fail(98) # Shared proxy commands must never be called.
+elif name == 'runuser':
+    import pwd
+    expected = os.environ['BAND_DEPLOY_API_USER']
+    assert args[:3] == ['-u', expected, '--'], args
+    assert pwd.getpwnam(expected).pw_uid == os.geteuid(), 'The mock runs as the real non-root test service user'
+    with (root / 'database-writers.log').open('a') as log: log.write(json.dumps(args) + '\n')
+    os.execvp(args[3], args[3:])
 elif name == 'systemctl':
     with (root / 'controls.log').open('a') as log: log.write(' '.join(args) + '\n')
     if args[0] == 'reload' or 'nginx' in args: fail(98)
     if args[0] == 'cat':
         entry = pathlib.Path(os.environ['BAND_DEPLOY_ROOT']) / ('app.py' if case == 'unmanaged_service' else 'api-current/app.py')
         print('[Service]\nExecStart=/usr/bin/python3 ' + str(entry))
+    if args[0] == 'show': print(os.environ.get('MOCK_SERVICE_USER', ''))
     if args[0] == 'is-active': fail(0 if os.environ['API_PREVIOUS'] == '1' else 3)
     if args[:2] == ['restart', os.environ['BAND_DEPLOY_API_SERVICE']]:
         marker = root / 'restarted'
@@ -109,6 +117,13 @@ elif name == 'systemctl':
         marker.touch()
         if case == 'api_restart' and first: fail(11)
         if case == 'api_signal' and first: os.kill(os.getppid(), signal.SIGTERM)
+        if os.environ.get('R6_REAL_RUNTIME') == '1':
+            import importlib.util
+            entry = pathlib.Path(os.environ['BAND_DEPLOY_ROOT']) / 'api-current/app.py'
+            spec = importlib.util.spec_from_file_location('real_systemd_fixture', entry)
+            module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+            server = module.create_server('127.0.0.1', 0, os.environ['BAND_DEPLOY_DB'], public_origin='http://localhost:5188', secure_cookie=False, single_user=True)
+            server.server_close()
 elif name == 'curl':
     with (root / 'curl.log').open('a') as log: log.write(' '.join(args) + '\n')
     url = next(arg for arg in args if arg.startswith('http'))
@@ -117,6 +132,20 @@ elif name == 'curl':
     if case == 'api_proxy' and url.startswith('https://') and url.endswith('/api/health'): fail(14)
     output = args[args.index('-o') + 1] if '-o' in args else '/dev/null'
     ranged = 'Range: bytes=0-99' in args
+    if os.environ.get('R6_REAL_RUNTIME') == '1' and url.startswith('https://'):
+        import sqlite3, time
+        authenticated = False
+        if '--cookie' in args:
+            fields = pathlib.Path(args[args.index('--cookie') + 1]).read_text().splitlines()[-1].split('\t')
+            token = fields[-1]
+            with sqlite3.connect(os.environ['BAND_DEPLOY_DB']) as db:
+                authenticated = db.execute('SELECT 1 FROM sessions WHERE token_hash=? AND expires_at>?', (hashlib.sha256(token.encode()).hexdigest(), int(time.time()))).fetchone() is not None
+            assert authenticated, 'Site check must use a live real-owner session'
+        status = 206 if authenticated and ranged else 200 if authenticated else 302 if url.endswith('/') else 401
+        if ranged and os.environ.get('SITE_RANGE_FAIL') == '1': status = 200
+        if output != '/dev/null': pathlib.Path(output).write_bytes(b'0' * 100 if ranged else b'{"ok":true}')
+        if '-w' in args: print(status, end='')
+        fail(0)
     if output != '/dev/null': pathlib.Path(output).write_bytes(b'0' * 100 if ranged else b'{"ok":true}')
     if ranged: print('200' if case == 'range' else '206', end='')
 '''
@@ -153,7 +182,7 @@ class Fixture:
         # fixture hashes in its private helper; production retains only f3384e.
         fixture_hashes = ', '.join(json.dumps(hashlib.sha256(code.encode()).hexdigest()) for code in ('previous API', 'target API'))
         helper.write_text((OPS / "backup-sync.py").read_text().replace("/var/lib/band-galaxy", str(self.state)).replace(json.dumps(STABLE_WORD_ONLY_SHA256), fixture_hashes))
-        for command in ('git', 'df', 'flock', 'readlink', 'sha256sum', 'mv', 'rm', 'stat', 'find', 'install', 'npm', 'nginx', 'systemctl', 'curl'):
+        for command in ('git', 'df', 'flock', 'readlink', 'sha256sum', 'mv', 'rm', 'stat', 'find', 'install', 'npm', 'nginx', 'systemctl', 'curl', 'runuser'):
             path = self.binary / command
             path.write_text(MOCK.replace('#!PYTHON', '#!' + sys.executable))
             path.chmod(0o755)
@@ -499,6 +528,161 @@ class R6ReleaseTests(unittest.TestCase):
                     self.assertEqual(db.execute('PRAGMA integrity_check').fetchone()[0], 'ok')
                     self.assertEqual(db.execute('SELECT value FROM preserved').fetchone()[0], 42)
 
+    def test_backup_retention_orders_mixed_prefixes_by_timestamp_not_prefix(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location('r6_backup_timestamp_helper', OPS / 'backup-sync.py')
+        helper = importlib.util.module_from_spec(spec); spec.loader.exec_module(helper)
+        with tempfile.TemporaryDirectory(prefix='band-r6-mixed-backup-') as scratch:
+            database, backup_dir = Path(scratch) / 'source.sqlite3', Path(scratch) / 'backups'
+            with sqlite3.connect(database) as db:
+                db.execute('CREATE TABLE preserved(value)')
+                db.execute('INSERT INTO preserved VALUES(42)')
+            backup_dir.mkdir()
+            unrelated = backup_dir / 'user-copy.sqlite3'
+            unrelated.write_text('keep this unrelated backup')
+            # Old predeploy copies must not outrank newer daily copies; the final
+            # newer predeploy copies must likewise remain among the newest 14.
+            prefixes = ['predeploy'] * 7 + ['daily'] * 13 + ['predeploy'] * 5
+            created = [helper.backup_database(database, backup_dir, prefix, now=1700000000 + index)
+                       for index, prefix in enumerate(prefixes)]
+            actual = {copy.name for copy in backup_dir.glob('*.sqlite3') if copy != unrelated}
+            self.assertEqual(actual, {copy.name for copy in created[-14:]})
+            self.assertEqual(unrelated.read_text(), 'keep this unrelated backup')
+            self.assertFalse(any(copy.exists() for copy in created[:-14]))
+
+
+class R6SingleOwnerReceiverTests(unittest.TestCase):
+    """Real runtime/owner/SQLite; service/curl/runuser edges are simulated locally.
+
+    The test service identity is the actual non-root process user. The runuser
+    mock checks its requested account, then execs real Python code under that UID.
+    This proves command identity and real file readability without claiming a
+    root-to-another-UID kernel transition was performed on the developer Mac.
+    """
+    def fixture(self):
+        import pwd
+        if os.geteuid() == 0:
+            self.skipTest('The local identity simulation requires a real non-root test service account')
+        scratch = tempfile.TemporaryDirectory(prefix='band-r6-real-owner-')
+        self.addCleanup(scratch.cleanup)
+        fixture = Fixture(scratch.name, 'success', has_api=True, previous_api=False)
+        fixture.current.unlink()
+        for path in (fixture.previous, fixture.obsolete):
+            import shutil
+            shutil.rmtree(path)
+        database = Path(fixture.env['BAND_DEPLOY_DB'])
+        database.unlink()
+        account = pwd.getpwuid(os.geteuid()).pw_name
+        fixture.env.update({'PREBUILT_MODE': '1', 'BAND_DEPLOY_FIRST_INSTALL': '1',
+                            'BAND_DEPLOY_SINGLE_USER': '1', 'BAND_DEPLOY_API_USER': account,
+                            'MOCK_SERVICE_USER': account, 'R6_REAL_RUNTIME': '1'})
+        password = fixture.root / 'initial-password'
+        password.write_text('only a disposable fixture password')
+        password.chmod(0o600)
+        fixture.env.update({'BAND_DEPLOY_OWNER_USERNAME': 'only-owner', 'BAND_DEPLOY_OWNER_PASSWORD_FILE': str(password)})
+        tools = Path(fixture.env['BAND_DEPLOY_BACKUP_SCRIPT']).parent
+        for name in ('check-site.py',):
+            (tools / name).write_bytes((OPS / name).read_bytes())
+        return fixture, password, account
+
+    def deploy_real(self, fixture, release_id=RELEASE_ID):
+        files = {name: '{}' for name in ['dist/index.html', 'dist/sw.js', 'dist/manifest.webmanifest',
+                 'dist/atlas/index.json', 'dist/offline/pack.json', 'dist/atlas/audio/word-uk/example.mp3', 'dist/atlas/img/example.webp']}
+        runtime = OPS.parent.parent / 'server'
+        names = json.loads((runtime / 'runtime-files.json').read_text())
+        files['server/runtime-files.json'] = json.dumps(names)
+        for name in names: files['server/' + name] = (runtime / name).read_text()
+        archive = fixture.project / 'incoming' / (release_id + '.tar.gz')
+        with tarfile.open(archive, 'w:gz', format=tarfile.PAX_FORMAT, pax_headers={'comment': REVISION}) as tar:
+            for name, content in files.items():
+                body = content.encode(); member = tarfile.TarInfo(name); member.size = len(body); tar.addfile(member, io.BytesIO(body))
+        digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+        return subprocess.run(['bash', str(fixture.rewritten('yasi-deploy')), '--prebuilt', str(archive), digest, REVISION, release_id],
+                              env=fixture.env, capture_output=True, text=True, timeout=90)
+
+    def assert_owner_files_and_no_probe_session(self, fixture, account):
+        import pwd
+        uid = pwd.getpwnam(account).pw_uid
+        database = Path(fixture.env['BAND_DEPLOY_DB'])
+        self.assertEqual(database.stat().st_uid, uid)
+        self.assertEqual(database.stat().st_mode & 0o777, 0o600)
+        for file in [database, *database.parent.glob(database.name + '-*')]:
+            self.assertEqual(file.stat().st_uid, uid)
+        with sqlite3.connect(database) as db:
+            self.assertEqual(db.execute('SELECT username FROM users').fetchall(), [('only-owner',)])
+            self.assertEqual(db.execute('SELECT COUNT(*) FROM sessions').fetchone()[0], 0)
+        self.assertTrue((fixture.root / 'database-writers.log').is_file(), 'Single-user DB commands must run as the verified API service identity')
+        writers = [json.loads(line) for line in (fixture.root / 'database-writers.log').read_text().splitlines()]
+        self.assertTrue(writers)
+        self.assertTrue(all(call[:3] == ['-u', account, '--'] for call in writers))
+        self.assertTrue(any('--create-owner' in call for call in writers))
+        self.assertTrue(any(any(part.endswith('check-site.py') for part in call) for call in writers))
+        self.assertTrue(any('--prefix' in call for call in writers))
+        backups = list(Path(fixture.env['BAND_DEPLOY_BACKUP_DIR']).glob('predeploy-*.sqlite3'))
+        for file in backups:
+            self.assertEqual(file.stat().st_uid, uid)
+            self.assertEqual(file.stat().st_mode & 0o777, 0o600)
+            with sqlite3.connect(file) as db: self.assertEqual(db.execute('PRAGMA integrity_check').fetchone()[0], 'ok')
+
+    def test_real_single_owner_first_install_and_two_release_rollback_preserve_private_files(self):
+        fixture, password, account = self.fixture()
+        first = self.deploy_real(fixture)
+        self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
+        self.assertNotIn(password.read_text(), first.stdout + first.stderr)
+        self.assert_owner_files_and_no_probe_session(fixture, account)
+        database = Path(fixture.env['BAND_DEPLOY_DB'])
+        with sqlite3.connect(database) as db:
+            db.execute('CREATE TABLE r6_preserved(value)'); db.execute('INSERT INTO r6_preserved VALUES(42)')
+        later_id = '20261106T000000Z-' + REVISION[:8]
+        fixture.env['API_PREVIOUS'] = '1'
+        second = self.deploy_real(fixture, later_id)
+        self.assertEqual(second.returncode, 0, second.stdout + second.stderr)
+        self.assertEqual(len(list(fixture.project.joinpath('releases').iterdir())), 2)
+        self.assertEqual(len(list(fixture.project.joinpath('api-releases').iterdir())), 2)
+        backups = Path(fixture.env['BAND_DEPLOY_BACKUP_DIR'])
+        before = len(list(backups.glob('predeploy-*.sqlite3')))
+        result = subprocess.run(['bash', str(fixture.rewritten('yasi-rollback')), str(fixture.project / 'releases' / RELEASE_ID)],
+                                env=fixture.env, capture_output=True, text=True, timeout=60)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(len(list(backups.glob('predeploy-*.sqlite3'))), before + 1)
+        self.assertEqual(fixture.current.resolve(), fixture.project / 'releases' / RELEASE_ID)
+        with sqlite3.connect(database) as db: self.assertEqual(db.execute('SELECT value FROM r6_preserved').fetchone()[0], 42)
+        self.assert_owner_files_and_no_probe_session(fixture, account)
+
+    def test_real_single_owner_site_failure_revokes_probe_and_retains_database(self):
+        fixture, _, account = self.fixture()
+        fixture.env['SITE_RANGE_FAIL'] = '1'
+        result = self.deploy_real(fixture)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse(fixture.current.is_symlink())
+        self.assertFalse(fixture.api_current.is_symlink())
+        self.assert_owner_files_and_no_probe_session(fixture, account)
+
+    def test_single_owner_refuses_mismatched_or_root_service_identity_before_bootstrap(self):
+        fixture, _, _ = self.fixture()
+        fixture.env['MOCK_SERVICE_USER'] = 'root'
+        result = self.deploy_real(fixture)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse(Path(fixture.env['BAND_DEPLOY_DB']).exists())
+        self.assertFalse(fixture.current.is_symlink())
+        self.assertFalse((fixture.root / 'database-writers.log').exists())
+
+    def test_rollback_backup_failure_never_switches_links_or_restarts_service(self):
+        scratch = tempfile.TemporaryDirectory(prefix='band-r6-rollback-backup-fail-')
+        self.addCleanup(scratch.cleanup)
+        fixture = Fixture(scratch.name, 'success', has_api=False, previous_api=False)
+        Path(fixture.env['BAND_DEPLOY_BACKUP_SCRIPT']).write_text('raise SystemExit(71)\n')
+        inode = fixture.current.lstat().st_ino
+        result = subprocess.run(['bash', str(fixture.rewritten('yasi-rollback')), str(fixture.obsolete)],
+                                env=fixture.env, capture_output=True, text=True, timeout=30)
+        self.assertEqual(result.returncode, 71)
+        self.assertEqual(fixture.current.resolve(), fixture.previous)
+        self.assertEqual(fixture.current.lstat().st_ino, inode)
+        controls = (fixture.root / 'controls.log').read_text() if (fixture.root / 'controls.log').exists() else ''
+        self.assertNotIn('restart', controls); self.assertNotIn('stop', controls)
+        fixture.assert_database_unchanged()
+
+
 
 def main():
     count = 0
@@ -521,7 +705,8 @@ def main():
             print(f'PASS rollback api={target_has_api} {case}', flush=True)
     suite = unittest.TestSuite([unittest.defaultTestLoader.loadTestsFromTestCase(PrebuiltTests),
                                 unittest.defaultTestLoader.loadTestsFromTestCase(CompatibilityTests),
-                                unittest.defaultTestLoader.loadTestsFromTestCase(R6ReleaseTests)])
+                                unittest.defaultTestLoader.loadTestsFromTestCase(R6ReleaseTests),
+                                unittest.defaultTestLoader.loadTestsFromTestCase(R6SingleOwnerReceiverTests)])
     result = unittest.TextTestRunner(verbosity=2).run(suite)
     if not result.wasSuccessful():
         raise SystemExit(1)

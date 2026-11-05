@@ -1,0 +1,55 @@
+{
+  "fixtureVersion": 1,
+  "description": "Self-authored QA material and synthetic benchmark history; none is actual IELTS content or an actual learner result.",
+  "startDate": "2026-11-09",
+  "points": [
+    {
+      "checkpoint": 1,
+      "listening": 1,
+      "reading": 1,
+      "writing": 2,
+      "speaking": 3,
+      "vocabulary": 4,
+      "correction": 1,
+      "retest": 4
+    },
+    {
+      "checkpoint": 30,
+      "listening": 30,
+      "reading": 30,
+      "writing": 30,
+      "speaking": 30,
+      "vocabulary": 30,
+      "correction": 34,
+      "retest": 36
+    },
+    {
+      "checkpoint": 180,
+      "listening": 180,
+      "reading": 180,
+      "writing": 180,
+      "speaking": 180,
+      "vocabulary": 180,
+      "correction": 181,
+      "retest": 183
+    },
+    {
+      "checkpoint": 365,
+      "listening": 363,
+      "reading": 363,
+      "writing": 364,
+      "speaking": 364,
+      "vocabulary": 365,
+      "correction": 363,
+      "retest": 365
+    }
+  ],
+  "partAnswers": ["harbour", "station", "library", "clinic"],
+  "speaking": {
+    "1": "I enjoy walking near the river because the quiet surroundings help me relax after a busy day. I usually go there in the evening with a friend.",
+    "2": "I would like to describe a small public library near my home. I first visited it with a friend last year. The reading room is bright and quiet, and the staff help people find useful books. I usually spend an hour there after work. It matters to me because it gives everyone a comfortable place to study without another monthly fee.",
+    "3": "Cities should ask residents which public facilities they actually need before spending a large budget. Libraries and parks can help many different groups, but access and opening hours also matter. A small trial would let the council compare demand before making a permanent decision."
+  },
+  "essay": "I agree that local councils should extend the opening hours of public libraries, provided that they first examine demand and the cost of staffing. A library offers more than shelves of books. It gives people a quiet place to study, reliable information, and support from staff who know how to find useful material. These services are especially valuable to adults who cannot attend during normal working hours.\n\nThe main benefit of evening access is fairness. Many employees finish work at the same time as their local library closes. A later session would let them use shared desks and educational resources without paying for a private study space. Students who live in crowded homes could also benefit. For example, a council could keep a central branch open on two evenings each week and compare attendance with its daytime sessions. This would provide direct evidence about who uses the service.\n\nHowever, longer hours would create real costs. Extra staff, heating and security must be paid for, and a quiet branch may attract too few users to justify them. The council should therefore run a limited trial rather than change every branch immediately. It could ask residents which evenings they prefer, record actual visits and review the results after three months. Volunteers might support events, but trained staff should remain responsible for normal library services.\n\nIn conclusion, extended library hours can improve access to learning and make public resources more useful. The strongest approach is to begin with a carefully measured trial, publish the costs and attendance figures, and retain the sessions that demonstrably meet local needs. This balances wider access with responsible use of public money.",
+  "prompt": "Some people believe that local councils should extend the evening opening hours of public libraries. To what extent do you agree or disagree? Give reasons for your answer and include relevant examples from your knowledge or experience."
+}

@@ -8,8 +8,8 @@ export function isFormalResult(payload: LearningPayload): boolean {
 }
 export function currentAttemptHeads(records: readonly Revision[], planId: string): Revision[] {
   const heads = new Map<string, Revision>();
-  for (const item of [...records].sort((a, b) => b.createdAt - a.createdAt || b.seq - a.seq)) {
-    if (item.kind !== 'attempt' || item.planId !== planId || item.conflict || heads.has(item.id)) continue;
+  for (const item of records.filter(item => item.kind === 'attempt' && item.planId === planId && !item.conflict).sort((a, b) => b.createdAt - a.createdAt || b.seq - a.seq)) {
+    if (heads.has(item.id)) continue;
     heads.set(item.id, item);
   }
   return [...heads.values()].filter(item => !item.deleted && item.payload.planId === planId);

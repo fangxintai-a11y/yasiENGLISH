@@ -61,14 +61,25 @@ export async function saveMission(input: MissionInput, suppliedPort?: MissionPor
   const id = existing?.id ?? await missionRecordId(input.planId, input.day, input.block.id);
   return port.save({ id, kind: "mission", payload });
 }
-export function dayCompletion(records: readonly Revision[], planId: string, date: string) {
-  const missions = currentMissions(records, planId).filter(record => record.payload.date === date);
+function completionFromMissions(current: readonly Revision[], date: string) {
+  const missions = current.filter(record => record.payload.date === date);
   const completedMinutes = missions.reduce((sum, record) => sum + (record.payload.status === "completed" ? Number(record.payload.plannedMinutes ?? 0) : 0), 0);
   const actualMinutes = missions.reduce((sum, record) => sum + Number(record.payload.actualMinutes ?? 0), 0);
   const totalMinutes = bundledRules.goal.dailyMinutes;
   const ratio = Math.min(1, completedMinutes / totalMinutes);
   const status = ratio >= 1 ? "completed" as const : missions.some(record => record.payload.status !== "not_started" || Number(record.payload.actualMinutes) > 0) ? "partial" as const : "not_started" as const;
   return { completedMinutes, actualMinutes, totalMinutes, ratio, status };
+}
+export function dayCompletion(records: readonly Revision[], planId: string, date: string) {
+  return completionFromMissions(currentMissions(records, planId), date);
+}
+/** Reuse one exact head projection for a multi-day view; keep task and revision rules shared. */
+export function missionProgress(records: readonly Revision[], planId: string, dates: readonly string[]) {
+  const missions = currentMissions(records, planId);
+  return {
+    actualMinutes: missions.reduce((sum, record) => sum + Number(record.payload.actualMinutes ?? 0), 0),
+    recentDays: dates.map(date => ({ date, ...completionFromMissions(missions, date) })),
+  };
 }
 export function totalActualMinutes(records: readonly Revision[], planId: string): number {
   return currentMissions(records, planId).reduce((sum, record) => sum + Number(record.payload.actualMinutes ?? 0), 0);

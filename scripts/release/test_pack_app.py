@@ -138,6 +138,18 @@ class PackAppTest(unittest.TestCase):
         self.assertEqual(first['sha256'], second['sha256'])
         self.assertEqual(self.out.read_bytes(), (self.root / 'different-name.tar.gz').read_bytes())
 
+    def test_missing_atlas_audio_is_rejected_before_creating_outputs(self):
+        (self.dist / 'atlas/audio/test.mp3').unlink()
+        with self.assertRaisesRegex(ValueError, 'Missing shared atlas audio'):
+            self.package()
+        self.assert_no_outputs()
+
+    def test_missing_atlas_image_is_rejected_before_creating_outputs(self):
+        (self.dist / 'atlas/img/test.webp').unlink()
+        with self.assertRaisesRegex(ValueError, 'Missing shared atlas image'):
+            self.package()
+        self.assert_no_outputs()
+
     def test_existing_candidate_is_immutable(self):
         self.package()
         old_archive = self.out.read_bytes()

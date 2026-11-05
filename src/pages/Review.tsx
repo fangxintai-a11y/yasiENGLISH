@@ -29,11 +29,13 @@ export function Review({
   const [sequenceOrigins, setSequenceOrigins] = useState<ListeningSequence[]>(
     [],
   );
+  const [bankLoaded, setBankLoaded] = useState(false);
   const [bank, setBank] = useState<LocalMaterial[]>([]),
     [bankError, setBankError] = useState("");
   useEffect(() => {
     let live = true;
     setBank([]);
+    setBankLoaded(false);
     setSequenceOrigins([]);
     setPrompts([]);
     void loadPromptBank(learning.userId)
@@ -62,11 +64,15 @@ export function Review({
         (value) => {
           if (live) {
             setBank(value.materials);
+            setBankLoaded(true);
             setSequenceOrigins(value.origins);
           }
         },
         (e) => {
-          if (live) setBankError(String(e));
+          if (live) {
+            setBankError(String(e));
+            setBankLoaded(true);
+          }
         },
       );
     return () => {
@@ -125,7 +131,10 @@ export function Review({
           题库完整性
         </a>
       </nav>
-      {route.tab === "weekly" && (
+      {route.tab === "weekly" && !bankLoaded && (
+        <p role="status">正在读取本机材料，随后显示本周汇总…</p>
+      )}
+      {route.tab === "weekly" && bankLoaded && (
         <WeeklyReview
           plan={plan}
           records={learning.records}

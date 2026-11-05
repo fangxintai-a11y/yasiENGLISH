@@ -1,8 +1,13 @@
 /* Band Galaxy offline cache: app shell network-first, everything else cache-first.
    The 「离线包」 downloader (src/lib/offline.ts) fills its own `band-pack-*` cache; caches.match() searches it too. */
-const VERSION = "band-v6";
+// Keep the existing shell namespace; release identity lives in the compiled About metadata.
+const VERSION = "band-v5";
 const SHELL = `${VERSION}-shell`;
 const MEDIA = `${VERSION}-media`;
+
+function networkOnly(path) {
+  return path === "/login" || ["/api", "/private", "/local-bank", "/local"].some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
+}
 
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (event) => {
@@ -16,7 +21,7 @@ self.addEventListener("activate", (event) => {
           const cache = await caches.open(name);
           for (const request of await cache.keys()) {
             const path = new URL(request.url).pathname;
-            if (path.startsWith("/private/") || path.startsWith("/api/") || path === "/login") await cache.delete(request);
+            if (networkOnly(path)) await cache.delete(request);
           }
         }
       })
@@ -90,7 +95,7 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(req.url);
   if (url.origin !== location.origin) return;
   // Private, changing account data must never be served from an offline cache.
-  if (url.pathname.startsWith("/api/") || url.pathname.startsWith("/private/") || url.pathname === "/login") return;
+  if (networkOnly(url.pathname)) return;
   // Safari and Chrome stream <audio> with Range requests: serve them from a cached full copy, else go to the network.
   if (req.headers.has("range")) {
     event.respondWith(

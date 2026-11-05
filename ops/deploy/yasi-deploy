@@ -27,6 +27,27 @@ database=${BAND_DEPLOY_DB:?Set BAND_DEPLOY_DB}
 backup_dir=${BAND_DEPLOY_BACKUP_DIR:-$(dirname "$database")/backups}
 backup_script=${BAND_DEPLOY_BACKUP_SCRIPT:?Set BAND_DEPLOY_BACKUP_SCRIPT}
 [[ $root == /* && $root != / && $web_root == /* && $web_root != / && $lock == /* && $database == /* && $backup_dir == /* && $backup_script == /* && $env_file == /* ]] || { echo 'Deployment paths must be absolute and roots must not be /.' >&2; exit 2; }
+api_user=''
+run_db() {
+    if [[ $single_user == 1 ]]; then
+        [[ -n $api_user ]] || { echo 'API service user must be verified before database access.' >&2; return 1; }
+        runuser -u "$api_user" -- "$@"
+    else
+        "$@"
+    fi
+}
+resolve_api_user() {
+    [[ $single_user == 1 ]] || return 0
+    api_user=$(systemctl show --property=User --value "$api_service")
+    expected_api_user=${BAND_DEPLOY_API_USER:-fangxintai}
+    [[ $api_user =~ ^[a-z_][a-z0-9_-]*$ && $api_user != root && $api_user == "$expected_api_user" ]] || { echo 'Configured API User must match the expected non-root service account.' >&2; return 1; }
+    printf 'Single-owner database writer: %s\n' "$api_user"
+    runuser -u "$api_user" -- test -w "$(dirname "$database")"
+    if [[ -e $database ]]; then
+        runuser -u "$api_user" -- test -r "$database"
+        runuser -u "$api_user" -- test -w "$database"
+    fi
+}
 root=${root%/}; web_root=${web_root%/}
 [[ $host =~ ^[A-Za-z0-9][A-Za-z0-9.-]*$ && $https_port =~ ^[0-9]+$ && $api_port =~ ^[0-9]+$ && $minimum_mb =~ ^[0-9]+$ ]] || { echo 'Invalid deployment configuration.' >&2; exit 2; }
 (( https_port >= 1024 && https_port <= 65535 && api_port >= 1024 && api_port <= 65535 && minimum_mb > 0 )) || { echo 'Only dedicated ports >=1024 are allowed.' >&2; exit 2; }
@@ -82,7 +103,7 @@ rollback_on_failure() {
         else
             [[ ! -L $api_current ]] || unlink "$api_current"
         fi
-        if (( api_was_active )) && python3 "$backup_script" --db "$database" --verify-api "$api_previous"; then
+        if (( api_was_active )) && run_db python3 "$backup_script" --db "$database" --verify-api "$api_previous"; then
             systemctl restart "$api_service" || true
         else
             echo 'Previous API is not verified for the current database; its writes remain stopped. Database was not restored.' >&2
@@ -214,6 +235,7 @@ if [[ -f server/app.py && ! -L server/app.py ]]; then
     [[ -r $env_file && -r $backup_script ]] || { echo 'Configure the API environment and backup helper before deployment.' >&2; rollback_on_failure 1; }
     unit=$(systemctl cat "$api_service")
     [[ $unit == *"$api_current/app.py"* ]] || { echo 'The configured API service must already run api-current/app.py; no service file was changed.' >&2; rollback_on_failure 1; }
+    resolve_api_user
     if (( ! prebuilt )); then python3 -m unittest discover -s server -p 'test_*.py'; fi
     install -d -m 755 "$api_release"
     python3 - "$api_release" <<'PY'
@@ -276,9 +298,9 @@ with tempfile.TemporaryDirectory(prefix='band-candidate-') as scratch:
         server.shutdown(); server.server_close(); thread.join(timeout=5)
 PY
     # This consistent backup happens before the production process can migrate its DB.
-    python3 "$backup_script" --db "$database" --directory "$backup_dir" --prefix predeploy
+    run_db python3 "$backup_script" --db "$database" --directory "$backup_dir" --prefix predeploy
     if (( single_user )); then
-        owner_count=$(python3 - "$database" <<'PY_OWNER_COUNT'
+        owner_count=$(run_db python3 - "$database" <<'PY_OWNER_COUNT'
 import pathlib, sqlite3, sys
 path = pathlib.Path(sys.argv[1])
 if not path.exists():
@@ -291,7 +313,8 @@ PY_OWNER_COUNT
 )
         if [[ $owner_count == 0 ]]; then
             [[ -n ${BAND_DEPLOY_OWNER_USERNAME:-} && -r ${BAND_DEPLOY_OWNER_PASSWORD_FILE:-} ]] || { echo 'First single-owner install requires an owner username and a private password file outside the artifact.' >&2; rollback_on_failure 1; }
-            python3 "$api_release/app.py" --db "$database" --create-owner "$BAND_DEPLOY_OWNER_USERNAME" --password-file "$BAND_DEPLOY_OWNER_PASSWORD_FILE"
+            run_db test -r "$BAND_DEPLOY_OWNER_PASSWORD_FILE"
+            run_db python3 "$api_release/app.py" --db "$database" --create-owner "$BAND_DEPLOY_OWNER_USERNAME" --password-file "$BAND_DEPLOY_OWNER_PASSWORD_FILE"
         else
             [[ $owner_count == 1 ]] || { echo 'Single-owner publication refuses a multi-account database.' >&2; rollback_on_failure 1; }
         fi
@@ -316,7 +339,7 @@ resolve="$host:$https_port:127.0.0.1"
 if (( single_user )); then
     site_checker=${BAND_DEPLOY_SITE_CHECK_SCRIPT:-$(dirname "$backup_script")/check-site.py}
     [[ -r $site_checker ]] || { echo 'Configure the authenticated site smoke checker.' >&2; rollback_on_failure 1; }
-    python3 "$site_checker" --db "$database" --host "$host" --port "$https_port" --audio "$audio_path"
+    run_db python3 "$site_checker" --db "$database" --host "$host" --port "$https_port" --audio "$audio_path"
 else
 curl --fail --silent --show-error --retry 5 --retry-connrefused --retry-delay 1 --max-time 30 --resolve "$resolve" "$public_url/" -o /dev/null
 if (( has_api )); then

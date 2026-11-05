@@ -9,6 +9,7 @@
     "test:server": "python3 -m unittest discover -s server -p 'test_*.py'",
     "test:sync": "node scripts/test-sync-e2e.mjs",
     "test:learning": "node scripts/test-learning-e2e.mjs",
+    "test:r6-e2e": "node scripts/test-r6-e2e.mjs",
     "pack:r6-app": "python3 scripts/release/pack-app.py",
     "test:r6-private": "node --test scripts/release/pack-private-audio.test.mjs",
     "test:r6-release": "python3 scripts/release/test_pack_app.py",
