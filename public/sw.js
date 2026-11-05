@@ -1,6 +1,6 @@
 /* Band Galaxy offline cache: app shell network-first, everything else cache-first.
    The 「离线包」 downloader (src/lib/offline.ts) fills its own `band-pack-*` cache; caches.match() searches it too. */
-const VERSION = "band-v5";
+const VERSION = "band-v6";
 const SHELL = `${VERSION}-shell`;
 const MEDIA = `${VERSION}-media`;
 
@@ -10,6 +10,16 @@ self.addEventListener("activate", (event) => {
     caches
       .keys()
       .then((keys) => Promise.all(keys.filter((k) => !k.startsWith(VERSION) && !k.startsWith("band-pack-")).map((k) => caches.delete(k))))
+      .then(async () => {
+        // Private responses from any older worker must not survive the web login boundary.
+        for (const name of await caches.keys()) {
+          const cache = await caches.open(name);
+          for (const request of await cache.keys()) {
+            const path = new URL(request.url).pathname;
+            if (path.startsWith("/private/") || path.startsWith("/api/") || path === "/login") await cache.delete(request);
+          }
+        }
+      })
       .then(() => self.clients.claim()),
   );
 });
@@ -80,7 +90,7 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(req.url);
   if (url.origin !== location.origin) return;
   // Private, changing account data must never be served from an offline cache.
-  if (url.pathname.startsWith("/api/")) return;
+  if (url.pathname.startsWith("/api/") || url.pathname.startsWith("/private/") || url.pathname === "/login") return;
   // Safari and Chrome stream <audio> with Range requests: serve them from a cached full copy, else go to the network.
   if (req.headers.has("range")) {
     event.respondWith(
@@ -98,7 +108,7 @@ self.addEventListener("fetch", (event) => {
     const response = fetch(req)
         .then((res) => {
           // Clone now: cloning inside the then() runs after the page has consumed the body and throws.
-          if (res.ok) {
+          if (res.ok && !res.redirected && !new URL(res.url || req.url).pathname.startsWith("/login")) {
             const copy = res.clone();
             saved = caches.open(SHELL).then((c) => c.put(req, copy));
           }

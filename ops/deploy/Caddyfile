@@ -1,0 +1,52 @@
+{
+	http_port 80
+	https_port 8443
+	auto_https disable_redirects
+}
+
+http://ibaz.cn {
+	redir https://ibaz.cn:8443{uri} permanent
+}
+
+https://ibaz.cn:8443 {
+	tls {
+		issuer acme {
+			dir https://acme-v02.api.letsencrypt.org/directory
+			disable_tlsalpn_challenge
+		}
+	}
+	header Strict-Transport-Security "max-age=31536000"
+	@entry path /login /api/auth/login /api/auth/session
+	handle @entry {
+		reverse_proxy 127.0.0.1:5189 {
+			header_up X-Real-IP {remote_host}
+		}
+	}
+	# The root delegates its unauthenticated redirect to the same cookie validator.
+	handle / {
+		reverse_proxy 127.0.0.1:5189 {
+			header_up X-Real-IP {remote_host}
+		}
+	}
+	handle {
+		forward_auth 127.0.0.1:5189 {
+			uri /api/auth/check
+		}
+		@api path /api/*
+		handle @api {
+			reverse_proxy 127.0.0.1:5189 {
+				header_up X-Real-IP {remote_host}
+			}
+		}
+		handle_path /private/* {
+			root * /srv/yasi/private
+			header Cache-Control "private, no-store"
+			file_server
+		}
+		handle {
+			root * /srv/yasi/current
+			header Cache-Control "private, no-cache"
+			file_server
+		}
+	}
+}

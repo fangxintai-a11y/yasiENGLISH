@@ -2,6 +2,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import fs from "node:fs";
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import path from "node:path";
 import type { IncomingMessage, ServerResponse } from "node:http";
 // Local-only content is never copied into dist or the public archive.
@@ -95,6 +96,23 @@ export default defineConfig({
   plugins: [
     react(),
     {
+      name: "release-public-files",
+      apply: "build",
+      generateBundle() {
+        const runtimeFiles = JSON.parse(fs.readFileSync("server/runtime-files.json", "utf8")) as string[];
+        const apiFiles = Object.fromEntries(runtimeFiles.map(name => [name, createHash("sha256").update(fs.readFileSync(path.join("server", name))).digest("hex")]));
+        const dirty = execFileSync("git", ["status", "--porcelain", "--untracked-files=normal", "--", "src", "server", "vite.config.ts", "package.json", "public/sw.js"], { encoding: "utf8" }).trim();
+        this.emitFile({ type: "asset", fileName: "build-info.json", source: JSON.stringify({ version: packageInfo.version, fullCommit: buildCommit, sourceDirty: !!dirty, apiFiles }) });
+      },
+      closeBundle() {
+        const publicRoot = path.resolve("public");
+        fs.cpSync(publicRoot, path.resolve("dist"), { recursive: true, filter(source) {
+          const rel = path.relative(publicRoot, source);
+          return rel !== "local-bank" && !rel.startsWith(`local-bank${path.sep}`);
+        } });
+      },
+    },
+    {
       name: "private-local-library",
       configureServer(server) {
         server.middlewares.use(localMedia);
@@ -106,5 +124,5 @@ export default defineConfig({
   ],
   server: { port: 5188, strictPort: true, proxy: { "/api": process.env.BAND_API_TARGET || "http://127.0.0.1:5189" } },
   preview: { port: 5188, strictPort: true },
-  build: { chunkSizeWarningLimit: 600 },
+  build: { chunkSizeWarningLimit: 600, copyPublicDir: false },
 });

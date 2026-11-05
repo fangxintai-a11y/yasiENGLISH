@@ -251,7 +251,7 @@ class LearningTest(unittest.TestCase):
     def test_installed_api_artifact_imports_without_source_directory(self):
         with tempfile.TemporaryDirectory(prefix="band-api-artifact-") as directory:
             directory = Path(directory)
-            for name in ("app.py", "learning.py"):
+            for name in json.loads(Path(app.__file__).with_name("runtime-files.json").read_text()):
                 shutil.copyfile(Path(app.__file__).with_name(name), directory / name)
             spec = importlib.util.spec_from_file_location("isolated_band_candidate", directory / "app.py")
             module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)

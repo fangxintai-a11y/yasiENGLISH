@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Back up a live SQLite database including its WAL; retain 14 days."""
+"""Back up a live SQLite database including its WAL; retain the latest 14 complete copies."""
 import argparse
 import datetime
 import os
@@ -59,10 +59,12 @@ def verify_api_compatibility(database, target):
         return False
 
 
-def backup_database(database, directory, prefix="daily", now=None):
+def backup_database(database, directory, prefix="daily", now=None, keep=14):
     database, directory = Path(database).resolve(), Path(directory).resolve()
     if not database.is_file():
         return None
+    if type(keep) is not int or not 1 <= keep <= 365:
+        raise ValueError("Retain between 1 and 365 backups per category")
     now = time.time() if now is None else now
     directory.mkdir(parents=True, exist_ok=True, mode=0o700)
     os.chmod(directory, 0o700)
@@ -79,10 +81,13 @@ def backup_database(database, directory, prefix="daily", now=None):
         temporary.rename(target)
     finally:
         temporary.unlink(missing_ok=True)
-    # Only remove complete backups made by this helper, after a new one succeeds.
-    for old in directory.glob("*.sqlite3"):
-        if re.fullmatch(r"(?:daily|predeploy)-\d{8}T\d{12}Z-[a-f0-9]{6}\.sqlite3", old.name) and not old.is_symlink() and old.is_file() and old.stat().st_mtime < now - 14 * 86400:
-            old.unlink()
+    # Retain the latest complete copies; never prune another tool's files.
+    pattern = re.compile(r"(?:daily|predeploy)-\d{8}T\d{12}Z-[a-f0-9]{6}\.sqlite3")
+    complete = sorted((old for old in directory.glob("*.sqlite3")
+                       if pattern.fullmatch(old.name) and not old.is_symlink() and old.is_file()),
+                      key=lambda old: old.name, reverse=True)
+    for old in complete[keep:]:
+        old.unlink()
     return target
 
 
@@ -91,13 +96,14 @@ def main():
     parser.add_argument("--db", default="/var/lib/band-galaxy/progress.sqlite3")
     parser.add_argument("--directory", default="/var/lib/band-galaxy/backups")
     parser.add_argument("--prefix", choices=("daily", "predeploy"), default="daily")
+    parser.add_argument("--keep", type=int, default=14, help="Retain latest complete copies")
     parser.add_argument("--verify-api", type=Path, help="Only check whether this API may write the current learning schema")
     arguments = parser.parse_args()
     if arguments.verify_api is not None:
         compatible = verify_api_compatibility(arguments.db, arguments.verify_api)
         print("API rollback compatibility verified." if compatible else "API rollback compatibility is unverified; writes must remain stopped.")
         raise SystemExit(0 if compatible else 1)
-    target = backup_database(arguments.db, arguments.directory, arguments.prefix)
+    target = backup_database(arguments.db, arguments.directory, arguments.prefix, keep=arguments.keep)
     print("Database backup completed." if target else "Database not created yet; no backup needed.")
 
 

@@ -1,0 +1,22 @@
+[Unit]
+Description=Band Galaxy single-owner learning API
+After=network.target
+
+[Service]
+Type=simple
+User=fangxintai
+Group=fangxintai
+WorkingDirectory=/srv/yasi
+EnvironmentFile=/srv/yasi/server.env
+ExecStart=/usr/bin/python3 /srv/yasi/api-current/app.py --host 127.0.0.1 --port 5189 --db /srv/yasi/progress.sqlite3
+Restart=always
+RestartSec=3
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/srv/yasi
+
+[Install]
+WantedBy=multi-user.target

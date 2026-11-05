@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily certificate automation configuration check for Band Galaxy
+
+[Timer]
+OnCalendar=*-*-* 04:15:00 Asia/Shanghai
+Persistent=true
+Unit=band-galaxy-cert-renew.service
+
+[Install]
+WantedBy=timers.target

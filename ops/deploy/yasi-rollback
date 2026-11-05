@@ -92,9 +92,23 @@ ln -s "$target" "$temp_link"
 mv -Tf "$temp_link" "$current"
 public_url="https://$host:$https_port"
 resolve="$host:$https_port:127.0.0.1"
+if [[ ${BAND_DEPLOY_SINGLE_USER:-0} == 1 ]]; then
+    site_checker=${BAND_DEPLOY_SITE_CHECK_SCRIPT:-$(dirname "$backup_script")/check-site.py}
+    audio_path=$(python3 - "$target/atlas/audio" <<'PY_AUDIO'
+import pathlib, sys
+root = pathlib.Path(sys.argv[1])
+file = next(iter(sorted(root.rglob('*.mp3'))), None)
+if not file:
+    raise ValueError('Shared atlas audio is missing')
+print('atlas/audio/' + file.relative_to(root).as_posix())
+PY_AUDIO
+)
+    python3 "$site_checker" --db "$database" --host "$host" --port "$https_port" --audio "$audio_path"
+else
 curl --fail --silent --show-error --retry 5 --retry-connrefused --retry-delay 1 --max-time 30 --resolve "$resolve" "$public_url/" -o /dev/null
 if [[ -f $api_target/app.py ]]; then
     curl --fail --silent --show-error --retry 3 --retry-connrefused --retry-delay 1 --max-time 10 --resolve "$resolve" "$public_url/api/health" -o /dev/null
+fi
 fi
 trap - ERR INT TERM
 printf 'Live release: %s\n' "$target"

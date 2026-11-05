@@ -6,6 +6,10 @@ export PATH=/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 export PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 unset ATLAS_BASE
 [[ $EUID -eq 0 ]] || { echo 'Run with sudo.' >&2; exit 1; }
+first_install=${BAND_DEPLOY_FIRST_INSTALL:-0}
+single_user=${BAND_DEPLOY_SINGLE_USER:-0}
+[[ $first_install == 0 || $first_install == 1 ]] || exit 2
+[[ $single_user == 0 || $single_user == 1 ]] || exit 2
 prebuilt=0
 if [[ ${1:-} == --prebuilt ]]; then prebuilt=1; shift; fi
 [[ $# -eq 4 ]] || { echo 'Usage: yasi-deploy [--prebuilt] ARCHIVE SHA256 COMMIT RELEASE_ID' >&2; exit 2; }
@@ -34,8 +38,13 @@ install -d -m 755 "$(dirname "$lock")"
 exec 9>"$lock"
 flock -n 9 || { echo 'Another deployment is running.' >&2; exit 1; }
 current="$web_root/current"
-previous=$(readlink -f "$current")
-[[ -L $current && -d $previous && $previous == "$root/releases/${previous##*/}" && ${previous##*/} =~ ^[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8}$ ]] || { echo 'Current release must be a managed symlink.' >&2; exit 1; }
+previous=''
+if [[ -L $current ]]; then
+    previous=$(readlink -f "$current")
+    [[ -d $previous && $previous == "$root/releases/${previous##*/}" && ${previous##*/} =~ ^[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8}$ ]] || { echo 'Current release must be a managed symlink.' >&2; exit 1; }
+else
+    [[ $first_install == 1 && ! -e $current ]] || { echo 'Current release must be a managed symlink; empty installations require BAND_DEPLOY_FIRST_INSTALL=1.' >&2; exit 1; }
+fi
 temporary_link="$web_root/.current.$$.new"
 release="$root/releases/$release_id"
 build="$root/builds/$release_id"
@@ -58,8 +67,12 @@ rollback_on_failure() {
     [[ ! -L $temporary_link ]] || unlink "$temporary_link"
     if (( switched )); then
         echo 'Deployment failed; restoring previous code links. Database is retained.' >&2
-        ln -s "$previous" "$temporary_link"
-        mv -Tf "$temporary_link" "$current"
+        if [[ -n $previous ]]; then
+            ln -s "$previous" "$temporary_link"
+            mv -Tf "$temporary_link" "$current"
+        else
+            [[ ! -L $current ]] || unlink "$current"
+        fi
     fi
     [[ ! -L $api_link ]] || unlink "$api_link"
     if (( api_switched )); then
@@ -109,6 +122,9 @@ with tarfile.open(sys.argv[1], 'r:gz') as source:
         path = PurePosixPath(member.name)
         if path.is_absolute() or '..' in path.parts or '.git' in path.parts or not (member.isfile() or member.isdir()):
             raise ValueError('Unexpected archive path or link: ' + member.name)
+    if any(member.name == 'release-manifest.json' for member in source.getmembers()):
+        if sum(member.size for member in source.getmembers() if member.isfile()) >= 50 * 1024 * 1024:
+            raise ValueError('Shared-media application artifact must be smaller than 50 MB unpacked')
     source.extractall(sys.argv[2], filter='data')
 PY
 cd "$build/source"
@@ -122,6 +138,58 @@ if (( ! prebuilt )); then
     [[ -z ${BAND_DEPLOY_NPM_REGISTRY:-} ]] || npm_args+=("--registry=$BAND_DEPLOY_NPM_REGISTRY")
     npm "${npm_args[@]}"
     npm run build
+fi
+if [[ -f release-manifest.json ]]; then
+    (( prebuilt )) || { echo 'Shared atlas manifests require prebuilt mode.' >&2; rollback_on_failure 1; }
+    python3 - "$revision" "${BAND_DEPLOY_ATLAS_ROOT:-}" <<'PY_SHARED'
+import json, pathlib, sys
+manifest = json.loads(pathlib.Path('release-manifest.json').read_text())
+if set(manifest) - {'formatVersion', 'sharedAtlas', 'commit', 'sharedPaths'} or manifest.get('formatVersion') != 1 or manifest.get('sharedAtlas') is not True or manifest.get('commit') != sys.argv[1]:
+    raise ValueError('Invalid shared-atlas release manifest')
+runtime = json.loads(pathlib.Path('server/runtime-files.json').read_text())
+for file in pathlib.Path('.').rglob('*'):
+    if not file.is_file():
+        continue
+    parts = file.parts
+    if parts[0] == 'server':
+        if len(parts) != 2 or parts[1] not in [*runtime, 'runtime-files.json']:
+            raise ValueError('Unlisted API artifact file: ' + str(file))
+    elif parts[0] == 'dist':
+        if any(part in ('private', 'local-content', 'local-bank') for part in parts) or file.suffix.lower() in ('.mp3', '.m4a', '.pdf', '.sqlite3', '.sqlite', '.db', '.env'):
+            raise ValueError('Private media, databases and environment files must stay outside the application artifact')
+    elif str(file) != 'release-manifest.json':
+        raise ValueError('Unlisted application artifact file: ' + str(file))
+root = pathlib.Path(sys.argv[2])
+if not root.is_absolute() or root.is_symlink() or not root.is_dir():
+    raise ValueError('Configure an existing shared atlas directory')
+if pathlib.Path('dist/atlas').exists():
+    raise ValueError('Shared atlas must not also be included in the application artifact')
+for name in ['index.json', 'img', 'audio']:
+    if not (root / name).exists():
+        raise ValueError('Shared atlas is incomplete: ' + name)
+pathlib.Path('dist/atlas').symlink_to(root, target_is_directory=True)
+paths = manifest.get('sharedPaths', [])
+if not isinstance(paths, list) or len(paths) > 200:
+    raise ValueError('Invalid shared media path list')
+seen = set()
+for entry in paths:
+    if not isinstance(entry, dict) or set(entry) != {'path', 'sharedPath'}:
+        raise ValueError('Invalid shared media entry')
+    destination, shared = entry['path'], entry['sharedPath']
+    def safe(value):
+        return isinstance(value, str) and value and not value.startswith('/') and '\\' not in value and all(part not in ('', '.', '..') for part in value.split('/'))
+    if not safe(destination) or not safe(shared) or not shared.startswith('_public/') or destination.split('/')[0] in ('atlas', 'api', 'private', 'server'):
+        raise ValueError('Unsafe shared media path')
+    if destination in seen or any(destination.startswith(old + '/') or old.startswith(destination + '/') for old in seen):
+        raise ValueError('Overlapping shared media paths')
+    seen.add(destination)
+    target = (root / shared).resolve()
+    link = pathlib.Path('dist') / destination
+    if not target.is_relative_to(root.resolve()) or not target.exists() or link.exists() or link.is_symlink():
+        raise ValueError('Missing or conflicting shared media path: ' + destination)
+    link.parent.mkdir(parents=True, exist_ok=True)
+    link.symlink_to(target, target_is_directory=target.is_dir())
+PY_SHARED
 fi
 python3 - "$build/check.json" <<'PY'
 import json, sys
@@ -176,7 +244,7 @@ spec = importlib.util.spec_from_file_location('band_candidate', artifact / 'app.
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
 with tempfile.TemporaryDirectory(prefix='band-candidate-') as scratch:
-    server = module.create_server('127.0.0.1', 0, pathlib.Path(scratch) / 'check.sqlite3', public_origin='http://localhost:5188', secure_cookie=False)
+    server = module.create_server('127.0.0.1', 0, pathlib.Path(scratch) / 'check.sqlite3', public_origin='http://localhost:5188', secure_cookie=False, single_user=False)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
@@ -209,6 +277,25 @@ with tempfile.TemporaryDirectory(prefix='band-candidate-') as scratch:
 PY
     # This consistent backup happens before the production process can migrate its DB.
     python3 "$backup_script" --db "$database" --directory "$backup_dir" --prefix predeploy
+    if (( single_user )); then
+        owner_count=$(python3 - "$database" <<'PY_OWNER_COUNT'
+import pathlib, sqlite3, sys
+path = pathlib.Path(sys.argv[1])
+if not path.exists():
+    print(0)
+else:
+    with sqlite3.connect(path.as_uri() + '?mode=ro', uri=True) as db:
+        table = db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='users'").fetchone()
+        print(db.execute('SELECT COUNT(*) FROM users').fetchone()[0] if table else 0)
+PY_OWNER_COUNT
+)
+        if [[ $owner_count == 0 ]]; then
+            [[ -n ${BAND_DEPLOY_OWNER_USERNAME:-} && -r ${BAND_DEPLOY_OWNER_PASSWORD_FILE:-} ]] || { echo 'First single-owner install requires an owner username and a private password file outside the artifact.' >&2; rollback_on_failure 1; }
+            python3 "$api_release/app.py" --db "$database" --create-owner "$BAND_DEPLOY_OWNER_USERNAME" --password-file "$BAND_DEPLOY_OWNER_PASSWORD_FILE"
+        else
+            [[ $owner_count == 1 ]] || { echo 'Single-owner publication refuses a multi-account database.' >&2; rollback_on_failure 1; }
+        fi
+    fi
     ln -s "$api_release" "$api_link"
     api_switched=1
     mv -Tf "$api_link" "$api_current"
@@ -226,6 +313,11 @@ switched=1
 mv -Tf "$temporary_link" "$current"
 public_url="https://$host:$https_port"
 resolve="$host:$https_port:127.0.0.1"
+if (( single_user )); then
+    site_checker=${BAND_DEPLOY_SITE_CHECK_SCRIPT:-$(dirname "$backup_script")/check-site.py}
+    [[ -r $site_checker ]] || { echo 'Configure the authenticated site smoke checker.' >&2; rollback_on_failure 1; }
+    python3 "$site_checker" --db "$database" --host "$host" --port "$https_port" --audio "$audio_path"
+else
 curl --fail --silent --show-error --retry 5 --retry-connrefused --retry-delay 1 --max-time 30 --resolve "$resolve" "$public_url/" -o /dev/null
 if (( has_api )); then
     curl --fail --silent --show-error --retry 3 --retry-connrefused --retry-delay 1 --max-time 10 --resolve "$resolve" "$public_url/api/health" -o "$build/api-proxy-health.json"
@@ -238,6 +330,7 @@ range_status=$(curl --silent --show-error --max-time 30 --resolve "$resolve" -H 
 [[ $range_status == 206 ]] || { echo "Audio Range check returned HTTP $range_status, expected 206." >&2; rollback_on_failure 1; }
 range_size=$(stat -c %s "$build/range.bin")
 [[ $range_size == 100 ]] || { echo 'Audio Range check did not return exactly 100 bytes.' >&2; rollback_on_failure 1; }
+fi
 while IFS= read -r old_release; do
     [[ $old_release == "$release" || $old_release == "$previous" ]] && continue
     [[ $old_release == "$root/releases/${old_release##*/}" && ${old_release##*/} =~ ^[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8}$ && ! -L $old_release ]] || continue

@@ -420,6 +420,86 @@ class CompatibilityTests(unittest.TestCase):
         fixture.assert_database_unchanged()
 
 
+class R6ReleaseTests(unittest.TestCase):
+    def shared_fixture(self, first=False, fail=False, unsafe=False, missing=False):
+        scratch = tempfile.TemporaryDirectory(prefix='band-r6-shared-release-')
+        self.addCleanup(scratch.cleanup)
+        fixture = Fixture(scratch.name, 'success', has_api=True, previous_api=False)
+        fixture.env['PREBUILT_MODE'] = '1'
+        atlas = fixture.root / 'shared-atlas'
+        for name, content in {'index.json': '{}', 'audio/word-uk/example.mp3': '0' * 1000,
+                              'img/example.webp': 'original image', '_public/sfx/correct.mp3': 'original effect'}.items():
+            path = atlas / name; path.parent.mkdir(parents=True, exist_ok=True); path.write_text(content)
+        fixture.env['BAND_DEPLOY_ATLAS_ROOT'] = str(atlas)
+        if first:
+            fixture.current.unlink()
+            fixture.env['BAND_DEPLOY_FIRST_INSTALL'] = '1'
+        if fail:
+            fixture.env['CASE'] = 'health'
+        paths = [{'path': '../escape' if unsafe else 'sfx', 'sharedPath': '_public/sfx'}]
+        files = {name: '{}' for name in ['dist/index.html', 'dist/sw.js', 'dist/manifest.webmanifest', 'dist/offline/pack.json']}
+        files.update({'release-manifest.json': json.dumps({'formatVersion': 1, 'sharedAtlas': True, 'commit': REVISION, 'sharedPaths': paths}),
+                      'server/app.py': FAKE_API, 'server/learning.py': "RUNTIME_MARKER = 'installed helper'\n",
+                      'server/runtime-files.json': json.dumps(['app.py', 'learning.py'])})
+        if missing:
+            (atlas / '_public/sfx/correct.mp3').unlink(); (atlas / '_public/sfx').rmdir()
+        archive = fixture.project / 'incoming' / (RELEASE_ID + '.tar.gz')
+        with tarfile.open(archive, 'w:gz', format=tarfile.PAX_FORMAT, pax_headers={'comment': REVISION}) as tar:
+            for name, content in files.items():
+                member = tarfile.TarInfo(name); body = content.encode(); member.size = len(body); tar.addfile(member, io.BytesIO(body))
+        digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+        result = subprocess.run(['bash', str(fixture.rewritten('yasi-deploy')), '--prebuilt', str(archive), digest, REVISION, RELEASE_ID],
+                                env=fixture.env, capture_output=True, text=True, timeout=60)
+        return fixture, atlas, result
+
+    def test_empty_machine_first_prebuilt_install_links_shared_media_without_copying(self):
+        fixture, atlas, result = self.shared_fixture(first=True)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        release = fixture.project / 'releases' / RELEASE_ID
+        self.assertEqual(fixture.current.resolve(), release)
+        self.assertTrue((release / 'atlas').is_symlink())
+        self.assertEqual((release / 'atlas').resolve(), atlas)
+        self.assertTrue((release / 'sfx').is_symlink())
+        self.assertEqual((release / 'sfx/correct.mp3').read_text(), 'original effect')
+        self.assertEqual(len(list(fixture.project.joinpath('releases').iterdir())), 1)
+        fixture.assert_database_unchanged()
+
+    def test_first_install_failure_removes_new_links_but_retains_database_and_shared_media(self):
+        fixture, atlas, result = self.shared_fixture(first=True, fail=True)
+        self.assertEqual(result.returncode, 12, result.stdout + result.stderr)
+        self.assertFalse(fixture.current.exists()); self.assertFalse(fixture.current.is_symlink())
+        self.assertFalse(fixture.api_current.is_symlink())
+        self.assertEqual((atlas / 'audio/word-uk/example.mp3').read_text(), '0' * 1000)
+        fixture.assert_database_unchanged()
+
+    def test_shared_path_traversal_and_missing_media_are_rejected(self):
+        for options in ({'unsafe': True}, {'missing': True}):
+            with self.subTest(options=options):
+                fixture, atlas, result = self.shared_fixture(**options)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(fixture.current.resolve(), fixture.previous)
+                self.assertEqual((atlas / 'img/example.webp').read_text(), 'original image')
+                fixture.assert_database_unchanged()
+
+    def test_backup_keeps_latest_fourteen_complete_copies_without_deleting_unrelated_files(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location('r6_backup_helper', OPS / 'backup-sync.py')
+        helper = importlib.util.module_from_spec(spec); spec.loader.exec_module(helper)
+        with tempfile.TemporaryDirectory(prefix='band-r6-backup-') as scratch:
+            database, backup_dir = Path(scratch) / 'source.sqlite3', Path(scratch) / 'backups'
+            with sqlite3.connect(database) as db: db.execute('CREATE TABLE preserved(value)'); db.execute('INSERT INTO preserved VALUES(42)')
+            backup_dir.mkdir(); unrelated = backup_dir / 'user-copy.sqlite3'; unrelated.write_text('do not delete')
+            for index in range(17):
+                helper.backup_database(database, backup_dir, 'daily' if index % 2 else 'predeploy', now=1700000000 + index)
+            owned = [p for p in backup_dir.glob('*.sqlite3') if p.name != unrelated.name]
+            self.assertEqual(len(owned), 14)
+            self.assertEqual(unrelated.read_text(), 'do not delete')
+            for copy in owned:
+                with sqlite3.connect(copy) as db:
+                    self.assertEqual(db.execute('PRAGMA integrity_check').fetchone()[0], 'ok')
+                    self.assertEqual(db.execute('SELECT value FROM preserved').fetchone()[0], 42)
+
+
 def main():
     count = 0
     for has_api, cases in ((False, ['checksum', 'commit', 'escape', 'ci', 'build', 'missing', 'health', 'range', 'signal', 'success']), (True, ['api_candidate', 'api_missing_module', 'api_restart', 'api_health', 'api_proxy', 'health', 'range', 'api_signal', 'success'])):
@@ -440,7 +520,8 @@ def main():
             count += 1
             print(f'PASS rollback api={target_has_api} {case}', flush=True)
     suite = unittest.TestSuite([unittest.defaultTestLoader.loadTestsFromTestCase(PrebuiltTests),
-                                unittest.defaultTestLoader.loadTestsFromTestCase(CompatibilityTests)])
+                                unittest.defaultTestLoader.loadTestsFromTestCase(CompatibilityTests),
+                                unittest.defaultTestLoader.loadTestsFromTestCase(R6ReleaseTests)])
     result = unittest.TextTestRunner(verbosity=2).run(suite)
     if not result.wasSuccessful():
         raise SystemExit(1)
