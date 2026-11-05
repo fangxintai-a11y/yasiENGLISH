@@ -63,10 +63,20 @@ const normalized = (text: string) =>
     .toLowerCase()
     .replace(/[^\p{L}\p{N}]+/gu, " ")
     .trim();
-const body = (material: LocalMaterial) =>
-  normalized(
-    material.skill === "reading" ? material.passage : material.transcript,
-  );
+const normalizedBodies = new WeakMap<
+  LocalMaterial,
+  { text: string; normalized: string }
+>();
+function body(material: LocalMaterial): string {
+  const text =
+    material.skill === "reading" ? material.passage : material.transcript;
+  const cached = normalizedBodies.get(material);
+  // Imported objects may be edited in place; only the exact current text is reusable.
+  if (cached?.text === text) return cached.normalized;
+  const value = normalized(text);
+  normalizedBodies.set(material, { text, normalized: value });
+  return value;
+}
 const paperSource = (material: RetestMaterial): MaterialSource =>
   "source" in material
     ? material.source.materialSource

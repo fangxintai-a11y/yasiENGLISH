@@ -411,7 +411,19 @@ export async function builtinLocalBank(): Promise<LocalMaterial[]> {
   }
   return result;
 }
-export async function loadLocalBank(
+const pendingBankLoads = new Map<string, Promise<LocalMaterial[]>>();
+export function loadLocalBank(userId: string | null): Promise<LocalMaterial[]> {
+  const scope = scopeFor(userId),
+    existing = pendingBankLoads.get(scope);
+  if (existing) return existing;
+  // StrictMode and simultaneous views must not race to import the same versions.
+  const pending = loadLocalBankUnshared(userId).finally(() => {
+    if (pendingBankLoads.get(scope) === pending) pendingBankLoads.delete(scope);
+  });
+  pendingBankLoads.set(scope, pending);
+  return pending;
+}
+async function loadLocalBankUnshared(
   userId: string | null,
 ): Promise<LocalMaterial[]> {
   const scope = scopeFor(userId),
@@ -520,12 +532,35 @@ export async function loadLocalBank(
     return builtinLocalBank();
   }
 }
+const pendingAudioLoads = new Map<string, Promise<Blob>>();
 export async function resolveLocalAudio(
   userId: string | null,
   material: LocalMaterial,
 ): Promise<{ url: string; release: () => void }> {
   if (material.skill !== "listening" || !material.audio)
     throw new Error("这份材料没有可用的本机音频。");
+  const source = { ...material, audio: { ...material.audio } },
+    key = JSON.stringify([
+      scopeFor(userId),
+      source.audio.path,
+      source.audio.sha256 ?? null,
+    ]);
+  let pending = pendingAudioLoads.get(key);
+  if (!pending) {
+    const load = loadLocalAudioBlob(userId, source).finally(() => {
+      if (pendingAudioLoads.get(key) === load) pendingAudioLoads.delete(key);
+    });
+    pendingAudioLoads.set(key, load);
+    pending = load;
+  }
+  // Each caller owns its URL so a stale effect cannot revoke another caller's audio.
+  const url = URL.createObjectURL(await pending);
+  return { url, release: () => URL.revokeObjectURL(url) };
+}
+async function loadLocalAudioBlob(
+  userId: string | null,
+  material: LocalMaterial,
+): Promise<Blob> {
   const stored = await readStored(userId);
   let item = matchingAudio(material, stored.audio);
   if (!item?.blob && navigator.onLine) {
@@ -539,8 +574,7 @@ export async function resolveLocalAudio(
     throw new Error(
       "这台设备没有匹配的音频，请联网准备这一份音频，或导入包含音频的小题库包。",
     );
-  const url = URL.createObjectURL(item.blob);
-  return { url, release: () => URL.revokeObjectURL(url) };
+  return item.blob;
 }
 
 const MAX_PRIVATE_MANIFEST_BYTES = 64 * 1024 * 1024;

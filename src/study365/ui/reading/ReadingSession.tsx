@@ -176,9 +176,9 @@ export function ReadingSession({
       acceptedMaterialPreferences(
         learning.records,
         plan.id,
-        calibrationWeekIndex(plan, context.date),
+        context.day < 1 ? 0 : calibrationWeekIndex(plan, context.date),
       ),
-    [learning.records, plan, context.date],
+    [learning.records, plan, context.date, context.day],
   );
   const selection = useMemo(
     () =>
@@ -581,7 +581,10 @@ export function ReadingSession({
         <p className="eyebrow">365天训练 · {context.date}</p>
         <h1>{skill === "reading" ? "阅读" : "听力"}练习</h1>
         <a href="#/">返回今日</a>
-        {(context.day < 1 || context.day > 365) && (
+        {context.day < 1 && (
+          <p>365天计划尚未开始（开始日期：{String(plan.payload.startDate)}）。可以先浏览材料，到开始日后再进行限时首答。</p>
+        )}
+        {context.day > 365 && (
           <p>当天不在365天计划内；已有作答继续保留。</p>
         )}
         {!loaded && <p>正在读取本机题库…</p>}

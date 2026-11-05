@@ -54,7 +54,7 @@ export function CorrectionPanel(props: Props) {
     [message, setMessage] = useState(""),
     [error, setError] = useState("");
   const budget = reviewBudget(dayPlan, records, plan.id);
-  const preferences = acceptedMaterialPreferences(records, plan.id, calibrationWeekIndex(plan, dayPlan.date));
+  const preferences = acceptedMaterialPreferences(records, plan.id, dayPlan.state === 'before' ? 0 : calibrationWeekIndex(plan, dayPlan.date));
   const corrections = prioritizeCorrections(records.filter(
     (r) =>
       r.kind === "correction" &&

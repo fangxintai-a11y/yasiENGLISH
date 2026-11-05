@@ -11,6 +11,7 @@ import {
   evaluateRetest,
   assertRetestMaterialEligible,
   selectRetest,
+  isHeldOutListeningReading,
   unseenListeningReading,
   type RetestContext,
   type RetestPrompt,
@@ -336,6 +337,92 @@ test("T3: doing S1 does not consume S2, but a previously done full exam consumes
     unseenListeningReading(sameAudio, [firstWork], [first, sameAudio], "plan"),
     false,
   );
+});
+test("T3: repeated original comparisons reuse normalization, including empty bodies", () => {
+  const held = paper("cached-held", {
+      pool: "holdout",
+      passage: "ＣＡＦÉ—river １２３",
+    }),
+    alias = paper("cached-alias", { passage: "café river 123" }),
+    bank = [held, alias];
+  const originalNormalize = String.prototype.normalize;
+  let calls = 0;
+  String.prototype.normalize = function (...args) {
+    calls++;
+    return originalNormalize.apply(this, args);
+  };
+  try {
+    for (let i = 0; i < 4; i++)
+      assert.equal(isHeldOutListeningReading(alias, bank), true);
+    assert.equal(calls, 2);
+    Object.assign(alias, { passage: "A different original." });
+    assert.equal(isHeldOutListeningReading(alias, bank), false);
+    assert.equal(calls, 3);
+    Object.assign(held, { passage: "" });
+    for (let i = 0; i < 4; i++)
+      assert.equal(isHeldOutListeningReading(alias, bank), false);
+    assert.equal(calls, 4);
+  } finally {
+    String.prototype.normalize = originalNormalize;
+  }
+});
+test("T3: holdout membership still follows changed arrays, pools and exact current bodies", () => {
+  const held = paper("mutable-held", {
+      pool: "holdout",
+      passage: "Same original.",
+    }),
+    alias = paper("mutable-alias", { passage: "ＳＡＭＥ original!" }),
+    bank = [alias];
+  assert.equal(isHeldOutListeningReading(alias, bank), false);
+  bank.push(held);
+  assert.equal(isHeldOutListeningReading(alias, bank), true);
+  Object.assign(held, { passage: "A replacement original." });
+  assert.equal(isHeldOutListeningReading(alias, bank), false);
+  Object.assign(alias, { passage: "A replacement original!" });
+  assert.equal(isHeldOutListeningReading(alias, bank), true);
+  Object.assign(held, { pool: "practice" });
+  assert.equal(isHeldOutListeningReading(alias, bank), false);
+  Object.assign(held, { pool: "holdout" });
+  assert.equal(isHeldOutListeningReading(alias, bank), true);
+  bank.pop();
+  assert.equal(isHeldOutListeningReading(alias, bank), false);
+});
+test("T3: current skill and edited listening transcripts cannot reuse a stale reading body", () => {
+  const text = "The original body.",
+    readingHeld = paper("reading-held", { pool: "holdout", passage: text }),
+    listeningHeld = listening("listening-held", 1, "held-exam"),
+    candidate = paper("changing-skill", { passage: text });
+  Object.assign(listeningHeld, { pool: "holdout", transcript: text });
+  Object.assign(candidate, { transcript: "A different transcript." });
+  const bank = [readingHeld, listeningHeld, candidate];
+  assert.equal(isHeldOutListeningReading(candidate, bank), true);
+  Object.assign(candidate, { skill: "listening" });
+  assert.equal(isHeldOutListeningReading(candidate, bank), false);
+  Object.assign(candidate, { transcript: text });
+  assert.equal(isHeldOutListeningReading(candidate, bank), true);
+  Object.assign(listeningHeld, { transcript: "The replaced transcript." });
+  assert.equal(isHeldOutListeningReading(candidate, bank), false);
+  Object.assign(candidate, { transcript: "The replaced transcript!" });
+  assert.equal(isHeldOutListeningReading(candidate, bank), true);
+  Object.assign(candidate, { skill: "reading", passage: "Different passage." });
+  assert.equal(isHeldOutListeningReading(candidate, bank), false);
+});
+test("T3: unseen checks observe edited original bodies and changed attempt arrays", () => {
+  const original = paper("original-body", { passage: "ＣＡＦÉ—river １２３" }),
+    alias = paper("fresh-body", { passage: "café river 123" }),
+    bank = [original, alias],
+    records = [workFor(original)];
+  assert.equal(unseenListeningReading(alias, records, bank, "plan"), false);
+  Object.assign(original, { passage: "A replaced original." });
+  assert.equal(unseenListeningReading(alias, records, bank, "plan"), true);
+  Object.assign(alias, { passage: "A replaced original!" });
+  assert.equal(unseenListeningReading(alias, records, bank, "plan"), false);
+  records.pop();
+  assert.equal(unseenListeningReading(alias, records, bank, "plan"), true);
+  records.push(workFor(original));
+  Object.assign(original, { passage: "" });
+  Object.assign(alias, { passage: "" });
+  assert.equal(unseenListeningReading(alias, records, bank, "plan"), true);
 });
 test("T3: wrong skill/type cannot fill a gap and another plan cannot consume this plan new material", () => {
   const original = paper("old"),
