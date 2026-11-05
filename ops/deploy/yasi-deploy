@@ -1,0 +1,384 @@
+#!/usr/bin/env bash
+# Receive a checked local artifact. This tool never changes shared web-server config.
+set -Eeuo pipefail
+umask 022
+export PATH=/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+unset ATLAS_BASE
+[[ $EUID -eq 0 ]] || { echo 'Run with sudo.' >&2; exit 1; }
+first_install=${BAND_DEPLOY_FIRST_INSTALL:-0}
+single_user=${BAND_DEPLOY_SINGLE_USER:-0}
+[[ $first_install == 0 || $first_install == 1 ]] || exit 2
+[[ $single_user == 0 || $single_user == 1 ]] || exit 2
+prebuilt=0
+if [[ ${1:-} == --prebuilt ]]; then prebuilt=1; shift; fi
+[[ $# -eq 4 ]] || { echo 'Usage: yasi-deploy [--prebuilt] ARCHIVE SHA256 COMMIT RELEASE_ID' >&2; exit 2; }
+archive=$1; digest=$2; revision=$3; release_id=$4
+root=${BAND_DEPLOY_ROOT:?Set BAND_DEPLOY_ROOT}
+web_root=${BAND_DEPLOY_WEB_ROOT:?Set BAND_DEPLOY_WEB_ROOT}
+host=${BAND_DEPLOY_HOST:?Set BAND_DEPLOY_HOST}
+https_port=${BAND_DEPLOY_HTTPS_PORT:-8443}
+api_port=${BAND_DEPLOY_API_PORT:-5189}
+api_service=${BAND_DEPLOY_API_SERVICE:-band-galaxy.service}
+minimum_mb=${BAND_DEPLOY_MIN_FREE_MB:-1024}
+lock=${BAND_DEPLOY_LOCK:-$root/deploy.lock}
+env_file=${BAND_DEPLOY_ENV_FILE:-$root/server.env}
+database=${BAND_DEPLOY_DB:?Set BAND_DEPLOY_DB}
+backup_dir=${BAND_DEPLOY_BACKUP_DIR:-$(dirname "$database")/backups}
+backup_script=${BAND_DEPLOY_BACKUP_SCRIPT:?Set BAND_DEPLOY_BACKUP_SCRIPT}
+[[ $root == /* && $root != / && $web_root == /* && $web_root != / && $lock == /* && $database == /* && $backup_dir == /* && $backup_script == /* && $env_file == /* ]] || { echo 'Deployment paths must be absolute and roots must not be /.' >&2; exit 2; }
+api_user=''
+run_db() {
+    if [[ $single_user == 1 ]]; then
+        [[ -n $api_user ]] || { echo 'API service user must be verified before database access.' >&2; return 1; }
+        runuser -u "$api_user" -- "$@"
+    else
+        "$@"
+    fi
+}
+resolve_api_user() {
+    [[ $single_user == 1 ]] || return 0
+    api_user=$(systemctl show --property=User --value "$api_service")
+    expected_api_user=${BAND_DEPLOY_API_USER:-fangxintai}
+    [[ $api_user =~ ^[a-z_][a-z0-9_-]*$ && $api_user != root && $api_user == "$expected_api_user" ]] || { echo 'Configured API User must match the expected non-root service account.' >&2; return 1; }
+    printf 'Single-owner database writer: %s\n' "$api_user"
+    runuser -u "$api_user" -- test -w "$(dirname "$database")"
+    if [[ -e $database ]]; then
+        runuser -u "$api_user" -- test -r "$database"
+        runuser -u "$api_user" -- test -w "$database"
+    fi
+}
+root=${root%/}; web_root=${web_root%/}
+[[ $host =~ ^[A-Za-z0-9][A-Za-z0-9.-]*$ && $https_port =~ ^[0-9]+$ && $api_port =~ ^[0-9]+$ && $minimum_mb =~ ^[0-9]+$ ]] || { echo 'Invalid deployment configuration.' >&2; exit 2; }
+(( https_port >= 1024 && https_port <= 65535 && api_port >= 1024 && api_port <= 65535 && minimum_mb > 0 )) || { echo 'Only dedicated ports >=1024 are allowed.' >&2; exit 2; }
+[[ $api_service =~ ^[A-Za-z0-9_.@:-]+\.service$ && $api_service != *nginx* ]] || { echo 'Pass the dedicated API service name.' >&2; exit 2; }
+[[ $digest =~ ^[0-9a-f]{64}$ && $revision =~ ^[0-9a-f]{40}$ ]] || { echo 'Invalid archive digest or revision.' >&2; exit 2; }
+[[ $release_id =~ ^[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8}$ && $release_id == *-${revision:0:8} ]] || { echo 'Invalid release ID.' >&2; exit 2; }
+[[ -d $root && -d $web_root && $archive == "$root/incoming/$release_id.tar.gz" && -f $archive && ! -L $archive ]] || { echo 'Invalid configured upload path.' >&2; exit 2; }
+install -d -m 755 "$(dirname "$lock")"
+exec 9>"$lock"
+flock -n 9 || { echo 'Another deployment is running.' >&2; exit 1; }
+current="$web_root/current"
+previous=''
+if [[ -L $current ]]; then
+    previous=$(readlink -f "$current")
+    [[ -d $previous && $previous == "$root/releases/${previous##*/}" && ${previous##*/} =~ ^[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8}$ ]] || { echo 'Current release must be a managed symlink.' >&2; exit 1; }
+else
+    [[ $first_install == 1 && ! -e $current ]] || { echo 'Current release must be a managed symlink; empty installations require BAND_DEPLOY_FIRST_INSTALL=1.' >&2; exit 1; }
+fi
+temporary_link="$web_root/.current.$$.new"
+release="$root/releases/$release_id"
+build="$root/builds/$release_id"
+api_current="$root/api-current"
+api_previous=''
+api_release="$root/api-releases/$release_id"
+api_link="$root/.api.$$.new"
+api_was_active=0
+if [[ -L $api_current ]]; then
+    api_previous=$(readlink -f "$api_current")
+    [[ $api_previous == "$root/api-releases/${api_previous##*/}" && ${api_previous##*/} =~ ^[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8}$ && -f $api_previous/app.py ]] || { echo 'Current API link is invalid.' >&2; exit 1; }
+    if systemctl is-active --quiet "$api_service"; then api_was_active=1; fi
+else
+    [[ ! -e $api_current ]] || { echo 'Current API path must be a managed symlink.' >&2; exit 1; }
+fi
+switched=0; api_switched=0; owned_stage=0
+rollback_on_failure() {
+    status=${1:-$?}
+    trap - ERR INT TERM
+    [[ ! -L $temporary_link ]] || unlink "$temporary_link"
+    if (( switched )); then
+        echo 'Deployment failed; restoring previous code links. Database is retained.' >&2
+        if [[ -n $previous ]]; then
+            ln -s "$previous" "$temporary_link"
+            mv -Tf "$temporary_link" "$current"
+        else
+            [[ ! -L $current ]] || unlink "$current"
+        fi
+    fi
+    [[ ! -L $api_link ]] || unlink "$api_link"
+    if (( api_switched )); then
+        if [[ -n $api_previous ]]; then
+            ln -s "$api_previous" "$api_link"
+            mv -Tf "$api_link" "$api_current"
+        else
+            [[ ! -L $api_current ]] || unlink "$api_current"
+        fi
+        if (( api_was_active )) && run_db python3 "$backup_script" --db "$database" --verify-api "$api_previous"; then
+            systemctl restart "$api_service" || true
+        else
+            echo 'Previous API is not verified for the current database; its writes remain stopped. Database was not restored.' >&2
+            systemctl stop "$api_service" || true
+        fi
+    fi
+    [[ ! -L $temporary_link ]] || unlink "$temporary_link"
+    [[ ! -L $api_link ]] || unlink "$api_link"
+    if (( owned_stage )); then
+        # Only paths created by this attempt are removed; retain the upload for retry.
+        [[ $(readlink -f "$current") == "$release" ]] || rm -rf --one-file-system -- "$release"
+        [[ $(readlink -f "$api_current") == "$api_release" ]] || rm -rf --one-file-system -- "$api_release"
+        rm -rf --one-file-system -- "$build"
+    fi
+    exit "$status"
+}
+trap rollback_on_failure ERR
+trap 'rollback_on_failure 130' INT
+trap 'rollback_on_failure 143' TERM
+available_kib=$(df --output=avail -k "$root" | tail -1)
+if [[ ! $available_kib =~ ^[[:space:]]*[0-9]+[[:space:]]*$ ]] || (( available_kib < minimum_mb * 1024 )); then
+    echo "Need at least $minimum_mb MB available for this artifact." >&2
+    rollback_on_failure 1
+fi
+[[ ! -e $release && ! -e $build && ! -e $api_release && ! -L $temporary_link && ! -L $api_link ]] || { echo 'Release or staging path already exists.' >&2; rollback_on_failure 1; }
+printf '%s  %s\n' "$digest" "$archive" | sha256sum -c -
+install -d -m 755 "$root/builds" "$root/deployments" "$root/releases" "$root/api-releases"
+mkdir -p "$build/source"
+owned_stage=1
+python3 - "$archive" "$build/source" "$revision" <<'PY'
+import sys, tarfile
+from pathlib import PurePosixPath
+with tarfile.open(sys.argv[1], 'r:gz') as source:
+    if source.pax_headers.get('comment', '').strip() != sys.argv[3]:
+        raise ValueError('Archive commit does not match the requested Git commit')
+    for member in source.getmembers():
+        path = PurePosixPath(member.name)
+        if path.is_absolute() or '..' in path.parts or '.git' in path.parts or not (member.isfile() or member.isdir()):
+            raise ValueError('Unexpected archive path or link: ' + member.name)
+    if any(member.name == 'release-manifest.json' for member in source.getmembers()):
+        if sum(member.size for member in source.getmembers() if member.isfile()) >= 50 * 1024 * 1024:
+            raise ValueError('Shared-media application artifact must be smaller than 50 MB unpacked')
+    source.extractall(sys.argv[2], filter='data')
+PY
+cd "$build/source"
+if (( prebuilt )) && [[ ! -f server/app.py || -L server/app.py ]]; then
+    echo 'Prebuilt artifact requires server/app.py and its complete runtime manifest.' >&2
+    rollback_on_failure 1
+fi
+if (( ! prebuilt )); then
+    [[ -s package.json && -s package-lock.json ]] || { echo 'Package manifest is missing.' >&2; rollback_on_failure 1; }
+    npm_args=(ci --no-audit --no-fund)
+    [[ -z ${BAND_DEPLOY_NPM_REGISTRY:-} ]] || npm_args+=("--registry=$BAND_DEPLOY_NPM_REGISTRY")
+    npm "${npm_args[@]}"
+    npm run build
+fi
+if [[ -f release-manifest.json ]]; then
+    (( prebuilt )) || { echo 'Shared atlas manifests require prebuilt mode.' >&2; rollback_on_failure 1; }
+    python3 - "$revision" "${BAND_DEPLOY_ATLAS_ROOT:-}" <<'PY_SHARED'
+import json, pathlib, sys
+manifest = json.loads(pathlib.Path('release-manifest.json').read_text())
+if set(manifest) - {'formatVersion', 'sharedAtlas', 'commit', 'sharedPaths'} or manifest.get('formatVersion') != 1 or manifest.get('sharedAtlas') is not True or manifest.get('commit') != sys.argv[1]:
+    raise ValueError('Invalid shared-atlas release manifest')
+runtime = json.loads(pathlib.Path('server/runtime-files.json').read_text())
+for file in pathlib.Path('.').rglob('*'):
+    if not file.is_file():
+        continue
+    parts = file.parts
+    if parts[0] == 'server':
+        if len(parts) != 2 or parts[1] not in [*runtime, 'runtime-files.json']:
+            raise ValueError('Unlisted API artifact file: ' + str(file))
+    elif parts[0] == 'dist':
+        if any(part in ('private', 'local-content', 'local-bank') for part in parts) or file.suffix.lower() in ('.mp3', '.m4a', '.pdf', '.sqlite3', '.sqlite', '.db', '.env'):
+            raise ValueError('Private media, databases and environment files must stay outside the application artifact')
+    elif str(file) != 'release-manifest.json':
+        raise ValueError('Unlisted application artifact file: ' + str(file))
+root = pathlib.Path(sys.argv[2])
+if not root.is_absolute() or root.is_symlink() or not root.is_dir():
+    raise ValueError('Configure an existing shared atlas directory')
+if pathlib.Path('dist/atlas').exists():
+    raise ValueError('Shared atlas must not also be included in the application artifact')
+for name in ['index.json', 'img', 'audio']:
+    if not (root / name).exists():
+        raise ValueError('Shared atlas is incomplete: ' + name)
+pathlib.Path('dist/atlas').symlink_to(root, target_is_directory=True)
+paths = manifest.get('sharedPaths', [])
+if not isinstance(paths, list) or len(paths) > 200:
+    raise ValueError('Invalid shared media path list')
+seen = set()
+for entry in paths:
+    if not isinstance(entry, dict) or set(entry) != {'path', 'sharedPath'}:
+        raise ValueError('Invalid shared media entry')
+    destination, shared = entry['path'], entry['sharedPath']
+    def safe(value):
+        return isinstance(value, str) and value and not value.startswith('/') and '\\' not in value and all(part not in ('', '.', '..') for part in value.split('/'))
+    if not safe(destination) or not safe(shared) or not shared.startswith('_public/') or destination.split('/')[0] in ('atlas', 'api', 'private', 'server'):
+        raise ValueError('Unsafe shared media path')
+    if destination in seen or any(destination.startswith(old + '/') or old.startswith(destination + '/') for old in seen):
+        raise ValueError('Overlapping shared media paths')
+    seen.add(destination)
+    target = (root / shared).resolve()
+    link = pathlib.Path('dist') / destination
+    if not target.is_relative_to(root.resolve()) or not target.exists() or link.exists() or link.is_symlink():
+        raise ValueError('Missing or conflicting shared media path: ' + destination)
+    link.parent.mkdir(parents=True, exist_ok=True)
+    link.symlink_to(target, target_is_directory=target.is_dir())
+PY_SHARED
+fi
+python3 - "$build/check.json" <<'PY'
+import json, sys
+from pathlib import Path
+root = Path('dist')
+for name in ['index.html', 'sw.js', 'manifest.webmanifest', 'atlas/index.json', 'offline/pack.json']:
+    p = root / name
+    if not p.is_file() or p.is_symlink() or not p.stat().st_size:
+        raise ValueError('Missing build output: ' + name)
+for name in ['manifest.webmanifest', 'atlas/index.json', 'offline/pack.json']:
+    json.loads((root / name).read_text())
+audio = next(iter(sorted((root / 'atlas/audio').rglob('*.mp3'))), None)
+image = next(iter(sorted((root / 'atlas/img').glob('*.webp'))), None)
+if not audio or not image:
+    raise ValueError('Build has no word audio or illustrations')
+Path(sys.argv[1]).write_text(json.dumps({'audio': audio.relative_to(root).as_posix(), 'image': image.relative_to(root).as_posix()}))
+PY
+audio_path=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["audio"])' "$build/check.json")
+has_api=0
+if [[ -f server/app.py && ! -L server/app.py ]]; then
+    has_api=1
+    [[ -r $env_file && -r $backup_script ]] || { echo 'Configure the API environment and backup helper before deployment.' >&2; rollback_on_failure 1; }
+    unit=$(systemctl cat "$api_service")
+    [[ $unit == *"$api_current/app.py"* ]] || { echo 'The configured API service must already run api-current/app.py; no service file was changed.' >&2; rollback_on_failure 1; }
+    resolve_api_user
+    if (( ! prebuilt )); then python3 -m unittest discover -s server -p 'test_*.py'; fi
+    install -d -m 755 "$api_release"
+    python3 - "$api_release" <<'PY'
+import json, pathlib, re, shutil, sys
+source, destination = pathlib.Path('server'), pathlib.Path(sys.argv[1])
+manifest = source / 'runtime-files.json'
+if not manifest.is_file() or manifest.is_symlink():
+    raise ValueError('API runtime manifest is required')
+files = json.loads(manifest.read_text())
+if not isinstance(files, list) or not {'app.py', 'learning.py'}.issubset(files) or len(files) != len(set(files)):
+    raise ValueError('API runtime manifest must include app.py and learning.py')
+for name in files:
+    if not isinstance(name, str) or not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*\.py', name):
+        raise ValueError('Unexpected API runtime file')
+    path = source / name
+    if not path.is_file() or path.is_symlink():
+        raise ValueError('Missing API runtime file: ' + name)
+    shutil.copyfile(path, destination / name)
+    (destination / name).chmod(0o644)
+shutil.copyfile(manifest, destination / 'runtime-files.json')
+PY
+    # Only candidate code and a disposable SQLite database are used here.
+    python3 -I - "$api_release" <<'PY'
+import hashlib, importlib.util, json, pathlib, sqlite3, sys, tempfile, threading, urllib.request, urllib.error
+from contextlib import closing
+artifact = pathlib.Path(sys.argv[1])
+spec = importlib.util.spec_from_file_location('band_candidate', artifact / 'app.py')
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+with tempfile.TemporaryDirectory(prefix='band-candidate-') as scratch:
+    server = module.create_server('127.0.0.1', 0, pathlib.Path(scratch) / 'check.sqlite3', public_origin='http://localhost:5188', secure_cookie=False, single_user=False)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        base = 'http://127.0.0.1:' + str(server.server_address[1])
+        with urllib.request.urlopen(base + '/api/health', timeout=10) as response:
+            assert json.load(response) == {'ok': True}
+        with urllib.request.urlopen(base + '/api/auth/session', timeout=10) as response:
+            assert json.load(response) == {'user': None}
+        with urllib.request.urlopen(base + '/api/capabilities', timeout=10) as response:
+            version = json.load(response)['learningRecords']
+            assert type(version) is int and version >= 2
+        try:
+            urllib.request.urlopen(base + f'/api/learning/v{version}/changes', timeout=10)
+        except urllib.error.HTTPError as error:
+            assert error.code == 401
+        else:
+            raise AssertionError('Learning records must require authentication')
+        database = pathlib.Path(scratch) / 'check.sqlite3'
+        schema = 0
+        if database.is_file():
+            with closing(sqlite3.connect(database.as_uri() + '?mode=ro', uri=True)) as db:
+                if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='learning_schema_migrations'").fetchone():
+                    schema = db.execute('SELECT COALESCE(MAX(version),0) FROM learning_schema_migrations').fetchone()[0]
+        files = json.loads((artifact / 'runtime-files.json').read_text())
+        metadata = {'learningProtocolVersion': version, 'learningSchemaVersion': schema,
+                    'moduleSha256': {name: hashlib.sha256((artifact / name).read_bytes()).hexdigest() for name in files}}
+        (artifact / 'runtime-meta.json').write_text(json.dumps(metadata, sort_keys=True) + '\n')
+    finally:
+        server.shutdown(); server.server_close(); thread.join(timeout=5)
+PY
+    # This consistent backup happens before the production process can migrate its DB.
+    run_db python3 "$backup_script" --db "$database" --directory "$backup_dir" --prefix predeploy
+    if (( single_user )); then
+        owner_count=$(run_db python3 - "$database" <<'PY_OWNER_COUNT'
+import pathlib, sqlite3, sys
+path = pathlib.Path(sys.argv[1])
+if not path.exists():
+    print(0)
+else:
+    with sqlite3.connect(path.as_uri() + '?mode=ro', uri=True) as db:
+        table = db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='users'").fetchone()
+        print(db.execute('SELECT COUNT(*) FROM users').fetchone()[0] if table else 0)
+PY_OWNER_COUNT
+)
+        if [[ $owner_count == 0 ]]; then
+            [[ -n ${BAND_DEPLOY_OWNER_USERNAME:-} && -r ${BAND_DEPLOY_OWNER_PASSWORD_FILE:-} ]] || { echo 'First single-owner install requires an owner username and a private password file outside the artifact.' >&2; rollback_on_failure 1; }
+            run_db test -r "$BAND_DEPLOY_OWNER_PASSWORD_FILE"
+            run_db python3 "$api_release/app.py" --db "$database" --create-owner "$BAND_DEPLOY_OWNER_USERNAME" --password-file "$BAND_DEPLOY_OWNER_PASSWORD_FILE"
+        else
+            [[ $owner_count == 1 ]] || { echo 'Single-owner publication refuses a multi-account database.' >&2; rollback_on_failure 1; }
+        fi
+    fi
+    ln -s "$api_release" "$api_link"
+    api_switched=1
+    mv -Tf "$api_link" "$api_current"
+    systemctl restart "$api_service"
+    curl --fail --silent --show-error --retry 5 --retry-connrefused --retry-delay 1 --max-time 10 "http://127.0.0.1:$api_port/api/health" -o "$build/api-health.json"
+    python3 - "$build/api-health.json" <<'PY'
+import json, sys
+assert json.load(open(sys.argv[1])) == {'ok': True}
+PY
+fi
+mv dist "$release"
+chmod -R a+rX "$release"
+ln -s "$release" "$temporary_link"
+switched=1
+mv -Tf "$temporary_link" "$current"
+public_url="https://$host:$https_port"
+resolve="$host:$https_port:127.0.0.1"
+if (( single_user )); then
+    site_checker=${BAND_DEPLOY_SITE_CHECK_SCRIPT:-$(dirname "$backup_script")/check-site.py}
+    [[ -r $site_checker ]] || { echo 'Configure the authenticated site smoke checker.' >&2; rollback_on_failure 1; }
+    run_db python3 "$site_checker" --db "$database" --host "$host" --port "$https_port" --audio "$audio_path"
+else
+curl --fail --silent --show-error --retry 5 --retry-connrefused --retry-delay 1 --max-time 30 --resolve "$resolve" "$public_url/" -o /dev/null
+if (( has_api )); then
+    curl --fail --silent --show-error --retry 3 --retry-connrefused --retry-delay 1 --max-time 10 --resolve "$resolve" "$public_url/api/health" -o "$build/api-proxy-health.json"
+    python3 - "$build/api-proxy-health.json" <<'PY'
+import json, sys
+assert json.load(open(sys.argv[1])) == {'ok': True}
+PY
+fi
+range_status=$(curl --silent --show-error --max-time 30 --resolve "$resolve" -H 'Range: bytes=0-99' -o "$build/range.bin" -w '%{http_code}' "$public_url/$audio_path")
+[[ $range_status == 206 ]] || { echo "Audio Range check returned HTTP $range_status, expected 206." >&2; rollback_on_failure 1; }
+range_size=$(stat -c %s "$build/range.bin")
+[[ $range_size == 100 ]] || { echo 'Audio Range check did not return exactly 100 bytes.' >&2; rollback_on_failure 1; }
+fi
+while IFS= read -r old_release; do
+    [[ $old_release == "$release" || $old_release == "$previous" ]] && continue
+    [[ $old_release == "$root/releases/${old_release##*/}" && ${old_release##*/} =~ ^[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8}$ && ! -L $old_release ]] || continue
+    rm -rf --one-file-system -- "$old_release"
+done < <(find "$root/releases" -mindepth 1 -maxdepth 1 -type d | sort)
+if (( has_api )); then
+    while IFS= read -r old_api; do
+        [[ $old_api == "$api_release" || $old_api == "$api_previous" ]] && continue
+        [[ $old_api == "$root/api-releases/${old_api##*/}" && ${old_api##*/} =~ ^[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8}$ && ! -L $old_api ]] || continue
+        rm -rf --one-file-system -- "$old_api"
+    done < <(find "$root/api-releases" -mindepth 1 -maxdepth 1 -type d | sort)
+fi
+python3 - "$revision" "$digest" "$release" "$previous" "$build/check.json" "$has_api" "$api_release" "$api_previous" "$database" "$root/deployments" "$prebuilt" "$host" "$https_port" <<'PY'
+import json, sys
+from pathlib import Path
+data = {'commit': sys.argv[1], 'archive_sha256': sys.argv[2], 'release': sys.argv[3], 'previous': sys.argv[4], 'workflow': 'local-prebuilt-server-switch' if sys.argv[11] == '1' else 'local-upload-server-build'}
+data.update(json.loads(Path(sys.argv[5]).read_text()))
+data.update({'api_release': sys.argv[7] if sys.argv[6] == '1' else None, 'previous_api': sys.argv[8] or None, 'database': sys.argv[9] if sys.argv[6] == '1' else None, 'host': sys.argv[12], 'https_port': int(sys.argv[13])})
+data['files'] = sum(p.is_file() for p in Path(sys.argv[3]).rglob('*'))
+(Path(sys.argv[10]) / (Path(sys.argv[3]).name + '.json')).write_text(json.dumps(data, ensure_ascii=False, indent=2) + '\n')
+PY
+rm -rf --one-file-system -- "$build"
+rm -- "$archive"
+switched=0; api_switched=0
+trap - ERR INT TERM
+printf 'YASI_RESULT_JSON='
+python3 -c 'import json,sys; print(json.dumps(json.load(open(sys.argv[1]))))' "$root/deployments/$release_id.json"
+du -sh "$release"

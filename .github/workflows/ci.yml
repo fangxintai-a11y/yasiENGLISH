@@ -1,0 +1,34 @@
+name: Stage validation
+on:
+  push:
+    branches: ['codex/**']
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Select isolated browser executable
+        run: node --input-type=module -e "import {chromium} from 'playwright'; console.log('CHROME_PATH='+chromium.executablePath())" >> "$GITHUB_ENV"
+      - run: npm test
+      - run: npx tsc -b
+      - run: npm run test:server
+      - run: npm run check:curriculum
+      - run: npm run check:vendor-text
+      - run: npm run build
+      - run: npm run check:vendor-text -- --dist
+      - run: npm run test:learning
+      - run: npm run test:sync
+      - run: node scripts/test-learning-storage-e2e.mjs
+      - run: node scripts/test-scoring-e2e.mjs

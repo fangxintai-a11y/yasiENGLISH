@@ -477,6 +477,16 @@ code {
   color: #fff;
 }
 
+.vocabulary-count-input {
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--card);
+  color: var(--ink);
+  font-size: 16px;
+}
+
 .segmented {
   display: inline-flex;
   padding: 3px;
@@ -2277,7 +2287,6 @@ code {
 @keyframes stage-in {
   from {
     opacity: 0;
-    transform: translateX(18px);
   }
 }
 .stage-label {
@@ -2623,6 +2632,34 @@ code {
   display: flex;
   justify-content: center;
   gap: 10px;
+}
+
+@media (max-width: 639px) {
+  .learn-typing {
+    padding-bottom: var(--typing-keyboard-inset, 0px);
+  }
+  .learn-typing .learn-stage {
+    flex: 0 0 auto;
+  }
+  .learn-typing .prompt {
+    flex: none;
+    min-height: 0;
+    padding: 8px 0 18px;
+  }
+  .learn-typing .prompt-listen {
+    gap: 10px;
+  }
+  .learn-typing .listen-orb {
+    width: 104px;
+    height: 104px;
+  }
+  .learn-typing .prompt-spell {
+    grid-template-columns: 76px minmax(0, 1fr);
+    gap: 14px;
+  }
+  .learn-typing .spell-zh {
+    font-size: 18px;
+  }
 }
 
 .feedback {

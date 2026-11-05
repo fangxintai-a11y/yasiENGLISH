@@ -8,7 +8,7 @@ loopback service; do not publish its HTTP port to the internet.
 from __future__ import annotations
 
 import argparse
-from contextlib import contextmanager
+from contextlib import closing, contextmanager
 import hashlib
 import hmac
 from http.cookies import SimpleCookie
@@ -25,6 +25,22 @@ import time
 from urllib.parse import parse_qs, unquote, urlsplit
 import uuid
 
+try:
+    from . import learning as learning_module
+except ImportError:
+    # The release receiver also imports app.py directly from an isolated artifact.
+    import importlib.util
+    _learning_spec = importlib.util.spec_from_file_location("band_learning", Path(__file__).with_name("learning.py"))
+    learning_module = importlib.util.module_from_spec(_learning_spec)
+    _learning_spec.loader.exec_module(learning_module)
+
+
+try:
+    from . import auth_access
+except ImportError:
+    _access_spec = importlib.util.spec_from_file_location("band_auth_access", Path(__file__).with_name("auth_access.py"))
+    auth_access = importlib.util.module_from_spec(_access_spec)
+    _access_spec.loader.exec_module(auth_access)
 
 MAX_BODY = 8 * 1024 * 1024
 SESSION_SECONDS = 30 * 24 * 60 * 60
@@ -43,13 +59,13 @@ SETTINGS_FIELDS = frozenset((
     "accent", "autoplay", "dailyNew", "retention", "theme", "sfx", "spell",
     "startLevel", "onboarded", "dataset", "ambience", "ambienceVolume", "splash",
     "guessFirst", "sentenceFirst", "examDate", "dailyMinutes", "targetBand",
-    "trackL", "trackP", "aiModel", "shadowAsr",
+    "trackL", "trackP", "aiModel", "feedbackMode", "shadowAsr",
 ))
 SENSITIVE_NAMES = frozenset((
     "apikey", "key", "password", "secret", "token", "authorization", "cookie",
     "accesstoken", "refreshtoken", "aikey",
 ))
-SECRET_VALUE = re.compile(r"\bsk-ant-[A-Za-z0-9_-]{10,}")
+SECRET_VALUE = re.compile(r"\b(?:sk-(?:ant-|proj-)[A-Za-z0-9_-]{10,}|sk-[A-Za-z0-9]{20,}|xai-[A-Za-z0-9_-]{10,}|AIza[0-9A-Za-z_-]{30,}|gh[po]_[A-Za-z0-9_-]{10,})")
 
 
 class ApiError(Exception):
@@ -119,6 +135,8 @@ def validate_snapshot(snapshot, dataset_id: str):
         raise ApiError(400, "进度和设置必须是对象。")
     if set(progress) - PROGRESS_FIELDS or set(settings) - SETTINGS_FIELDS:
         raise ApiError(400, "同步数据包含不支持的字段。")
+    if "feedbackMode" in settings and (not isinstance(settings["feedbackMode"], str) or settings["feedbackMode"] not in {"rules", "manual", "auto"}):
+        raise ApiError(400, "评分方式只能是本地评分、复制提示词或自动接口。")
     if progress.get("version") != 2 or progress.get("datasetId") != dataset_id:
         raise ApiError(400, "同步词库或数据版本不匹配。")
     if progress.get("session") is not None:
@@ -169,7 +187,8 @@ def validate_snapshot(snapshot, dataset_id: str):
             raise ApiError(400, "同步数据包含不支持的类型。")
 
     visit(snapshot)
-    return snapshot
+    # One transition release accepts the old field; never persist or echo it.
+    return {"progress": progress, "settings": {key: value for key, value in settings.items() if key != "aiModel"}}
 
 
 class Database:
@@ -345,7 +364,7 @@ class Database:
             raise ValueError("Backup destination already exists")
         fd = os.open(str(target), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         os.close(fd)
-        with self.connect() as source, sqlite3.connect(str(target)) as output:
+        with self.connect() as source, closing(sqlite3.connect(str(target))) as output:
             source.backup(output)
 
 
@@ -373,7 +392,17 @@ class ApiServer(ThreadingHTTPServer):
     daemon_threads = True
     block_on_close = True
 
-    def __init__(self, address, database, public_origin, secure_cookie, allow_register, trust_proxy, auth_limit, max_accounts, setup_token_hash):
+    def __init__(self, address, database, public_origin, secure_cookie, allow_register, trust_proxy, auth_limit, max_accounts, setup_token_hash, learning_write_enabled=True, single_user=False, site_root=None, private_root=None, atlas_root=None):
+        if single_user:
+            with database.connect() as db:
+                if db.execute("SELECT COUNT(*) FROM users").fetchone()[0] > 1:
+                    raise ValueError("Single-owner mode refuses a multi-account database")
+        self.single_user = single_user
+        self.site_root = site_root
+        self.private_root = private_root
+        self.atlas_root = atlas_root
+        self.learning = learning_module.LearningStore(database)
+        self.learning_write_enabled = learning_write_enabled
         super().__init__(address, Handler)
         self.database = database
         self.public_origin = public_origin.rstrip("/")
@@ -412,7 +441,8 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def session_cookie(self, token, clear=False):
-        value = f"{COOKIE_NAME}={token}; Path=/api; HttpOnly; SameSite=Strict; Max-Age={0 if clear else SESSION_SECONDS}"
+        scope = "Path=/; HttpOnly; SameSite=Lax" if self.server.single_user else "Path=/api; HttpOnly; SameSite=Strict"
+        value = f"{COOKIE_NAME}={token}; {scope}; Max-Age={0 if clear else SESSION_SECONDS}"
         return value + ("; Secure" if self.server.secure_cookie else "")
 
     def token(self):
@@ -448,7 +478,7 @@ class Handler(BaseHTTPRequestHandler):
         if self.headers.get("Sec-Fetch-Site", "") == "cross-site":
             raise ApiError(403, "不允许跨站请求。")
 
-    def body(self):
+    def body(self, maximum=MAX_BODY):
         if self.headers.get("Transfer-Encoding"):
             raise ApiError(400, "不支持分块请求体。")
         if self.headers.get("Content-Type", "").split(";", 1)[0].strip() != "application/json":
@@ -459,8 +489,8 @@ class Handler(BaseHTTPRequestHandler):
             raise ApiError(400, "请求长度不正确。") from None
         if length < 1:
             raise ApiError(400, "请求内容为空。")
-        if length > MAX_BODY:
-            raise ApiError(413, "同步数据超过 8 MB。")
+        if length > maximum:
+            raise ApiError(413, "请求内容超过允许的大小。")
         try:
             raw = self.rfile.read(length)
             if len(raw) != length:
@@ -596,11 +626,15 @@ class Handler(BaseHTTPRequestHandler):
         path = request_url.path
         if method in ("POST", "PUT"):
             self.check_origin()
+        if auth_access.web_boundary(self, method, path):
+            return
         if method == "GET" and path == "/api/health":
             # A database read proves the path and schema are usable.
             with self.server.database.connect() as db:
                 db.execute("SELECT id FROM users LIMIT 1").fetchone()
             return self.send_json(200, {"ok": True})
+        if learning_module.dispatch(self, method, path, request_url.query):
+            return
         if method == "GET" and path == "/api/auth/session":
             return self.send_json(200, {"user": self.server.database.user_for_token(self.token())})
         if method == "POST" and path in ("/api/auth/register", "/api/auth/login"):
@@ -651,6 +685,8 @@ class Handler(BaseHTTPRequestHandler):
             self.dispatch(method)
         except ApiError as error:
             self.send_json(error.status, {"error": error.message})
+        except learning_module.LearningError as error:
+            self.send_json(error.status, error.body)
         except (BrokenPipeError, ConnectionResetError, TimeoutError):
             self.close_connection = True
         except Exception:
@@ -659,6 +695,9 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         self.handle_method("GET")
+
+    def do_HEAD(self):
+        self.handle_method("HEAD")
 
     def do_POST(self):
         self.handle_method("POST")
@@ -669,7 +708,8 @@ class Handler(BaseHTTPRequestHandler):
 
 def create_server(host="127.0.0.1", port=5189, db_path=None, public_origin=None,
                   secure_cookie=None, allow_register=True, trust_proxy=False, auth_limit=20,
-                  max_accounts=1, setup_token_hash=None):
+                  max_accounts=1, setup_token_hash=None, learning_write_enabled=None,
+                  single_user=None, site_root=None, private_root=None, atlas_root=None):
     db_path = db_path or os.environ.get("BAND_DB_PATH", "./var/band-galaxy.sqlite3")
     public_origin = public_origin or os.environ.get("BAND_PUBLIC_ORIGIN", "http://localhost:5188")
     parsed = urlsplit(public_origin)
@@ -687,7 +727,18 @@ def create_server(host="127.0.0.1", port=5189, db_path=None, public_origin=None,
         raise ValueError("BAND_SETUP_TOKEN_HASH must be a lowercase SHA-256 hash")
     if not isinstance(max_accounts, int) or not 1 <= max_accounts <= 1000:
         raise ValueError("BAND_MAX_ACCOUNTS must be between 1 and 1000")
-    return ApiServer((host, port), Database(db_path), public_origin, secure_cookie, allow_register, trust_proxy, auth_limit, max_accounts, setup_token_hash)
+    if learning_write_enabled is None:
+        learning_write_enabled = os.environ.get("BAND_LEARNING_WRITES_ENABLED", "1") == "1"
+    if not isinstance(learning_write_enabled, bool):
+        raise ValueError("Learning write availability must be a boolean")
+    if single_user is None:
+        single_user = os.environ.get("BAND_SINGLE_USER", "0") == "1"
+    if single_user:
+        allow_register, max_accounts = False, 1
+    site_root = site_root or os.environ.get("BAND_SITE_ROOT")
+    private_root = private_root or os.environ.get("BAND_PRIVATE_ROOT")
+    atlas_root = atlas_root or os.environ.get("BAND_ATLAS_ROOT")
+    return ApiServer((host, port), Database(db_path), public_origin, secure_cookie, allow_register, trust_proxy, auth_limit, max_accounts, setup_token_hash, learning_write_enabled, single_user, site_root, private_root, atlas_root)
 
 
 def main():
@@ -696,7 +747,33 @@ def main():
     parser.add_argument("--port", type=int, default=5189)
     parser.add_argument("--db", default=os.environ.get("BAND_DB_PATH", "./var/band-galaxy.sqlite3"))
     parser.add_argument("--backup", metavar="DESTINATION", help="Create a consistent SQLite backup and exit")
+    parser.add_argument("--create-owner", metavar="USERNAME", help="Create the sole owner using an interactive password, or --password-file")
+    parser.add_argument("--password-file", type=Path, help="A mode-600 initial owner password file outside the release")
     args = parser.parse_args()
+    if args.create_owner:
+        username = args.create_owner.strip().lower()
+        if not USERNAME.fullmatch(username):
+            parser.error("Owner username must be 3-40 safe characters")
+        if args.password_file:
+            password_file = args.password_file.expanduser().resolve()
+            if not password_file.is_file() or password_file.stat().st_mode & 0o077:
+                parser.error("Owner password file must be private (mode 600)")
+            password = password_file.read_text().rstrip("\r\n")
+        else:
+            import getpass
+            password = getpass.getpass("Owner password (10-256 characters): ")
+        if not 10 <= len(password) <= 256:
+            parser.error("Owner password must have 10-256 characters")
+        database = Database(args.db)
+        with database.connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            if db.execute("SELECT COUNT(*) FROM users").fetchone()[0]:
+                parser.error("The owner already exists; registration stays closed")
+            db.execute("INSERT INTO users VALUES (?,?,?,?)", (secrets.token_hex(16), username, password_hash(password), int(time.time())))
+        print("Single owner created; registration remains disabled.")
+        return
+    if args.password_file:
+        parser.error("--password-file requires --create-owner")
     if args.backup:
         if not Path(args.db).expanduser().is_file():
             parser.error("Backup source database does not exist")

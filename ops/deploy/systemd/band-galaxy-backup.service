@@ -1,0 +1,13 @@
+[Unit]
+Description=Consistent Band Galaxy SQLite backup
+
+[Service]
+Type=oneshot
+User=fangxintai
+Group=fangxintai
+UMask=0077
+ExecStart=/usr/bin/python3 /srv/yasi/tools/backup-sync.py --db /srv/yasi/progress.sqlite3 --directory /srv/yasi/backups --prefix daily --keep 14
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/srv/yasi/backups

@@ -1,12 +1,15 @@
 import { Brain, ChevronDown, RefreshCw, Wand2 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAtlas } from "../atlas/context";
 import type { WordRef } from "../atlas/types";
 import { loadMnemonic, useTags, type Mnemonic } from "../ielts/tags";
 import { openWord } from "../lib/router";
-import { getKey } from "../ielts/aikey";
+import { buildHack, needsManualFallback } from "../ielts/scoring";
+import { useSyllables } from "../ielts/syllables";
+import { ManualPrompt } from "./ManualPrompt";
 import { recallAt } from "../store/srs";
-import { store, useStore } from "../store/store";
+import { store, useStore, type SavedHack } from "../store/store";
+import { getCloudState, useCloudSync } from "../store/cloudSync";
 import { toast } from "./Toast";
 
 /** Why this word is in the IELTS plan: listening corpus chapter, AWL sublist, paraphrase links. */
@@ -69,57 +72,76 @@ export function useLeech(id: string) {
   return lapses >= 2 || missed;
 }
 
-/**
- * 邪修记法: a sound-alike, a spelling split and an absurd picture, written by AI on request and
- * kept with the progress. Offered loudly for words that keep slipping away, quietly for the rest.
- */
+/** 本地音节拆分与自写谐音、画面，或选择外部接口补全。 */
 export function HackBlock({ refw, quiet = false }: { refw: WordRef; quiet?: boolean }) {
   const hack = useStore((s) => s.progress.hacks[refw.id]);
-  const model = useStore((s) => s.settings.aiModel);
+  const mode = useStore((s) => s.settings.feedbackMode);
+  const datasetId = useStore((s) => s.progress.datasetId);
+  const accountId = useCloudSync().user?.id;
+  const syllables = useSyllables(refw.id);
   const leech = useLeech(refw.id);
   const [busy, setBusy] = useState(false);
+  const [homophone, setHomophone] = useState(hack?.homophone ?? "");
+  const [scene, setScene] = useState(hack?.scene ?? "");
+  const [manualInput, setManualInput] = useState<Parameters<typeof buildHack>[0] | null>(null);
+  const request = useRef(0);
+  useEffect(() => {
+    setHomophone(hack?.homophone ?? ""); setScene(hack?.scene ?? "");
+  }, [refw.id, hack]);
+  useEffect(() => {
+    setBusy(false); setManualInput(null);
+    return () => { request.current++; };
+  }, [refw.id, accountId, datasetId]);
   if (!hack && quiet && !leech) return null;
+  const keep = (value: SavedHack) => {
+    const saved: SavedHack = { homophone: value.homophone, split: value.split, scene: value.scene, at: value.at,
+      ...(value.src ? { src: value.src } : {}) };
+    store.progress((p) => ({ ...p, hacks: { ...p.hacks, [refw.id]: saved } }));
+  };
   const make = async () => {
-    if (!getKey()) return toast("邪修记法由 AI 现写：先在「我的 → AI 助教」里填入 Claude API Key", "info");
+    const token = ++request.current;
+    const accountId = getCloudState().user?.id, datasetId = store.get().progress.datasetId;
+    const isCurrent = () => token === request.current && getCloudState().user?.id === accountId && store.get().progress.datasetId === datasetId;
     setBusy(true);
     try {
-      const { generateHack } = await import("../ielts/ai");
-      const h = await generateHack(refw.word, refw.ipa, refw.zh, model);
-      store.progress((p) => ({ ...p, hacks: { ...p.hacks, [refw.id]: { ...h, at: Date.now() } } }));
+      const mnemonic = await loadMnemonic(refw.order, refw.id).catch(() => null);
+      const input = { word: refw.word, ipa: refw.ipa, zh: refw.zh, syllables, mnemonic: mnemonic ?? null };
+      const h = await buildHack(input, { mode });
+      if (!isCurrent()) return;
+      keep(h.src === "rules" && hack ? { ...h, homophone: hack.homophone, scene: hack.scene, src: hack.src ?? "legacy" } : h);
+      if (mode === "manual" || needsManualFallback(h)) setManualInput(input);
     } catch (e) {
-      toast(e instanceof Error ? e.message : String(e), "info");
+      if (isCurrent()) toast(e instanceof Error ? e.message : String(e), "info");
     } finally {
-      setBusy(false);
+      if (token === request.current) setBusy(false);
     }
   };
   if (!hack)
     return (
       <button className={`hack-ask ${leech ? "is-leech" : ""}`} onClick={make} disabled={busy}>
-        <Wand2 size={16} /> {busy ? "正在想歪招…" : leech ? "老是忘？来个邪修记法" : "邪修一下：谐音 · 拆字 · 画面"}
+        <Wand2 size={16} /> {busy ? "正在拆分…" : leech ? "老是忘？来个邪修记法" : "邪修一下：谐音 · 拆字 · 画面"}
       </button>
     );
   return (
-    <section className="hack">
+    <section className="hack" aria-label="邪修记法">
       <h3 className="eyebrow">
         <Wand2 size={15} /> 邪修记法
-        <button className="hack-redo" onClick={make} disabled={busy} aria-label="换一组记法" title="换一组">
+        <button className="hack-redo" onClick={make} disabled={busy} aria-label="重新拆分记法" title="重新拆分">
           <RefreshCw size={14} className={busy ? "spin" : ""} />
         </button>
       </h3>
-      <dl>
-        <div>
-          <dt>谐音</dt>
-          <dd>{hack.homophone}</dd>
-        </div>
-        <div>
-          <dt>拆字</dt>
-          <dd>{hack.split}</dd>
-        </div>
-        <div>
-          <dt>画面</dt>
-          <dd>{hack.scene}</dd>
-        </div>
-      </dl>
+      <p className="muted small">{hack.src === "rules" ? "本地音节拆分；写下你自己的联想。" : hack.src === "manual" ? "手动保存的记法。" : "外部接口生成的记法，仅供参考。"}</p>
+      <dl><div><dt>音节拆分</dt><dd lang="en">{hack.split}</dd></div></dl>
+      <form onSubmit={(event) => {
+        event.preventDefault();
+        keep({ ...hack, homophone: homophone.trim(), scene: scene.trim(), at: Date.now(), src: "manual" });
+        toast("已保存自写记法");
+      }}>
+        <label className="field">自写谐音<input aria-label="自写谐音" value={homophone} maxLength={400} onChange={(event) => setHomophone(event.target.value)} placeholder="写一个能帮助自己记住发音的联想" /></label>
+        <label className="field">自写画面<textarea aria-label="自写画面" value={scene} maxLength={400} onChange={(event) => setScene(event.target.value)} placeholder="用一句话描述你想到的画面" /></label>
+        <button className="btn btn-ghost" type="submit">保存自写记法</button>
+      </form>
+      {manualInput && <ManualPrompt task="hack" input={manualInput} onAccept={(value) => { keep(value as SavedHack); setManualInput(null); }} onCancel={() => setManualInput(null)} />}
     </section>
   );
 }

@@ -17,6 +17,10 @@ import { OfflineNudge } from "../ui/OfflineNudge";
 import { Ring } from "../ui/Ring";
 import { ExamFields } from "../ui/ExamSetup";
 import { Sheet } from "../ui/Sheet";
+import { TodayPlan } from "../study365/ui/TodayPlan";
+import { useVocabularyBudget } from "../study365/useVocabularyBudget";
+import { GATE_TARGETS } from "../study365/protocol";
+import { LearningLinks } from "../study365/ui/LearningLinks";
 
 const BRAND = `${import.meta.env.BASE_URL}brand`;
 
@@ -44,8 +48,20 @@ export function Today() {
   const atlas = useAtlas();
   const tags = useTags();
   const progress = useStore((s) => s.progress);
-  const settings = useStore((s) => s.settings);
+  const budget = useVocabularyBudget();
+  const settings = budget.settings;
   const [setup, setSetup] = useState(false);
+  const [extraCount, setExtraCount] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem("band-galaxy:extra-new-batch");
+      return saved && /^\d+$/.test(saved) && Number(saved) >= 1 && Number(saved) <= 100 ? saved : "10";
+    } catch { return "10"; }
+  });
+  const extraAmount = Number(extraCount);
+  const extraValid = /^\d+$/.test(extraCount) && extraAmount >= 1 && extraAmount <= 100;
+  useEffect(() => {
+    if (extraValid) try { sessionStorage.setItem("band-galaxy:extra-new-batch", extraCount); } catch { /* Session preferences are optional. */ }
+  }, [extraCount, extraValid]);
   const plan = useMemo(() => todayPlan(atlas, progress, settings), [atlas, progress, settings, tags]); // eslint-disable-line react-hooks/exhaustive-deps
   // Warm the first cards of today's journey so the session opens instantly.
   const firstIds = [...plan.due.slice(0, 4).map((k) => parseKey(k).id), ...plan.fresh.slice(0, 6)].join(",");
@@ -65,6 +81,7 @@ export function Today() {
   const skillDue = byTrack("l") + byTrack("p") + plan.unlock.length;
 
   const start = (opts?: { reviewOnly?: boolean; extra?: number; ids?: string[]; label?: string }) => {
+    if (!budget.ready || budget.managed && budget.minutes === 0 && opts?.extra) return;
     if (!active) {
       const s = buildSession(atlas, progress, settings, {
         extraNew: opts?.extra,
@@ -90,9 +107,12 @@ export function Today() {
   const mastered = masteredCount(progress);
   const teaser = (active ? active.newIds : plan.fresh).slice(0, 5).map((id) => atlas.byId.get(id)!).filter(Boolean);
   const evening = now.getHours() >= 19;
+  const extraDisabled = !budget.ready || !extraValid || plan.plan.phase === "sprint" || budget.managed && budget.minutes === 0;
 
   return (
     <div className="page today">
+      <TodayPlan />
+      <LearningLinks />
       <header className="greet">
         <p className="eyebrow">
           {now.getMonth() + 1}月{now.getDate()}日 · 星期{"日一二三四五六"[now.getDay()]}
@@ -103,6 +123,10 @@ export function Today() {
       <ExamHero plan={plan.plan} onSetup={() => setSetup(true)} />
 
       <OfflineNudge />
+
+      {budget.managed && <p className="muted" role="status">{budget.minutes === 0
+        ? "今天不安排词汇；到期复习仍可做，不计入120分钟。已开始的轮次可以继续。"
+        : `今日词汇预算 ${budget.minutes} 分钟，新预算从下一轮开始。`}</p>}
 
       <section className={`journey ${total === 0 && !active ? "is-clear" : ""}`}>
         <img className="journey-art" src={`${BRAND}/hero.webp`} alt="" fetchPriority="high" />
@@ -146,9 +170,15 @@ export function Today() {
             </>
           ) : (
             <>
-              <p className="eyebrow eyebrow-light">今日已完成</p>
-              <h2>今天的星，都亮了。</h2>
-              <p className="journey-lede">记忆需要一点留白。想多走一段，也可以。</p>
+              <p className="eyebrow eyebrow-light">词汇旅程</p>
+              <h2>{budget.managed && budget.minutes === 0 ? "今天不安排词汇" : "今天的词汇练习已完成。"}</h2>
+              <p className="journey-lede">{budget.managed && budget.minutes === 0
+                ? budget.state === "before"
+                  ? `计划将于 ${String(budget.startDate)} 开始。现在可以先从“四科练习入口”浏览材料。`
+                  : budget.state === "after"
+                    ? "365天计划已结束，可以复习到期词或查看四科练习与学习记录。"
+                    : "今天没有词汇任务，请查看上方的今日任务；也可以从四科练习入口继续。"
+                : "到期复习已完成。想继续学，可以自己选择本次加练的新词数量。"}</p>
             </>
           )}
           {teaser.length > 0 && (
@@ -159,14 +189,27 @@ export function Today() {
               <span>今天会遇见它们</span>
             </div>
           )}
+          {!active && <p><a className="link" href="#/me">设置每日新词量</a></p>}
+          {!active && total === 0 && <div style={{ display: "grid", gap: 10, marginBottom: 16 }}>
+            <label htmlFor="extra-new-count">本次加练新词数</label>
+            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10 }}>
+              <input id="extra-new-count" className="vocabulary-count-input" type="number" inputMode="numeric" min={1} max={100} step={1}
+                value={extraCount} onChange={event => setExtraCount(event.target.value)} style={{ width: 90, minWidth: 0 }} />
+              <div className="segmented" aria-label="常用加练数量">{[10, 20, 30].map(count => <button key={count}
+                aria-label={`选择加练${count}个新词`} aria-pressed={extraAmount === count && extraValid}
+                className={extraAmount === count && extraValid ? "is-on" : ""} onClick={() => setExtraCount(String(count))}>{count}个</button>)}</div>
+            </div>
+            <small>可选1–100个；建议先加10–20个，留出时间复习和练习四科。</small>
+            {!extraValid && <p role="alert">请输入1至100之间的整数。</p>}
+          </div>}
           <div className="journey-actions">
             {active || total > 0 ? (
-              <button className="btn btn-primary btn-xl" onClick={() => start()}>
-                {active ? "继续旅程" : "开始今天的旅程"} <ArrowRight size={20} />
+              <button className="btn btn-primary btn-xl" onClick={() => start()} disabled={!budget.ready}>
+                {active ? "继续旅程" : "开始今天的旅程"}{budget.managed && ` · ${budget.minutes} 分钟词汇`} <ArrowRight size={20} />
               </button>
             ) : (
-              <button className="btn btn-primary btn-xl" onClick={() => start({ extra: 5 })} disabled={plan.plan.phase === "sprint"}>
-                再认识 5 个新词 <Sparkles size={18} />
+              <button className="btn btn-primary btn-xl" onClick={() => start({ extra: extraAmount })} disabled={extraDisabled}>
+                再认识 {extraValid ? extraAmount : "—"} 个新词 <Sparkles size={18} />
               </button>
             )}
             {!active && plan.due.length > 0 && plan.fresh.length > 0 && (
@@ -255,8 +298,8 @@ const PHASE_NOTE: Record<Phase, string> = {
 
 /** Countdown and the forecast: how many target words you will still recall on exam day. */
 function ExamHero({ plan, onSetup }: { plan: ExamPlan; onSetup: () => void }) {
-  const minutes = useStore((s) => s.settings.dailyMinutes);
-  const band = useStore((s) => s.settings.targetBand);
+  const { minutes } = useVocabularyBudget();
+  const band = GATE_TARGETS.G4.overall;
   if (plan.days === null)
     return (
       <section className="exam-hero is-empty">
@@ -277,7 +320,7 @@ function ExamHero({ plan, onSetup }: { plan: ExamPlan; onSetup: () => void }) {
       <button className="exam-count" onClick={onSetup} aria-label="修改考试计划">
         <small>距雅思</small>
         <b>{Math.max(0, plan.days)}</b>
-        <small>天 · 目标 {band}</small>
+        <small>天 · 目标 {band.toFixed(1)}</small>
       </button>
       <div className="exam-forecast">
         <p className="eyebrow">按计划走，考试当天预计记得</p>
@@ -298,10 +341,11 @@ function ExamHero({ plan, onSetup }: { plan: ExamPlan; onSetup: () => void }) {
         </p>
         {short && plan.phase === "learn" && (
           <p className="warn-text">
-            按每天 {minutes} 分钟，考前学不完全部 {plan.remaining.toLocaleString()} 个目标词；每天约 {plan.minutesNeeded} 分钟才够。{" "}
+            按当前新词上限和每天 {minutes} 分钟，考前预计无法覆盖全部 {plan.remaining.toLocaleString()} 个目标词；倒推需要每天约 {plan.need} 个新词，预计词汇用时（含复习）约 {plan.minutesNeeded} 分钟。{" "}
             <button className="link" onClick={onSetup}>
               调整
             </button>
+            {" · "}<a className="link" href="#/me">设置新词上限</a>
           </p>
         )}
       </div>

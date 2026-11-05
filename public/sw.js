@@ -1,8 +1,13 @@
 /* Band Galaxy offline cache: app shell network-first, everything else cache-first.
    The 「离线包」 downloader (src/lib/offline.ts) fills its own `band-pack-*` cache; caches.match() searches it too. */
-const VERSION = "band-v4";
+// Keep the existing shell namespace; release identity lives in the compiled About metadata.
+const VERSION = "band-v5";
 const SHELL = `${VERSION}-shell`;
 const MEDIA = `${VERSION}-media`;
+
+function networkOnly(path) {
+  return path === "/login" || ["/api", "/private", "/local-bank", "/local"].some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
+}
 
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (event) => {
@@ -10,6 +15,16 @@ self.addEventListener("activate", (event) => {
     caches
       .keys()
       .then((keys) => Promise.all(keys.filter((k) => !k.startsWith(VERSION) && !k.startsWith("band-pack-")).map((k) => caches.delete(k))))
+      .then(async () => {
+        // Private responses from any older worker must not survive the web login boundary.
+        for (const name of await caches.keys()) {
+          const cache = await caches.open(name);
+          for (const request of await cache.keys()) {
+            const path = new URL(request.url).pathname;
+            if (networkOnly(path)) await cache.delete(request);
+          }
+        }
+      })
       .then(() => self.clients.claim()),
   );
 });
@@ -80,7 +95,7 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(req.url);
   if (url.origin !== location.origin) return;
   // Private, changing account data must never be served from an offline cache.
-  if (url.pathname.startsWith("/api/")) return;
+  if (networkOnly(url.pathname)) return;
   // Safari and Chrome stream <audio> with Range requests: serve them from a cached full copy, else go to the network.
   if (req.headers.has("range")) {
     event.respondWith(
@@ -98,7 +113,7 @@ self.addEventListener("fetch", (event) => {
     const response = fetch(req)
         .then((res) => {
           // Clone now: cloning inside the then() runs after the page has consumed the body and throws.
-          if (res.ok) {
+          if (res.ok && !res.redirected && !new URL(res.url || req.url).pathname.startsWith("/login")) {
             const copy = res.clone();
             saved = caches.open(SHELL).then((c) => c.put(req, copy));
           }

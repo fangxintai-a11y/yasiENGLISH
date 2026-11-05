@@ -8,7 +8,7 @@ export type SyncSnapshot = { progress: Progress; settings: Settings };
 const SETTINGS_FIELDS = [
   "accent", "autoplay", "dailyNew", "retention", "theme", "sfx", "spell", "startLevel", "onboarded", "dataset",
   "ambience", "ambienceVolume", "splash", "guessFirst", "sentenceFirst", "examDate", "dailyMinutes", "targetBand",
-  "trackL", "trackP", "aiModel", "shadowAsr",
+  "trackL", "trackP", "feedbackMode", "shadowAsr",
 ] as const satisfies readonly (keyof Settings)[];
 
 // Canonical comparison also handles maps whose insertion order differs between devices.

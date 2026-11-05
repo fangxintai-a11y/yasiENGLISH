@@ -1,0 +1,423 @@
+{
+  "schemaVersion": 1,
+  "id": "bandgalaxy-ielts-14-day-inventory",
+  "version": "2026.11.03-r0-fixed",
+  "coverageDays": 14,
+  "purpose": "首14天真实库存与缺口：外链待选、7份自编草稿、其余材料缺口分别列示。未宣称14天备齐。",
+  "releaseMinimum": {
+    "listeningIncludingTwoReserves": 16,
+    "readingIncludingTwoReserves": 16,
+    "sentenceGroups": 14,
+    "outputThemes": 14
+  },
+  "externalReferences": [
+    {
+      "id": "official-baseline-listening",
+      "provider": "Cambridge University Press & Assessment",
+      "url": "https://shop.cambridge.org/english/product/2700250101",
+      "skills": [
+        "listening"
+      ],
+      "rights": "external-link-only",
+      "availability": "external_required",
+      "selectionStatus": "pending-lawful-access-and-unseen-check",
+      "completionStatus": "not-started",
+      "verifiedOn": "2026-11-03",
+      "note": "外部完整真实考试题型练习材料引用。先确认Test 1未见；若已做过需在记录中改选同系列未见整套。官方题型入口仅用于格式说明，不能替代完整基线。",
+      "resourceTitle": "IELTS 20 Academic with Answers and Digital Pack",
+      "resourceLocator": "Test 1: listening",
+      "accessRequirement": "用户须合法购买或借阅；项目不提供书内原文或音频，未核实用户是否持有。",
+      "formatPracticeUrl": "https://takeielts.britishcouncil.org/prepare/ielts-free-practice-mock-tests/academic/listening"
+    },
+    {
+      "id": "official-baseline-reading",
+      "provider": "Cambridge University Press & Assessment",
+      "url": "https://shop.cambridge.org/english/product/2700250101",
+      "skills": [
+        "reading"
+      ],
+      "rights": "external-link-only",
+      "availability": "external_required",
+      "selectionStatus": "pending-lawful-access-and-unseen-check",
+      "completionStatus": "not-started",
+      "verifiedOn": "2026-11-03",
+      "note": "外部完整真实考试题型练习材料引用。先确认Test 1未见；若已做过需在记录中改选同系列未见整套。官方题型入口仅用于格式说明，不能替代完整基线。",
+      "resourceTitle": "IELTS 20 Academic with Answers and Digital Pack",
+      "resourceLocator": "Test 1: reading",
+      "accessRequirement": "用户须合法购买或借阅；项目不提供书内原文或音频，未核实用户是否持有。",
+      "formatPracticeUrl": "https://takeielts.britishcouncil.org/prepare/ielts-free-practice-mock-tests/academic/reading"
+    },
+    {
+      "id": "official-baseline-writing",
+      "provider": "Cambridge University Press & Assessment",
+      "url": "https://shop.cambridge.org/english/product/2700250101",
+      "skills": [
+        "writing"
+      ],
+      "rights": "external-link-only",
+      "availability": "external_required",
+      "selectionStatus": "pending-lawful-access-and-unseen-check",
+      "completionStatus": "not-started",
+      "verifiedOn": "2026-11-03",
+      "note": "外部完整真实考试题型练习材料引用。先确认Test 1未见；若已做过需在记录中改选同系列未见整套。官方题型入口仅用于格式说明，不能替代完整基线。",
+      "resourceTitle": "IELTS 20 Academic with Answers and Digital Pack",
+      "resourceLocator": "Test 1: writing",
+      "accessRequirement": "用户须合法购买或借阅；项目不提供书内原文或音频，未核实用户是否持有。",
+      "formatPracticeUrl": "https://takeielts.britishcouncil.org/prepare/ielts-free-practice-mock-tests/academic/writing"
+    },
+    {
+      "id": "official-baseline-speaking",
+      "provider": "Cambridge University Press & Assessment",
+      "url": "https://shop.cambridge.org/english/product/2700250101",
+      "skills": [
+        "speaking"
+      ],
+      "rights": "external-link-only",
+      "availability": "external_required",
+      "selectionStatus": "pending-lawful-access-and-unseen-check",
+      "completionStatus": "not-started",
+      "verifiedOn": "2026-11-03",
+      "note": "外部完整真实考试题型练习材料引用。先确认Test 1未见；若已做过需在记录中改选同系列未见整套。官方题型入口仅用于格式说明，不能替代完整基线。",
+      "resourceTitle": "IELTS 20 Academic with Answers and Digital Pack",
+      "resourceLocator": "Test 1: speaking",
+      "accessRequirement": "用户须合法购买或借阅；项目不提供书内原文或音频，未核实用户是否持有。",
+      "formatPracticeUrl": "https://takeielts.britishcouncil.org/prepare/ielts-free-practice-mock-tests/academic/speaking"
+    }
+  ],
+  "sampleAvailability": [
+    {
+      "materialId": "listening-sample-01",
+      "version": "2",
+      "artifactStatus": "sample_ready",
+      "reviewStatus": "draft"
+    },
+    {
+      "materialId": "reading-sample-01",
+      "version": "2",
+      "artifactStatus": "sample_ready",
+      "reviewStatus": "draft"
+    },
+    {
+      "materialId": "writing-sample-01",
+      "version": "2",
+      "artifactStatus": "sample_ready",
+      "reviewStatus": "draft"
+    },
+    {
+      "materialId": "speaking-sample-01",
+      "version": "2",
+      "artifactStatus": "sample_ready",
+      "reviewStatus": "draft"
+    },
+    {
+      "materialId": "writing-task1-sample-01",
+      "version": "1",
+      "artifactStatus": "sample_ready",
+      "reviewStatus": "draft"
+    },
+    {
+      "materialId": "speaking-part2-sample-01",
+      "version": "1",
+      "artifactStatus": "sample_ready",
+      "reviewStatus": "draft"
+    },
+    {
+      "materialId": "speaking-part3-sample-01",
+      "version": "1",
+      "artifactStatus": "sample_ready",
+      "reviewStatus": "draft"
+    }
+  ],
+  "days": [
+    {
+      "day": 1,
+      "title": "第0周：听读真题基线",
+      "pool": "baseline",
+      "artifactStatus": "external_required",
+      "materialIds": [],
+      "externalReferenceIds": [
+        "official-baseline-listening",
+        "official-baseline-reading"
+      ],
+      "plannedSkills": [
+        "listening",
+        "reading"
+      ],
+      "missingRequirements": [
+        "尚需选择完整未见的合法真题材料并在外部作答",
+        "真实基线分数及其来源尚未记录"
+      ],
+      "note": "第0周真题引用任务，未实际作答。选用合法持有的Cambridge IELTS Academic 20 Test 1（先确认未见），按技能拆至D1/D2/D3；仓库不提供真题原文或音频。"
+    },
+    {
+      "day": 2,
+      "title": "第0周：写作真题基线",
+      "pool": "baseline",
+      "artifactStatus": "external_required",
+      "materialIds": [],
+      "externalReferenceIds": [
+        "official-baseline-writing"
+      ],
+      "plannedSkills": [
+        "writing"
+      ],
+      "missingRequirements": [
+        "尚需选择完整未见的合法真题材料并在外部作答",
+        "真实基线分数及其来源尚未记录",
+        "写作或口语须由真人评阅；目前未完成"
+      ],
+      "note": "第0周真题引用任务，未实际作答。选用合法持有的Cambridge IELTS Academic 20 Test 1（先确认未见），按技能拆至D1/D2/D3；仓库不提供真题原文或音频。"
+    },
+    {
+      "day": 3,
+      "title": "第0周：口语真题基线与设置",
+      "pool": "baseline",
+      "artifactStatus": "external_required",
+      "materialIds": [],
+      "externalReferenceIds": [
+        "official-baseline-speaking"
+      ],
+      "plannedSkills": [
+        "speaking"
+      ],
+      "missingRequirements": [
+        "尚需选择完整未见的合法真题材料并在外部作答",
+        "真实基线分数及其来源尚未记录",
+        "写作或口语须由真人评阅；目前未完成"
+      ],
+      "note": "第0周真题引用任务，未实际作答。选用合法持有的Cambridge IELTS Academic 20 Test 1（先确认未见），按技能拆至D1/D2/D3；仓库不提供真题原文或音频。"
+    },
+    {
+      "day": 4,
+      "title": "第0周：按基线选择等级并试跑雅思题型",
+      "pool": "practice",
+      "artifactStatus": "partial_ready",
+      "materialIds": [
+        "listening-sample-01",
+        "reading-sample-01",
+        "writing-sample-01",
+        "speaking-sample-01",
+        "writing-task1-sample-01",
+        "speaking-part2-sample-01",
+        "speaking-part3-sample-01"
+      ],
+      "externalReferenceIds": [],
+      "plannedSkills": [
+        "listening",
+        "reading",
+        "writing",
+        "speaking"
+      ],
+      "missingRequirements": [
+        "仅一套自编样本，不能当未见真题基线或完整模考",
+        "独立教师审校与人工审听待完成",
+        "尚未备齐该日全部配套词汇例句与备用材料"
+      ],
+      "note": "7份样本含一完整听力Section、一篇学术Passage、Task1/2与SpeakingPart1/2/3；草稿可试跑，不等于全天库存通过审核。"
+    },
+    {
+      "day": 5,
+      "title": "待编写的日常四科技能任务",
+      "pool": "practice",
+      "artifactStatus": "planned",
+      "materialIds": [],
+      "externalReferenceIds": [],
+      "plannedSkills": [
+        "listening",
+        "reading",
+        "writing",
+        "speaking"
+      ],
+      "missingRequirements": [
+        "该日独立听读材料",
+        "写说独立主题与证据",
+        "教师教研审核"
+      ]
+    },
+    {
+      "day": 6,
+      "title": "周六听读计时与复盘（材料待补）",
+      "pool": "practice",
+      "artifactStatus": "planned",
+      "materialIds": [],
+      "externalReferenceIds": [],
+      "plannedSkills": [
+        "listening",
+        "reading"
+      ],
+      "missingRequirements": [
+        "该日独立听读材料",
+        "写说独立主题与证据",
+        "教师教研审核"
+      ]
+    },
+    {
+      "day": 7,
+      "title": "周日写说完整练习与真人校准（材料待补）",
+      "pool": "checkpoint",
+      "artifactStatus": "planned",
+      "materialIds": [],
+      "externalReferenceIds": [],
+      "plannedSkills": [
+        "writing",
+        "speaking"
+      ],
+      "missingRequirements": [
+        "未见Task2题目",
+        "未见口语Part1/2/3题目",
+        "真人评阅安排与实际评阅证据"
+      ],
+      "note": "不得重复公开训练样本冒充未见校准作品；尚未完成真人评阅。"
+    },
+    {
+      "day": 8,
+      "title": "待编写的日常四科技能任务",
+      "pool": "practice",
+      "artifactStatus": "planned",
+      "materialIds": [],
+      "externalReferenceIds": [],
+      "plannedSkills": [
+        "listening",
+        "reading",
+        "writing",
+        "speaking"
+      ],
+      "missingRequirements": [
+        "该日独立听读材料",
+        "写说独立主题与证据",
+        "教师教研审核"
+      ]
+    },
+    {
+      "day": 9,
+      "title": "待编写的日常四科技能任务",
+      "pool": "practice",
+      "artifactStatus": "planned",
+      "materialIds": [],
+      "externalReferenceIds": [],
+      "plannedSkills": [
+        "listening",
+        "reading",
+        "writing",
+        "speaking"
+      ],
+      "missingRequirements": [
+        "该日独立听读材料",
+        "写说独立主题与证据",
+        "教师教研审核"
+      ]
+    },
+    {
+      "day": 10,
+      "title": "待编写的日常四科技能任务",
+      "pool": "practice",
+      "artifactStatus": "planned",
+      "materialIds": [],
+      "externalReferenceIds": [],
+      "plannedSkills": [
+        "listening",
+        "reading",
+        "writing",
+        "speaking"
+      ],
+      "missingRequirements": [
+        "该日独立听读材料",
+        "写说独立主题与证据",
+        "教师教研审核"
+      ]
+    },
+    {
+      "day": 11,
+      "title": "待编写的日常四科技能任务",
+      "pool": "practice",
+      "artifactStatus": "planned",
+      "materialIds": [],
+      "externalReferenceIds": [],
+      "plannedSkills": [
+        "listening",
+        "reading",
+        "writing",
+        "speaking"
+      ],
+      "missingRequirements": [
+        "该日独立听读材料",
+        "写说独立主题与证据",
+        "教师教研审核"
+      ]
+    },
+    {
+      "day": 12,
+      "title": "待编写的日常四科技能任务",
+      "pool": "practice",
+      "artifactStatus": "planned",
+      "materialIds": [],
+      "externalReferenceIds": [],
+      "plannedSkills": [
+        "listening",
+        "reading",
+        "writing",
+        "speaking"
+      ],
+      "missingRequirements": [
+        "该日独立听读材料",
+        "写说独立主题与证据",
+        "教师教研审核"
+      ]
+    },
+    {
+      "day": 13,
+      "title": "周六听读计时与复盘（材料待补）",
+      "pool": "practice",
+      "artifactStatus": "planned",
+      "materialIds": [],
+      "externalReferenceIds": [],
+      "plannedSkills": [
+        "listening",
+        "reading"
+      ],
+      "missingRequirements": [
+        "该日独立听读材料",
+        "写说独立主题与证据",
+        "教师教研审核"
+      ]
+    },
+    {
+      "day": 14,
+      "title": "周日写说完整练习与真人校准（材料待补）",
+      "pool": "checkpoint",
+      "artifactStatus": "planned",
+      "materialIds": [],
+      "externalReferenceIds": [],
+      "plannedSkills": [
+        "writing",
+        "speaking"
+      ],
+      "missingRequirements": [
+        "未见Task2题目",
+        "未见口语Part1/2/3题目",
+        "真人评阅安排与实际评阅证据"
+      ],
+      "note": "不得重复公开训练样本冒充未见校准作品；尚未完成真人评阅。"
+    }
+  ],
+  "reserves": [
+    {
+      "slotId": "ielts-reserve-01",
+      "artifactStatus": "planned",
+      "plannedSkills": [
+        "listening",
+        "reading"
+      ],
+      "purpose": "按基线选择等级后的未见备用材料，尚未编写或获得使用材料"
+    },
+    {
+      "slotId": "ielts-reserve-02",
+      "artifactStatus": "planned",
+      "plannedSkills": [
+        "listening",
+        "reading"
+      ],
+      "purpose": "按基线选择等级后的未见备用材料，尚未编写或获得使用材料"
+    }
+  ]
+}

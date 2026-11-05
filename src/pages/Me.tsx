@@ -1,22 +1,42 @@
-import { Download, KeyRound, RotateCcw, Upload } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { buildInfo } from "../buildInfo";
+import { Download, RotateCcw, Upload } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAtlas } from "../atlas/context";
-import { getKey, setKey } from "../ielts/aikey";
 import { allCards } from "../ielts/exam";
 import { isMastered } from "../store/srs";
-import { AI_MODELS, dayKey, exportBackup, importBackup, resetProgress, store, useStore, type Settings } from "../store/store";
+import { dayKey, exportBackup, importBackup, OutboundPrivacyError, resetProgress, store, useStore, type Settings } from "../store/store";
 import { ExamFields } from "../ui/ExamSetup";
 import { OfflinePanel } from "../ui/OfflinePanel";
 import { SyncPanel } from "../ui/SyncPanel";
 import { toast } from "../ui/Toast";
+import { FeedbackPanel } from "./me/FeedbackPanel";
+import { SyncIssues } from "../study365/ui/SyncIssues";
+import { RecordingsBackup } from "../study365/ui/RecordingsBackup";
+import { LocalPromptBankPanel } from "../study365/ui/LocalPromptBankPanel";
+import { LocalBankPanel } from "../study365/ui/LocalBankPanel";
+import { OfficialResources } from "../study365/ui/OfficialResources";
+import { CalibrationStatus } from "../study365/ui/CalibrationStatus";
 import { streakOf } from "./Today";
+import { useLearning } from "../study365/repository";
 
-export function Me({ privateAvailable }: { privateAvailable: boolean }) {
+export function Me({ privateAvailable, focusSync = false }: { privateAvailable: boolean; focusSync?: boolean }) {
   const atlas = useAtlas();
   const progress = useStore((s) => s.progress);
   const settings = useStore((s) => s.settings);
+  const [dailyNewDraft, setDailyNewDraft] = useState(String(settings.dailyNew));
+  const [dailyNewError, setDailyNewError] = useState("");
   const saveError = useStore((s) => s.saveError);
   const file = useRef<HTMLInputElement>(null);
+  const learning = useLearning();
+  useEffect(() => {
+    setDailyNewDraft(String(settings.dailyNew));
+    setDailyNewError("");
+  }, [settings.dailyNew]);
+  useEffect(() => {
+    if (!focusSync || !learning.ready || !learning.quarantined) return;
+    const frame = window.requestAnimationFrame(() => document.getElementById("learning-sync-issues")?.scrollIntoView({ block: "start" }));
+    return () => window.cancelAnimationFrame(frame);
+  }, [focusSync, learning.ready, learning.quarantined]);
 
   const stats = useMemo(() => {
     const cards = allCards(progress).map(([, c]) => c);
@@ -39,13 +59,30 @@ export function Me({ privateAvailable }: { privateAvailable: boolean }) {
   }, [progress]);
 
   const set = (patch: Partial<Settings>) => store.settings(patch);
+  const chooseDailyNew = (value: number) => {
+    setDailyNewDraft(String(value));
+    setDailyNewError("");
+    set({ dailyNew: value });
+  };
+  const saveDailyNew = () => {
+    const text = dailyNewDraft.trim(), value = Number(text);
+    if (!/^\d{1,3}$/.test(text) || !Number.isInteger(value) || value < 0 || value > 100) {
+      setDailyNewError("请输入0至100之间的整数；0表示只复习。");
+      return;
+    }
+    chooseDailyNew(value);
+  };
   const download = () => {
-    const blob = new Blob([exportBackup()], { type: "application/json" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `band-galaxy-backup-${dayKey()}.json`;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    try {
+      const blob = new Blob([exportBackup()], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `band-galaxy-backup-${dayKey()}.json`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    } catch (error) {
+      toast(error instanceof OutboundPrivacyError ? error.message : "备份未能导出，请稍后重试。", "warn");
+    }
   };
   const restore = async (f: File) => {
     if (f.size > 30 * 1024 * 1024) return toast("文件太大，不像是学习备份。", "warn");
@@ -60,6 +97,13 @@ export function Me({ privateAvailable }: { privateAvailable: boolean }) {
         <p className="eyebrow">我的</p>
         <h1 className="display">你的星空</h1>
       </header>
+
+      <section className="panel" aria-label="关于雅思星图" data-testid="about-build">
+        <h2>关于雅思星图</h2>
+        <p>版本 {buildInfo.version} · 提交 <span title={buildInfo.fullCommit}>{buildInfo.commit}</span></p>
+      </section>
+
+      <p><a className="btn btn-primary" href="#/progress">进度与成绩本</a></p>
 
       <section className="stat-strip">
         <div>
@@ -128,18 +172,37 @@ export function Me({ privateAvailable }: { privateAvailable: boolean }) {
 
         <SyncPanel />
 
-        <AiPanel />
+        <SyncIssues />
+
+        <RecordingsBackup />
+        <LocalBankPanel />
+        <LocalPromptBankPanel />
+        <OfficialResources />
+
+        <CalibrationStatus />
+
+        <FeedbackPanel />
 
         <section className="panel settings">
           <h3 className="eyebrow">学习设置</h3>
-          <Field label="每日新词" hint="只在没设考试日期时生效；设定后由计划自动倒推。">
+          <Field label="每日新词" hint="设置每日新词上限，0表示只复习。实际安排会按复习量、可用分钟和考前阶段减少。">
             <div className="segmented">
               {[5, 10, 15, 20, 30].map((n) => (
-                <button key={n} className={settings.dailyNew === n ? "is-on" : ""} onClick={() => set({ dailyNew: n })}>
+                <button key={n} className={settings.dailyNew === n ? "is-on" : ""} onClick={() => chooseDailyNew(n)}>
                   {n}
                 </button>
               ))}
             </div>
+            <div className="data-actions">
+              <input aria-label="每日新词数量" className="vocabulary-count-input" type="number" inputMode="numeric" min={0} max={100} step={1}
+                value={dailyNewDraft} aria-invalid={!!dailyNewError} aria-describedby={dailyNewError ? "daily-new-error" : undefined}
+                onChange={(event) => { setDailyNewDraft(event.target.value); setDailyNewError(""); }}
+                onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); saveDailyNew(); } }}
+                style={{ width: 110, maxWidth: "100%", minWidth: 0 }} />
+              <button className="btn btn-ghost" onClick={saveDailyNew}>保存数量</button>
+            </div>
+            {dailyNewError && <p id="daily-new-error" role="alert">{dailyNewError}</p>}
+            <p className="muted" aria-live="polite">当前每日新词上限：{settings.dailyNew === 0 ? "0，只复习" : `${settings.dailyNew} 个`}。</p>
           </Field>
           <Field label="从哪个难度开始" hint="跳过已经熟悉的低级别词。">
             <div className="segmented">
@@ -224,7 +287,7 @@ export function Me({ privateAvailable }: { privateAvailable: boolean }) {
 
         <section className="panel">
           <h3 className="eyebrow">数据</h3>
-          <p className="muted">本机自动保存学习记录。登录同步账号后会同步进度与设置；导出备份不含跟读录音和 API Key。导入会替换当前进度，并在登录后同步到其他设备。</p>
+          <p className="muted">本机自动保存学习记录。登录同步账号后会同步进度与设置；导出备份不含跟读录音、外部接口设置和密钥。导入会替换当前进度，并在登录后同步到其他设备。</p>
           {saveError && <p className="warn-text">浏览器拒绝保存（可能是隐私模式或空间已满）。请尽快导出备份。</p>}
           <div className="data-actions">
             <button className="btn btn-ghost" onClick={download}>
@@ -249,65 +312,6 @@ export function Me({ privateAvailable }: { privateAvailable: boolean }) {
         </section>
       </div>
     </div>
-  );
-}
-
-/** The learner's own Claude API key, kept in this browser only. */
-function AiPanel() {
-  const model = useStore((s) => s.settings.aiModel);
-  const [key, setKeyState] = useState(getKey);
-  const [show, setShow] = useState(false);
-  const saved = !!getKey();
-  return (
-    <section className="panel settings">
-      <h3 className="eyebrow">AI 助教 · Claude</h3>
-      <p className="muted">错词阅读和造句批改会用你自己的 Claude API Key，从浏览器直接请求 api.anthropic.com，费用记在你的账户上。Key 只保存在这台设备的浏览器里，不会进入导出的备份。</p>
-      <label className="field">
-        <div>
-          <b>API Key</b>
-          <small>{saved ? "已保存在本机" : "在 console.anthropic.com 创建"}</small>
-        </div>
-        <span className="key-row">
-          <KeyRound size={16} />
-          <input type={show ? "text" : "password"} value={key} onChange={(e) => setKeyState(e.target.value)} placeholder="sk-ant-…" autoComplete="off" spellCheck={false} aria-label="Claude API Key" />
-          <button type="button" className="link" onClick={() => setShow(!show)}>
-            {show ? "隐藏" : "显示"}
-          </button>
-        </span>
-      </label>
-      <div className="data-actions">
-        <button
-          className="btn btn-primary"
-          onClick={() => {
-            setKey(key);
-            toast(key.trim() ? "API Key 已保存在本机" : "已清除 API Key", "ok");
-          }}
-        >
-          保存
-        </button>
-        {saved && (
-          <button
-            className="btn btn-ghost"
-            onClick={() => {
-              setKey("");
-              setKeyState("");
-              toast("已清除 API Key");
-            }}
-          >
-            清除
-          </button>
-        )}
-      </div>
-      <Field label="模型" hint="Opus 质量最好；Sonnet / Haiku 更快更便宜。">
-        <div className="segmented">
-          {AI_MODELS.map((m) => (
-            <button key={m} className={model === m ? "is-on" : ""} onClick={() => store.settings({ aiModel: m })}>
-              {m.replace("claude-", "").replace(/-(\d)-(\d)$/, " $1.$2")}
-            </button>
-          ))}
-        </div>
-      </Field>
-    </section>
   );
 }
 

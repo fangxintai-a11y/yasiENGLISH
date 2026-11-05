@@ -17,3 +17,9 @@ Word Atlas has no accounts, server-side storage, analytics or tracking. Progress
 ## 报告问题 / Reporting
 
 发现安全问题请通过 GitHub 私密漏洞报告（Security → Report a vulnerability）联系维护者，不要公开贴出细节。
+
+## 评分与反馈的隐私边界
+
+默认本地评分计算不发网络请求。选择自动接口后，仅向学习者自己填写的地址发送当前任务；请求不附带本站Cookie，重定向不携带密钥。接口配置和密钥分别保存在本机，密钥仅存于`band-galaxy:llm-secret:<id>`，不进入JSON备份、同步快照或服务端数据库。复制提示词只生成文本，由学习者自行决定粘贴位置。旧版密钥在启动迁移时仅删除，不读取或搬到新配置，原有阅读、记忆钩子及作答记录保留。
+
+为避免本机占位值误拦，已知密钥只有达到16字符才在普通文本中作子串检测；更短值仅完整值匹配，ab/test/ollama等明确占位不参与普通文本匹配。真实密钥前缀格式与明确凭据字段的保护始终保留。

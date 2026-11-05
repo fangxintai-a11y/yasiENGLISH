@@ -14,6 +14,15 @@ const date = (days: number) => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 };
 
+test("zero vocabulary minutes schedule no new words even without an exam date", () => {
+  const settings = { ...defaultSettings, examDate: "", dailyMinutes: 0, dailyNew: 10 };
+  assert.equal(examPlan(atlas, emptyProgress("t"), settings, tags, now).newPerDay, 0);
+});
+test("zero vocabulary minutes do not use the free-study minimum of three new words", () => {
+  const settings = { ...defaultSettings, examDate: "", dailyMinutes: 0, dailyNew: 10 };
+  assert.deepEqual(todayPlan(atlas, emptyProgress("t"), settings, tags, now, 0).fresh, []);
+});
+
 test("card keys round-trip", () => {
   assert.equal(cardKey("r", "abandon"), "abandon");
   assert.deepEqual(parseKey(cardKey("l", "abandon")), { track: "l", id: "abandon" });
@@ -45,7 +54,7 @@ test("each new word per day costs a few reviews per day", () => {
 
 test("the plan spreads the remaining target words over the days before the sprint", () => {
   const p = emptyProgress("t");
-  const s = { ...defaultSettings, examDate: date(60), targetBand: 6.5, dailyMinutes: 300 };
+  const s = { ...defaultSettings, examDate: date(60), targetBand: 6.5, dailyMinutes: 300, dailyNew: 80 };
   const plan = examPlan(atlas, p, s, tags, now);
   // Band 6.5 → up to B2 (levels 0–3) = 2000 words, plus the listening / AWL tags inside them.
   assert.equal(plan.target, 2000);
@@ -53,6 +62,29 @@ test("the plan spreads the remaining target words over the days before the sprin
   assert.equal(plan.newPerDay, plan.need);
   assert.ok(plan.forecast > 1700 && plan.forecast <= 2000, `${plan.forecast}`);
   assert.equal(plan.ifStop, 0);
+});
+
+test("a chosen daily new-word limit also caps exam-date planning", () => {
+  for (const dailyNew of [0, 1, 7, 25, 100]) {
+    const s = { ...defaultSettings, examDate: date(60), targetBand: 6.5, dailyMinutes: 300, dailyNew };
+    const plan = examPlan(atlas, emptyProgress("t"), s, tags, now);
+    assert.equal(plan.newPerDay, Math.min(dailyNew, plan.need, 80), `daily limit ${dailyNew}`);
+    assert.equal(todayPlan(atlas, emptyProgress("t"), s, tags, now, 0).fresh.length, plan.newPerDay);
+  }
+});
+
+test("the chosen limit preserves minute, review and sprint restrictions", () => {
+  const selected = { ...defaultSettings, examDate: date(60), dailyMinutes: 300, dailyNew: 7 };
+  assert.equal(todayPlan(atlas, emptyProgress("t"), selected, tags, now, 4).fresh.length, 3);
+  assert.equal(examPlan(atlas, emptyProgress("t"), { ...selected, dailyMinutes: 0 }, tags, now).newPerDay, 0);
+  const short = examPlan(atlas, emptyProgress("t"), { ...selected, dailyMinutes: 1, dailyNew: 100 }, tags, now);
+  assert.ok(short.newPerDay < 7, "a high chosen count cannot enlarge the minute budget");
+  const backlog = todayPlan(atlas, withCards(800, -2), { ...selected, dailyMinutes: 20, dailyNew: 100 }, tags, now, 0);
+  assert.equal(backlog.backlog, true);
+  assert.equal(backlog.fresh.length, 0);
+  const sprint = { ...selected, examDate: date(3), dailyNew: 100 };
+  assert.equal(examPlan(atlas, emptyProgress("t"), sprint, tags, now).newPerDay, 0);
+  assert.deepEqual(todayPlan(atlas, emptyProgress("t"), sprint, tags, now, 0).fresh, []);
 });
 
 test("a small time budget caps new words and says how many minutes the full plan needs", () => {

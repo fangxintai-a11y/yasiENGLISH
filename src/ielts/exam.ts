@@ -204,7 +204,7 @@ export function examPlan(atlas: AtlasLite, p: Progress, s: Settings, tags: Pick<
   const budget = s.dailyMinutes * 60;
   const fit = Math.max(0, Math.floor((budget - existing * pace.review) / perNewSec));
   const need = learnDays > 0 ? Math.ceil(remaining / learnDays) : 0;
-  const newPerDay = days === null ? s.dailyNew : Math.min(need, fit, 80);
+  const newPerDay = budget <= 0 ? 0 : days === null ? s.dailyNew : Math.min(s.dailyNew, need, fit, 80);
   const minutesNeeded = Math.ceil((existing * pace.review + need * perNewSec) / 60);
 
   const at = days === null ? now + 60 * DAY : examTime(s.examDate)!;
@@ -309,7 +309,7 @@ export function todayPlan(atlas: AtlasLite, p: Progress, s: Settings, tags: Pick
   const backlog = deferred > 0;
 
   let fresh: string[] = [];
-  if (!backlog && plan.phase !== "sprint" && plan.phase !== "after") {
+  if (budget > 0 && !backlog && plan.phase !== "sprint" && plan.phase !== "after") {
     const want = Math.max(0, plan.newPerDay - newToday);
     const room = Math.floor((budget - used) / plan.pace.fresh);
     const n = s.examDate ? Math.min(want, room) : Math.min(want, Math.max(3, room));

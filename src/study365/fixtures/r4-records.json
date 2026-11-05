@@ -1,0 +1,857 @@
+{
+  "fixtureVersion": 2,
+  "purpose": "synthetic-r4-listening-reading-wire-examples-not-user-materials",
+  "records": [
+    {
+      "recordId": "r4-plan",
+      "request": {
+        "schemaVersion": 2,
+        "revisionId": "81000000-0000-4000-8000-000000000001",
+        "mutationId": "82000000-0000-4000-8000-000000000001",
+        "baseRevision": null,
+        "kind": "plan",
+        "payload": {
+          "planId": "r4-plan",
+          "startDate": "2026-11-09",
+          "timeZone": "Asia/Shanghai",
+          "studyBudgetMinutes": 120,
+          "targetBand": 8,
+          "sectionTargets": {
+            "listening": 8.5,
+            "reading": 8.5,
+            "writing": 7.5,
+            "speaking": 7.5
+          },
+          "enabled": true,
+          "curriculumVersion": "2.0.0"
+        }
+      },
+      "expectedContentHash": "f5e674a90892db2a391206229eb09e0881b77d602b929a4a1695449c838c2629"
+    },
+    {
+      "recordId": "r4-legacy-attempt",
+      "request": {
+        "schemaVersion": 2,
+        "revisionId": "81000000-0000-4000-8000-000000000002",
+        "mutationId": "82000000-0000-4000-8000-000000000002",
+        "baseRevision": null,
+        "kind": "attempt",
+        "payload": {
+          "planId": "r4-plan",
+          "date": "2026-11-10",
+          "contentId": "r4-legacy-material",
+          "skill": "reading",
+          "answers": [
+            "legacy",
+            null
+          ],
+          "score": 1,
+          "correct": 1,
+          "total": 2
+        }
+      },
+      "expectedContentHash": "d5c7eb983ee4403fee0a560965b9056feeec431d31eb4eed17131970e3f3ffc7"
+    },
+    {
+      "recordId": "r4-reading-attempt",
+      "request": {
+        "schemaVersion": 2,
+        "revisionId": "81000000-0000-4000-8000-000000000003",
+        "mutationId": "82000000-0000-4000-8000-000000000003",
+        "baseRevision": null,
+        "kind": "attempt",
+        "payload": {
+          "planId": "r4-plan",
+          "date": "2026-11-11",
+          "contentId": "r4-reading-material",
+          "contentVersion": "synthetic-1",
+          "skill": "reading",
+          "answers": [
+            "a",
+            "wrong"
+          ],
+          "score": 1,
+          "correct": 1,
+          "total": 2,
+          "elapsedSeconds": 1200,
+          "firstAttempt": true,
+          "conditions": {
+            "timed": true,
+            "unseen": true,
+            "firstAttempt": true
+          },
+          "materialSource": "unofficial",
+          "sourceRef": "Synthetic fixture, not a real paper",
+          "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "scope": "section",
+          "coverage": {
+            "requestedWordIds": [
+              "w-1",
+              "w-2",
+              "w-3"
+            ],
+            "coveredWordIds": [
+              "w-1",
+              "w-3"
+            ],
+            "uncoveredWordIds": [
+              "w-2"
+            ],
+            "matcherVersion": "r4-exact-v1"
+          },
+          "questionResults": [
+            {
+              "questionId": "q1",
+              "correct": true,
+              "confidence": "sure",
+              "errorCause": null
+            },
+            {
+              "questionId": "q2",
+              "correct": false,
+              "confidence": "unsure",
+              "errorCause": "vocab-unknown"
+            }
+          ]
+        }
+      },
+      "expectedContentHash": "70537d8cf4ccf0426617c4d65198d397a7b053277ae874cfc6b97646effda94e"
+    },
+    {
+      "recordId": "r4-reading-attempt",
+      "request": {
+        "schemaVersion": 2,
+        "revisionId": "81000000-0000-4000-8000-000000000004",
+        "mutationId": "82000000-0000-4000-8000-000000000004",
+        "baseRevision": "81000000-0000-4000-8000-000000000003",
+        "kind": "attempt",
+        "payload": {
+          "planId": "r4-plan",
+          "date": "2026-11-11",
+          "contentId": "r4-reading-material",
+          "contentVersion": "synthetic-1",
+          "skill": "reading",
+          "answers": [
+            "a",
+            "wrong"
+          ],
+          "score": 1,
+          "correct": 1,
+          "total": 2,
+          "elapsedSeconds": 1200,
+          "firstAttempt": true,
+          "conditions": {
+            "timed": true,
+            "unseen": true,
+            "firstAttempt": true
+          },
+          "materialSource": "unofficial",
+          "sourceRef": "Synthetic fixture, not a real paper",
+          "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "scope": "section",
+          "coverage": {
+            "requestedWordIds": [
+              "w-1",
+              "w-2",
+              "w-3"
+            ],
+            "coveredWordIds": [
+              "w-1",
+              "w-3"
+            ],
+            "uncoveredWordIds": [
+              "w-2"
+            ],
+            "matcherVersion": "r4-exact-v1"
+          },
+          "questionResults": [
+            {
+              "questionId": "q1",
+              "correct": true,
+              "confidence": "sure",
+              "errorCause": null,
+              "reviewCorrect": true
+            },
+            {
+              "questionId": "q2",
+              "correct": false,
+              "confidence": "unsure",
+              "errorCause": "vocab-unknown",
+              "reviewCorrect": true
+            }
+          ],
+          "reviewAnswers": [
+            "a",
+            "b"
+          ]
+        }
+      },
+      "expectedContentHash": "6d38e09f4ea796f4f0d1595fff9c10fdf686da19a1e26aba2dfa98b2af400b2a"
+    },
+    {
+      "recordId": "r4-listening-attempt",
+      "request": {
+        "schemaVersion": 2,
+        "revisionId": "81000000-0000-4000-8000-000000000005",
+        "mutationId": "82000000-0000-4000-8000-000000000005",
+        "baseRevision": null,
+        "kind": "attempt",
+        "payload": {
+          "planId": "r4-plan",
+          "date": "2026-11-11",
+          "contentId": "r4-listening-material",
+          "contentVersion": "synthetic-1",
+          "skill": "listening",
+          "answers": [
+            "a",
+            "wrong"
+          ],
+          "score": 1,
+          "correct": 1,
+          "total": 2,
+          "elapsedSeconds": 1200,
+          "firstAttempt": true,
+          "conditions": {
+            "timed": true,
+            "unseen": true,
+            "firstAttempt": true
+          },
+          "materialSource": "cambridge",
+          "sourceRef": "Synthetic Cambridge-source contract example",
+          "contentHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "scope": "full",
+          "questionResults": [
+            {
+              "questionId": "q1",
+              "correct": true,
+              "confidence": "sure",
+              "errorCause": null
+            },
+            {
+              "questionId": "q2",
+              "correct": false,
+              "confidence": "unsure",
+              "errorCause": "vocab-unknown"
+            }
+          ]
+        }
+      },
+      "expectedContentHash": "47c1dab9a872c45638fc07b0f3d4887c9d732c304a5508467d2eff534ab34a04"
+    },
+    {
+      "recordId": "r4-drill-attempt",
+      "request": {
+        "schemaVersion": 2,
+        "revisionId": "81000000-0000-4000-8000-000000000006",
+        "mutationId": "82000000-0000-4000-8000-000000000006",
+        "baseRevision": null,
+        "kind": "attempt",
+        "payload": {
+          "planId": "r4-plan",
+          "date": "2026-11-11",
+          "contentId": "r4-drill-material",
+          "contentVersion": "synthetic-1",
+          "skill": "reading",
+          "answers": [
+            "a",
+            "wrong"
+          ],
+          "score": 1,
+          "correct": 1,
+          "total": 2,
+          "elapsedSeconds": 1200,
+          "firstAttempt": true,
+          "conditions": {
+            "timed": true,
+            "unseen": true,
+            "firstAttempt": true
+          },
+          "materialSource": "official",
+          "sourceRef": "Synthetic official-source contract example",
+          "contentHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "scope": "type-drill",
+          "coverage": {
+            "requestedWordIds": [
+              "w-1",
+              "w-2",
+              "w-3"
+            ],
+            "coveredWordIds": [
+              "w-1",
+              "w-3"
+            ],
+            "uncoveredWordIds": [
+              "w-2"
+            ],
+            "matcherVersion": "r4-exact-v1"
+          },
+          "questionResults": [
+            {
+              "questionId": "q1",
+              "correct": true,
+              "confidence": "sure",
+              "errorCause": null
+            },
+            {
+              "questionId": "q2",
+              "correct": false,
+              "confidence": "unsure",
+              "errorCause": "vocab-unknown"
+            }
+          ]
+        }
+      },
+      "expectedContentHash": "a15aaac3ea1ccb6c3c29e7847eb02b8619d2eda7312ab59aa5ec36fbd5acefe7"
+    },
+    {
+      "recordId": "r4-short-attempt",
+      "request": {
+        "schemaVersion": 2,
+        "revisionId": "81000000-0000-4000-8000-000000000007",
+        "mutationId": "82000000-0000-4000-8000-000000000007",
+        "baseRevision": null,
+        "kind": "attempt",
+        "payload": {
+          "planId": "r4-plan",
+          "date": "2026-11-11",
+          "contentId": "r4-short-material",
+          "contentVersion": "synthetic-1",
+          "skill": "listening",
+          "answers": [
+            "a",
+            "wrong"
+          ],
+          "score": 1,
+          "correct": 1,
+          "total": 2,
+          "elapsedSeconds": 1200,
+          "firstAttempt": true,
+          "conditions": {
+            "timed": true,
+            "unseen": true,
+            "firstAttempt": true
+          },
+          "materialSource": "publisher",
+          "sourceRef": "Synthetic publisher-source contract example",
+          "contentHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "scope": "short",
+          "questionResults": [
+            {
+              "questionId": "q1",
+              "correct": true,
+              "confidence": "sure",
+              "errorCause": null
+            },
+            {
+              "questionId": "q2",
+              "correct": false,
+              "confidence": "unsure",
+              "errorCause": "vocab-unknown"
+            }
+          ]
+        }
+      },
+      "expectedContentHash": "a1527d880e81f17d257812b8b9e20160422731db876cdffd4ac8960f71dc478f"
+    },
+    {
+      "recordId": "r4-disputed-attempt",
+      "request": {
+        "schemaVersion": 2,
+        "revisionId": "81000000-0000-4000-8000-000000000008",
+        "mutationId": "82000000-0000-4000-8000-000000000008",
+        "baseRevision": null,
+        "kind": "attempt",
+        "payload": {
+          "planId": "r4-plan",
+          "date": "2026-11-11",
+          "contentId": "r4-disputed-material",
+          "contentVersion": "synthetic-1",
+          "skill": "reading",
+          "answers": [
+            "a",
+            "wrong"
+          ],
+          "score": 1,
+          "correct": 1,
+          "total": 2,
+          "elapsedSeconds": 1200,
+          "firstAttempt": true,
+          "conditions": {
+            "timed": true,
+            "unseen": true,
+            "firstAttempt": true
+          },
+          "materialSource": "unofficial",
+          "sourceRef": "Synthetic fixture, not a real paper",
+          "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "scope": "section",
+          "coverage": {
+            "requestedWordIds": [
+              "w-1",
+              "w-2",
+              "w-3"
+            ],
+            "coveredWordIds": [
+              "w-1",
+              "w-3"
+            ],
+            "uncoveredWordIds": [
+              "w-2"
+            ],
+            "matcherVersion": "r4-exact-v1"
+          },
+          "questionResults": [
+            {
+              "questionId": "q1",
+              "correct": true,
+              "confidence": "sure",
+              "errorCause": null
+            },
+            {
+              "questionId": "q2",
+              "correct": false,
+              "confidence": "unsure",
+              "errorCause": null,
+              "answerDisputed": true,
+              "note": "Synthetic key conflicts with the quoted context."
+            }
+          ]
+        }
+      },
+      "expectedContentHash": "3f14a552df0fff486545e6b7d263195875bfbdd0771f697b5aca47765948c98c"
+    }
+  ],
+  "invalidCases": [
+    {
+      "recordId": "r4-reading-attempt",
+      "label": "materialSource enum",
+      "path": [
+        "materialSource"
+      ],
+      "error": "材料来源必须为",
+      "value": "automatic"
+    },
+    {
+      "recordId": "r4-reading-attempt",
+      "label": "materialSource object",
+      "path": [
+        "materialSource"
+      ],
+      "error": "材料来源必须为",
+      "value": {}
+    },
+    {
+      "recordId": "r4-reading-attempt",
+      "label": "sourceRef length",
+      "path": [
+        "sourceRef"
+      ],
+      "error": "学习文本",
+      "value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    {
+      "recordId": "r4-reading-attempt",
+      "label": "contentHash format",
+      "path": [
+        "contentHash"
+      ],
+      "error": "材料校验值无效",
+      "value": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    },
+    {
+      "recordId": "r4-reading-attempt",
+      "label": "scope enum",
+      "path": [
+        "scope"
+      ],
+      "error": "听读练习范围必须为",
+      "value": "passage"
+    },
+    {
+      "recordId": "r4-reading-attempt",
+      "label": "coverage object",
+      "path": [
+        "coverage"
+      ],
+      "error": "词汇覆盖格式无效",
+      "value": []
+    },
+    {
+      "recordId": "r4-reading-attempt",
+      "label": "coverage unknown key",
+      "path": [
+        "coverage",
+        "extra"
+      ],
+      "error": "词汇覆盖格式无效",
+      "value": true
+    },
+    {
+      "recordId": "r4-reading-attempt",
+      "label": "coverage requested limit",
+      "path": [
+        "coverage",
+        "requestedWordIds"
+      ],
+      "error": "词汇覆盖词条最多50个",
+      "value": [
+        "w-0",
+        "w-1",
+        "w-2",
+        "w-3",
+        "w-4",
+        "w-5",
+        "w-6",
+        "w-7",
+        "w-8",
+        "w-9",
+        "w-10",
+        "w-11",
+        "w-12",
+        "w-13",
+        "w-14",
+        "w-15",
+        "w-16",
+        "w-17",
+        "w-18",
+        "w-19",
+        "w-20",
+        "w-21",
+        "w-22",
+        "w-23",
+        "w-24",
+        "w-25",
+        "w-26",
+        "w-27",
+        "w-28",
+        "w-29",
+        "w-30",
+        "w-31",
+        "w-32",
+        "w-33",
+        "w-34",
+        "w-35",
+        "w-36",
+        "w-37",
+        "w-38",
+        "w-39",
+        "w-40",
+        "w-41",
+        "w-42",
+        "w-43",
+        "w-44",
+        "w-45",
+        "w-46",
+        "w-47",
+        "w-48",
+        "w-49",
+        "w-50"
+      ]
+    },
+    {
+      "recordId": "r4-reading-attempt",
+      "label": "coverage covered limit",
+      "path": [
+        "coverage",
+        "coveredWordIds"
+      ],
+      "error": "词汇覆盖词条最多50个",
+      "value": [
+        "w-0",
+        "w-1",
+        "w-2",
+        "w-3",
+        "w-4",
+        "w-5",
+        "w-6",
+        "w-7",
+        "w-8",
+        "w-9",
+        "w-10",
+        "w-11",
+        "w-12",
+        "w-13",
+        "w-14",
+        "w-15",
+        "w-16",
+        "w-17",
+        "w-18",
+        "w-19",
+        "w-20",
+        "w-21",
+        "w-22",
+        "w-23",
+        "w-24",
+        "w-25",
+        "w-26",
+        "w-27",
+        "w-28",
+        "w-29",
+        "w-30",
+        "w-31",
+        "w-32",
+        "w-33",
+        "w-34",
+        "w-35",
+        "w-36",
+        "w-37",
+        "w-38",
+        "w-39",
+        "w-40",
+        "w-41",
+        "w-42",
+        "w-43",
+        "w-44",
+        "w-45",
+        "w-46",
+        "w-47",
+        "w-48",
+        "w-49",
+        "w-50"
+      ]
+    },
+    {
+      "recordId": "r4-reading-attempt",
+      "label": "coverage uncovered limit",
+      "path": [
+        "coverage",
+        "uncoveredWordIds"
+      ],
+      "error": "词汇覆盖词条最多50个",
+      "value": [
+        "w-0",
+        "w-1",
+        "w-2",
+        "w-3",
+        "w-4",
+        "w-5",
+        "w-6",
+        "w-7",
+        "w-8",
+        "w-9",
+        "w-10",
+        "w-11",
+        "w-12",
+        "w-13",
+        "w-14",
+        "w-15",
+        "w-16",
+        "w-17",
+        "w-18",
+        "w-19",
+        "w-20",
+        "w-21",
+        "w-22",
+        "w-23",
+        "w-24",
+        "w-25",
+        "w-26",
+        "w-27",
+        "w-28",
+        "w-29",
+        "w-30",
+        "w-31",
+        "w-32",
+        "w-33",
+        "w-34",
+        "w-35",
+        "w-36",
+        "w-37",
+        "w-38",
+        "w-39",
+        "w-40",
+        "w-41",
+        "w-42",
+        "w-43",
+        "w-44",
+        "w-45",
+        "w-46",
+        "w-47",
+        "w-48",
+        "w-49",
+        "w-50"
+      ]
+    },
+    {
+      "recordId": "r4-reading-attempt",
+      "label": "coverage invalid id",
+      "path": [
+        "coverage",
+        "requestedWordIds"
+      ],
+      "error": "词汇覆盖词条标识无效",
+      "value": [
+        "space id"
+      ]
+    },
+    {
+      "recordId": "r4-reading-attempt",
+      "label": "coverage duplicate",
+      "path": [
+        "coverage",
+        "coveredWordIds"
+      ],
+      "error": "词汇覆盖词条不能重复",
+      "value": [
+        "w-1",
+        "w-1"
+      ]
+    },
+    {
+      "recordId": "r4-reading-attempt",
+      "label": "coverage overlap",
+      "path": [
+        "coverage",
+        "coveredWordIds"
+      ],
+      "error": "词汇覆盖分区必须完整",
+      "value": [
+        "w-1",
+        "w-2",
+        "w-3"
+      ]
+    },
+    {
+      "recordId": "r4-reading-attempt",
+      "label": "coverage missing requested id",
+      "path": [
+        "coverage",
+        "coveredWordIds"
+      ],
+      "error": "词汇覆盖分区必须完整",
+      "value": [
+        "w-1"
+      ]
+    },
+    {
+      "recordId": "r4-reading-attempt",
+      "label": "coverage missing field",
+      "path": [
+        "coverage",
+        "uncoveredWordIds"
+      ],
+      "error": "词汇覆盖格式无效",
+      "remove": true
+    },
+    {
+      "recordId": "r4-reading-attempt",
+      "label": "coverage matcher version",
+      "path": [
+        "coverage",
+        "matcherVersion"
+      ],
+      "error": "词汇覆盖匹配器版本无效",
+      "value": ""
+    },
+    {
+      "recordId": "r4-reading-attempt",
+      "label": "coverage matcher length",
+      "path": [
+        "coverage",
+        "matcherVersion"
+      ],
+      "error": "词汇覆盖匹配器版本无效",
+      "value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    {
+      "recordId": "r4-reading-attempt",
+      "label": "reviewAnswers format",
+      "path": [
+        "reviewAnswers"
+      ],
+      "error": "复盘作答格式不正确",
+      "value": [
+        {}
+      ]
+    },
+    {
+      "recordId": "r4-reading-attempt",
+      "label": "reviewAnswers boolean",
+      "path": [
+        "reviewAnswers"
+      ],
+      "error": "复盘作答格式不正确",
+      "value": [
+        true,
+        null
+      ]
+    },
+    {
+      "recordId": "r4-reading-attempt",
+      "label": "reviewAnswers length",
+      "path": [
+        "reviewAnswers"
+      ],
+      "error": "复盘答案数必须与首答一致",
+      "value": [
+        "a"
+      ]
+    },
+    {
+      "recordId": "r4-reading-attempt",
+      "label": "reviewCorrect boolean",
+      "path": [
+        "questionResults",
+        1,
+        "reviewCorrect"
+      ],
+      "error": "复盘正确状态必须为布尔值",
+      "value": "true"
+    },
+    {
+      "recordId": "r4-reading-attempt",
+      "label": "answerDisputed boolean",
+      "path": [
+        "questionResults",
+        1,
+        "answerDisputed"
+      ],
+      "error": "答案存疑状态必须为布尔值",
+      "value": "true"
+    },
+    {
+      "recordId": "r4-reading-attempt",
+      "label": "answerDisputed requires own note",
+      "path": [
+        "questionResults",
+        1,
+        "answerDisputed"
+      ],
+      "error": "答案存疑必须在本题填写说明",
+      "value": true
+    },
+    {
+      "recordId": "r4-disputed-attempt",
+      "label": "disputed note cannot be blank",
+      "path": [
+        "questionResults",
+        1,
+        "note"
+      ],
+      "error": "答案存疑必须在本题填写说明",
+      "value": "   "
+    },
+    {
+      "recordId": "r4-reading-attempt",
+      "label": "undisputed incorrect cannot omit cause",
+      "path": [
+        "questionResults",
+        1,
+        "errorCause"
+      ],
+      "error": "错因必须使用枚举编码",
+      "value": null
+    },
+    {
+      "recordId": "r4-disputed-attempt",
+      "label": "disputed correct cannot have error cause",
+      "path": [
+        "questionResults",
+        0,
+        "errorCause"
+      ],
+      "error": "错因必须使用枚举编码",
+      "value": "spelling"
+    }
+  ]
+}

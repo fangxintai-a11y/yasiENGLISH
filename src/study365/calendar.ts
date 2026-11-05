@@ -1,0 +1,46 @@
+const weekdays = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const;
+function checkDay(day: number) {
+  if (!Number.isInteger(day) || day < 1 || day > 365) throw new Error('计划日必须为1至365的整数。');
+}
+function startCivilDate(startDate: string, timeZone: string) {
+  try { new Intl.DateTimeFormat('en', { timeZone }); } catch { throw new Error('计划时区无效。'); }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate)) throw new Error('计划开始日期无效。');
+  const date = new Date(`${startDate}T00:00:00Z`);
+  if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== startDate) throw new Error('计划开始日期无效。');
+  if (date.getUTCDay() !== 1) throw new Error('计划开始日期必须是所选时区的周一。');
+  return date;
+}
+/** startDate is a civil date in timeZone, not an instant in the host timezone.
+ * UTC fields perform civil arithmetic without introducing DST-hour offsets. */
+export function dayDate(startDate: string, timeZone: string, day: number): string {
+  checkDay(day);
+  const date = startCivilDate(startDate, timeZone);
+  date.setUTCDate(date.getUTCDate() + day - 1);
+  return date.toISOString().slice(0, 10);
+}
+export function weekdayOf(startDate: string, timeZone: string, day: number) {
+  return weekdays[new Date(`${dayDate(startDate, timeZone, day)}T00:00:00Z`).getUTCDay()];
+}
+interface Rules {
+  calendar?: { dayOneWeekday: string; dayIndexing: string; requireMondayStart: boolean };
+  baseline: { trialDays: number[]; trialTemplate: string };
+  phases: { id: string; startDay: number; endDay: number; weekdayTemplate?: string }[];
+  weeklySchedule: { saturdayTemplate: string; sundayTemplate: string; phase4WeekdayOverrides: Record<string, string> };
+}
+/** Template selection only; no task creation, progress updates or date advancement. */
+export function templateFor(rules: Rules, day: number): string {
+  checkDay(day);
+  if (rules.calendar?.dayOneWeekday !== 'monday' || rules.calendar.dayIndexing !== 'plan-timezone-calendar-days' || !rules.calendar.requireMondayStart)
+    throw new Error('计划日历必须明确从周一开始并按计划时区计日。');
+  if (day === 1) return 'baseline-listening-reading';
+  if (day === 2) return 'baseline-writing';
+  if (day === 3) return 'baseline-speaking';
+  const weekday = weekdays[day % 7];
+  if (weekday === 'saturday') return rules.weeklySchedule.saturdayTemplate;
+  if (weekday === 'sunday') return rules.weeklySchedule.sundayTemplate;
+  if (rules.baseline.trialDays.includes(day)) return rules.baseline.trialTemplate;
+  const phase = rules.phases.find((value) => day >= value.startDay && day <= value.endDay);
+  if (phase?.id === 'phase4' && rules.weeklySchedule.phase4WeekdayOverrides[weekday]) return rules.weeklySchedule.phase4WeekdayOverrides[weekday];
+  if (!phase?.weekdayTemplate) throw new Error('当天没有对应的训练模板。');
+  return phase.weekdayTemplate;
+}

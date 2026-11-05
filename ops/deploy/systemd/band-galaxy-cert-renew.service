@@ -1,0 +1,8 @@
+[Unit]
+Description=Check the dedicated site certificate managed by Caddy ACME
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/caddy validate --config /etc/caddy/band-galaxy.Caddyfile --adapter caddyfile
+ExecStart=/usr/bin/python3 /srv/yasi/tools/check-certificate.py --host ibaz.cn --port 8443 --minimum-days 14 --reload-service band-galaxy-web.service

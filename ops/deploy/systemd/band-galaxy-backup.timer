@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily Band Galaxy SQLite backup at Shanghai 04:00
+
+[Timer]
+OnCalendar=*-*-* 04:00:00 Asia/Shanghai
+Persistent=true
+Unit=band-galaxy-backup.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,141 @@
+#!/usr/bin/env bash
+# Switch managed code links only. Never change shared proxy config or restore old data.
+set -Eeuo pipefail
+export PATH=/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+[[ $EUID -eq 0 ]] || { echo 'Run with sudo.' >&2; exit 1; }
+root=${BAND_DEPLOY_ROOT:?Set BAND_DEPLOY_ROOT}
+web_root=${BAND_DEPLOY_WEB_ROOT:?Set BAND_DEPLOY_WEB_ROOT}
+host=${BAND_DEPLOY_HOST:?Set BAND_DEPLOY_HOST}
+https_port=${BAND_DEPLOY_HTTPS_PORT:-8443}
+api_port=${BAND_DEPLOY_API_PORT:-5189}
+api_service=${BAND_DEPLOY_API_SERVICE:-band-galaxy.service}
+lock=${BAND_DEPLOY_LOCK:-$root/deploy.lock}
+env_file=${BAND_DEPLOY_ENV_FILE:-$root/server.env}
+database=${BAND_DEPLOY_DB:?Set BAND_DEPLOY_DB}
+backup_script=${BAND_DEPLOY_BACKUP_SCRIPT:?Set BAND_DEPLOY_BACKUP_SCRIPT}
+backup_dir=${BAND_DEPLOY_BACKUP_DIR:-$(dirname "$database")/backups}
+single_user=${BAND_DEPLOY_SINGLE_USER:-0}
+[[ $single_user == 0 || $single_user == 1 ]] || exit 2
+[[ $root == /* && $root != / && $web_root == /* && $web_root != / && $lock == /* && $env_file == /* && $database == /* && $backup_script == /* && $backup_dir == /* ]] || { echo 'Invalid deployment paths.' >&2; exit 2; }
+api_user=''
+run_db() {
+    if [[ $single_user == 1 ]]; then
+        [[ -n $api_user ]] || { echo 'API service user must be verified before database access.' >&2; return 1; }
+        runuser -u "$api_user" -- "$@"
+    else
+        "$@"
+    fi
+}
+resolve_api_user() {
+    [[ $single_user == 1 ]] || return 0
+    api_user=$(systemctl show --property=User --value "$api_service")
+    expected_api_user=${BAND_DEPLOY_API_USER:-fangxintai}
+    [[ $api_user =~ ^[a-z_][a-z0-9_-]*$ && $api_user != root && $api_user == "$expected_api_user" ]] || { echo 'Configured API User must match the expected non-root service account.' >&2; return 1; }
+    printf 'Single-owner database writer: %s\n' "$api_user"
+    runuser -u "$api_user" -- test -w "$(dirname "$database")"
+    if [[ -e $database ]]; then
+        runuser -u "$api_user" -- test -r "$database"
+        runuser -u "$api_user" -- test -w "$database"
+    fi
+}
+root=${root%/}; web_root=${web_root%/}
+[[ $host =~ ^[A-Za-z0-9][A-Za-z0-9.-]*$ && $https_port =~ ^[0-9]+$ && $api_port =~ ^[0-9]+$ ]] || { echo 'Invalid health-check configuration.' >&2; exit 2; }
+(( https_port >= 1024 && https_port <= 65535 && api_port >= 1024 && api_port <= 65535 )) || { echo 'Only dedicated ports >=1024 are allowed.' >&2; exit 2; }
+[[ $api_service =~ ^[A-Za-z0-9_.@:-]+\.service$ && $api_service != *nginx* ]] || { echo 'Pass the dedicated API service name.' >&2; exit 2; }
+[[ $# -eq 1 ]] || { echo 'Usage: yasi-rollback RELEASE_DIRECTORY' >&2; exit 2; }
+target=$1
+[[ $target == "$root/releases/${target##*/}" && ${target##*/} =~ ^[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8}$ && -f $target/index.html && ! -L $target ]] || { echo 'Pass a managed release path.' >&2; exit 1; }
+install -d -m 755 "$(dirname "$lock")"
+exec 9>"$lock"
+flock -n 9 || { echo 'Another deployment is running.' >&2; exit 1; }
+current="$web_root/current"
+previous=$(readlink -f "$current")
+[[ -L $current && -d $previous && $previous == "$root/releases/${previous##*/}" ]] || { echo 'Current release must be a managed symlink.' >&2; exit 1; }
+temp_link="$web_root/.rollback.$$.new"
+api_current="$root/api-current"
+api_previous=''
+api_target="$root/api-releases/${target##*/}"
+api_link="$root/.api-rollback.$$.new"
+api_was_active=0; api_switched=0
+if [[ -L $api_current ]]; then
+    api_previous=$(readlink -f "$api_current")
+    [[ $api_previous == "$root/api-releases/${api_previous##*/}" && ${api_previous##*/} =~ ^[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8}$ && -f $api_previous/app.py ]] || { echo 'Current API link is invalid.' >&2; exit 1; }
+    if systemctl is-active --quiet "$api_service"; then api_was_active=1; fi
+else
+    [[ ! -e $api_current ]] || { echo 'Current API path must be a managed symlink.' >&2; exit 1; }
+fi
+[[ ! -L $api_link && ! -L $temp_link ]] || { echo 'A temporary rollback link already exists.' >&2; exit 1; }
+resolve_api_user
+if [[ -f $api_target/app.py ]]; then
+    run_db python3 "$backup_script" --db "$database" --verify-api "$api_target" || { echo 'Rollback target is not verified for the current learning database.' >&2; exit 1; }
+fi
+if [[ -f $api_target/app.py || -n $api_previous ]]; then
+    unit=$(systemctl cat "$api_service")
+    [[ $unit == *"$api_current/app.py"* ]] || { echo 'The configured API service must already run api-current/app.py; no service file was changed.' >&2; exit 1; }
+fi
+# Always back up the live database before any rollback code or service change.
+run_db python3 "$backup_script" --db "$database" --directory "$backup_dir" --prefix predeploy
+restore() {
+    status=${1:-$?}
+    trap - ERR INT TERM
+    [[ ! -L $temp_link ]] || unlink "$temp_link"
+    ln -s "$previous" "$temp_link"
+    mv -Tf "$temp_link" "$current"
+    if (( api_switched )); then
+        [[ ! -L $api_link ]] || unlink "$api_link"
+        if [[ -n $api_previous ]]; then
+            ln -s "$api_previous" "$api_link"
+            mv -Tf "$api_link" "$api_current"
+        else
+            [[ ! -L $api_current ]] || unlink "$api_current"
+        fi
+        if (( api_was_active )) && run_db python3 "$backup_script" --db "$database" --verify-api "$api_previous"; then
+            systemctl restart "$api_service" || true
+        else
+            echo 'Previous API is not verified for the current database; its writes remain stopped. Database was not restored.' >&2
+            systemctl stop "$api_service" || true
+        fi
+    fi
+    [[ ! -L $temp_link ]] || unlink "$temp_link"
+    [[ ! -L $api_link ]] || unlink "$api_link"
+    exit "$status"
+}
+trap restore ERR
+trap 'restore 130' INT
+trap 'restore 143' TERM
+if [[ -f $api_target/app.py && ! -L $api_target ]]; then
+    [[ -r $env_file ]] || { echo 'Sync service configuration is missing.' >&2; restore 1; }
+    ln -s "$api_target" "$api_link"
+    api_switched=1
+    mv -Tf "$api_link" "$api_current"
+    systemctl restart "$api_service"
+    curl --fail --silent --show-error --retry 5 --retry-connrefused --retry-delay 1 --max-time 10 "http://127.0.0.1:$api_port/api/health" -o /dev/null
+elif [[ -n $api_previous ]]; then
+    api_switched=1
+    unlink "$api_current"
+    systemctl stop "$api_service"
+fi
+ln -s "$target" "$temp_link"
+mv -Tf "$temp_link" "$current"
+public_url="https://$host:$https_port"
+resolve="$host:$https_port:127.0.0.1"
+if [[ ${BAND_DEPLOY_SINGLE_USER:-0} == 1 ]]; then
+    site_checker=${BAND_DEPLOY_SITE_CHECK_SCRIPT:-$(dirname "$backup_script")/check-site.py}
+    audio_path=$(python3 - "$target/atlas/audio" <<'PY_AUDIO'
+import pathlib, sys
+root = pathlib.Path(sys.argv[1])
+file = next(iter(sorted(root.rglob('*.mp3'))), None)
+if not file:
+    raise ValueError('Shared atlas audio is missing')
+print('atlas/audio/' + file.relative_to(root).as_posix())
+PY_AUDIO
+)
+    run_db python3 "$site_checker" --db "$database" --host "$host" --port "$https_port" --audio "$audio_path"
+else
+curl --fail --silent --show-error --retry 5 --retry-connrefused --retry-delay 1 --max-time 30 --resolve "$resolve" "$public_url/" -o /dev/null
+if [[ -f $api_target/app.py ]]; then
+    curl --fail --silent --show-error --retry 3 --retry-connrefused --retry-delay 1 --max-time 10 --resolve "$resolve" "$public_url/api/health" -o /dev/null
+fi
+fi
+trap - ERR INT TERM
+printf 'Live release: %s\n' "$target"
