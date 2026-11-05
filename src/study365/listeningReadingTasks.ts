@@ -10,6 +10,7 @@ import { latestAssessment, scoreView } from "./scoresModel";
 import { materialQualifiedRecords } from "./materialSource";
 import type { Revision } from "./protocol";
 export interface PracticeContext {
+  mode?: "course" | "practice";
   date: string;
   day: number;
   taskId: string;
@@ -20,7 +21,7 @@ export interface PracticeContext {
 export function resolvePracticeContext(
   plan: Revision,
   records: readonly Revision[],
-  route: { date?: string; day?: number; task?: string },
+  route: { date?: string; day?: number; task?: string; mode?: "practice"; correctionId?: string; retestOf?: string },
   skill: "listening" | "reading",
   now = Date.now(),
 ): PracticeContext {
@@ -37,6 +38,12 @@ export function resolvePracticeContext(
     selectLatestBaseline(materialQualifiedRecords(records, plan.id), plan.id),
     { scores },
   );
+  if (route.mode === "practice" || (!route.task && route.day === undefined && !route.correctionId && !route.retestOf))
+    return {
+      mode: "practice", date, day: dayPlan.day,
+      taskId: `practice-${skill}-${date}`,
+      plannedMinutes: 20, block: null, requiresFull: false,
+    };
   if (route.day !== undefined && route.day !== dayPlan.day)
     throw new Error("任务日期与计划日不一致，请从今日任务重新进入。");
   const selected = route.task
@@ -53,6 +60,7 @@ export function resolvePracticeContext(
     throw new Error("这不是当天的听读任务，请从今日任务重新进入。");
   if (!selected)
     return {
+      mode: "course",
       date,
       day: dayPlan.day,
       taskId: "",
@@ -66,6 +74,7 @@ export function resolvePracticeContext(
     mission?.payload.plannedMinutes ?? selected.minutes,
   );
   return {
+    mode: "course",
     date,
     day: dayPlan.day,
     taskId,

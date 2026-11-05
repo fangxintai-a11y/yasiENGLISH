@@ -38,6 +38,18 @@ const canonical = (value) =>
       : (JSON.stringify(value) ?? "null");
 const materialKey = (material) =>
   `${material.id}@${material.version}@${material.contentHash}`;
+const courseRoute = (skill, day, material) =>
+  `${skill}?${new URLSearchParams({
+    date: new Date(Date.UTC(2026, 10, day + 8)).toISOString().slice(0, 10),
+    day: String(day),
+    task: `d${day}-${skill}`,
+    ...(material ? { material: materialKey(material) } : {}),
+  })}`;
+async function revealMaterialPicker(area) {
+  const details = area.locator("details.r4-material-options");
+  if (!(await details.evaluate((element) => element.open)))
+    await click(area.getByText("查看或更换材料（可选）", { exact: true }));
+}
 async function freePort() {
   return new Promise((resolve, reject) => {
     const server = createServer();
@@ -499,14 +511,11 @@ export async function runR5CorrectionCalibrationE2E() {
     );
   };
   const choose = async (page, day, skill, id) => {
-    await navigate(page, "today");
-    await click(
-      page
-        .locator(`[data-task-id="d${day}-${skill}"]`)
-        .getByText("开始练习", { exact: true }),
-    );
+    const original = materials.find((item) => item.id === id);
+    await navigate(page, courseRoute(skill, day, original));
     const area = bench(page, skill);
     await area.waitFor();
+    await revealMaterialPicker(area);
     await area
       .getByLabel("练习材料", { exact: true })
       .selectOption(materialKey(materials.find((item) => item.id === id)));
@@ -606,6 +615,17 @@ export async function runR5CorrectionCalibrationE2E() {
                     "Cache-Control": "no-store",
                   })
                   .end(JSON.stringify({ materials: [] }));
+                return;
+              }
+              // The unified planner also requests writing/speaking inventory;
+              // only the prompt file imported through Me may supply real fixtures.
+              if (pathname === "/local-bank/prompts.json") {
+                response
+                  .writeHead(200, {
+                    "Content-Type": "application/json",
+                    "Cache-Control": "no-store",
+                  })
+                  .end(JSON.stringify({ importVersion: 1, prompts: [] }));
                 return;
               }
               const wav = wavs.find(
@@ -811,12 +831,7 @@ export async function runR5CorrectionCalibrationE2E() {
       "真实UI首次设置、计划、非空正式成绩、8份听读ZIP及2份写作题导入",
     );
     phase = "Friday original writing paragraph and exact self-feedback";
-    await navigate(desktop, "today");
-    await click(
-      desktop
-        .locator('[data-task-id="d5-writing"]')
-        .getByText("开始写作", { exact: true }),
-    );
+    await navigate(desktop, courseRoute("writing", 5));
     const writing = desktop.getByRole("region", {
       name: "写作工作台",
       exact: true,
@@ -824,6 +839,7 @@ export async function runR5CorrectionCalibrationE2E() {
     await writing
       .getByLabel("练习类型", { exact: true })
       .selectOption("paragraph");
+    await click(writing.getByText("查看/更换写作材料", { exact: true }));
     await writing
       .getByLabel("本机写作题库", { exact: true })
       .selectOption(materialKey(prompts[0]));
@@ -859,6 +875,7 @@ export async function runR5CorrectionCalibrationE2E() {
     );
     await choose(desktop, 5, "reading", originalMaterial.id);
     await warm(desktop);
+    await revealMaterialPicker(bench(desktop, "reading"));
     await bench(desktop, "reading")
       .getByLabel("练习材料", { exact: true })
       .selectOption(materialKey(originalMaterial));
@@ -1367,14 +1384,10 @@ export async function runR5CorrectionCalibrationE2E() {
     );
     phase = "Monday ordinary reading preference changes selection only";
     await newDay(desktop, 16);
-    await navigate(desktop, "today");
-    await click(
-      desktop
-        .locator('[data-task-id="d8-reading"]')
-        .getByText("开始练习", { exact: true }),
-    );
+    await navigate(desktop, courseRoute("reading", 8));
     const normalReading = bench(desktop, "reading");
     await normalReading.waitFor();
+    await revealMaterialPicker(normalReading);
     await eventually(async () => {
       const value = await normalReading
         .getByLabel("练习材料", { exact: true })
@@ -1485,14 +1498,10 @@ export async function runR5CorrectionCalibrationE2E() {
     checks.push("周一只调整选材顺序；隔自然日新题复测要求真实A-B，6项最终通过");
     phase =
       "four-section real-media sequence and one full forty-question attempt";
-    await navigate(desktop, "today");
-    await click(
-      desktop
-        .locator('[data-task-id="d8-listening"]')
-        .getByText("开始练习", { exact: true }),
-    );
+    await navigate(desktop, courseRoute("listening", 8));
     const listening = bench(desktop, "listening");
     await listening.waitFor();
+    await revealMaterialPicker(listening);
     const sequenceSelect = listening.getByLabel("练习材料", { exact: true });
     await eventually(
       async () =>
@@ -1883,6 +1892,7 @@ export async function runR5CorrectionCalibrationE2E() {
       .sort((a, b) => a.id.localeCompare(b.id));
     await navigate(desktop, "reading?date=2026-11-16&day=8&task=d8-reading");
     const normalAfterExtra = bench(desktop, "reading");
+    await revealMaterialPicker(normalAfterExtra);
     const normalExtraSelect = normalAfterExtra.getByLabel("练习材料", {
       exact: true,
     });
@@ -1919,6 +1929,7 @@ export async function runR5CorrectionCalibrationE2E() {
       await desktop.reload({ waitUntil: "networkidle" });
       const guarded = bench(desktop, "reading");
       await guarded.waitFor();
+      await revealMaterialPicker(guarded);
       await eventually(
         async () =>
           (
@@ -1985,6 +1996,7 @@ export async function runR5CorrectionCalibrationE2E() {
       fixtureGets.every(
         (value) =>
           value === "/local-bank/manifest.json" ||
+          value === "/local-bank/prompts.json" ||
           wavs.some((wav) => value === `/local-bank/${wav.path}`),
       ),
       `unexpected local material access ${JSON.stringify(fixtureGets)}`,

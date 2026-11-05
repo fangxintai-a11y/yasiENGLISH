@@ -81,13 +81,13 @@ export function Today() {
   const skillDue = byTrack("l") + byTrack("p") + plan.unlock.length;
 
   const start = (opts?: { reviewOnly?: boolean; extra?: number; ids?: string[]; label?: string }) => {
-    if (!budget.ready || budget.managed && budget.minutes === 0 && opts?.extra) return;
+    if (!budget.ready) return;
     if (!active) {
       const s = buildSession(atlas, progress, settings, {
         extraNew: opts?.extra,
         reviewOnly: opts?.reviewOnly,
         ids: opts?.ids,
-        label: opts?.label,
+        label: opts?.label ?? (budget.managed && budget.minutes === 0 ? "自主词汇加练" : undefined),
       });
       if (!s.steps.length) return;
       store.progress((p) => ({ ...p, session: s }));
@@ -107,7 +107,7 @@ export function Today() {
   const mastered = masteredCount(progress);
   const teaser = (active ? active.newIds : plan.fresh).slice(0, 5).map((id) => atlas.byId.get(id)!).filter(Boolean);
   const evening = now.getHours() >= 19;
-  const extraDisabled = !budget.ready || !extraValid || plan.plan.phase === "sprint" || budget.managed && budget.minutes === 0;
+  const extraDisabled = !budget.ready || !extraValid || plan.plan.phase === "sprint";
 
   return (
     <div className="page today">
@@ -125,7 +125,7 @@ export function Today() {
       <OfflineNudge />
 
       {budget.managed && <p className="muted" role="status">{budget.minutes === 0
-        ? "今天不安排词汇；到期复习仍可做，不计入120分钟。已开始的轮次可以继续。"
+        ? "今天课程没有词汇任务；仍可自主背词，记忆进度正常保存，不计入今日课程完成度。"
         : `今日词汇预算 ${budget.minutes} 分钟，新预算从下一轮开始。`}</p>}
 
       <section className={`journey ${total === 0 && !active ? "is-clear" : ""}`}>
@@ -171,13 +171,13 @@ export function Today() {
           ) : (
             <>
               <p className="eyebrow eyebrow-light">词汇旅程</p>
-              <h2>{budget.managed && budget.minutes === 0 ? "今天不安排词汇" : "今天的词汇练习已完成。"}</h2>
+              <h2>{budget.managed && budget.minutes === 0 ? "自主词汇加练" : "今天的词汇练习已完成。"}</h2>
               <p className="journey-lede">{budget.managed && budget.minutes === 0
                 ? budget.state === "before"
-                  ? `计划将于 ${String(budget.startDate)} 开始。现在可以先从“四科练习入口”浏览材料。`
+                  ? `课程原定 ${String(budget.startDate)} 开始；你现在也可以自主背词，或在上方选择从今天开始课程。`
                   : budget.state === "after"
                     ? "365天计划已结束，可以复习到期词或查看四科练习与学习记录。"
-                    : "今天没有词汇任务，请查看上方的今日任务；也可以从四科练习入口继续。"
+                    : "优先完成上方今日任务；想背词时，可在下方自选数量加练。"
                 : "到期复习已完成。想继续学，可以自己选择本次加练的新词数量。"}</p>
             </>
           )}
@@ -205,7 +205,7 @@ export function Today() {
           <div className="journey-actions">
             {active || total > 0 ? (
               <button className="btn btn-primary btn-xl" onClick={() => start()} disabled={!budget.ready}>
-                {active ? "继续旅程" : "开始今天的旅程"}{budget.managed && ` · ${budget.minutes} 分钟词汇`} <ArrowRight size={20} />
+                {active ? "继续旅程" : budget.managed && budget.minutes === 0 ? "自主词汇练习" : "开始今天的旅程"}{budget.managed && budget.minutes > 0 && ` · ${budget.minutes} 分钟词汇`} <ArrowRight size={20} />
               </button>
             ) : (
               <button className="btn btn-primary btn-xl" onClick={() => start({ extra: extraAmount })} disabled={extraDisabled}>

@@ -55,3 +55,25 @@ test("an unofficial baseline cannot give the reading route a different phase or 
   const context = resolvePracticeContext(plan, records, { date, day: 92, task: `d92-${block.id}` }, "reading");
   assert.equal(context.plannedMinutes, block.minutes);
 });
+
+for (const skill of ["listening", "reading"] as const) {
+  for (const [date, expectedDay] of [["2026-11-05", 0], ["2026-11-10", 2], ["2027-11-09", 366]] as const) {
+    test(`${skill}: generic entry is independent on ${date}, without a course mission`, () => {
+      const context = resolvePracticeContext(plan, [], { date }, skill);
+      assert.equal(context.mode, "practice");
+      assert.equal(context.date, date);
+      assert.equal(context.day, expectedDay);
+      assert.equal(context.block, null);
+      assert.equal(context.taskId, `practice-${skill}-${date}`);
+      assert.equal(context.requiresFull, false);
+    });
+  }
+  test(`${skill}: explicit independent mode cannot complete an attached course task`, () => {
+    const context = resolvePracticeContext(plan, [], { date: "2026-11-09", mode: "practice", task: "d1-baseline-listening" }, skill);
+    assert.equal(context.mode, "practice");
+    assert.equal(context.block, null);
+  });
+}
+test("explicit course dates still reject a mismatched day rather than silently becoming practice", () => {
+  assert.throws(() => resolvePracticeContext(plan, [], { date: "2026-11-09", day: 2 }, "reading"), /不一致/);
+});

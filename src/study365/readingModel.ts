@@ -218,7 +218,7 @@ export function isFirstMaterialAttempt(
 export interface AttemptContext {
   planId: string;
   date: string;
-  day: number;
+  day?: number;
   taskId?: string;
 }
 export function attemptPayload(

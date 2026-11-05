@@ -22,8 +22,12 @@ test("calendar day six is the Saturday listening-reading template", () => {
 test("calendar day seven is Sunday calibration", () => {
   assert.equal(templateFor(standard, 7), "sunday-writing-speaking-calibration");
 });
-test("a Monday calendar declaration is mandatory", () => {
+test("a training-day cycle calendar declaration is mandatory", () => {
   rejectedAt((rules) => { delete rules.calendar; }, "calendar");
+});
+test("an arbitrary start still requires an explicit seven-training-day cycle", () => {
+  rejectedAt((rules) => { delete rules.calendar.weeklyCycle; }, "calendar");
+  rejectedAt((rules) => { rules.calendar.requireMondayStart = true; }, "calendar");
 });
 test("adding the obsolete minimumSection is rejected at goal.minimumSection", () => {
   rejectedAt((rules) => { rules.goal.minimumSection = 6.5; }, "goal.minimumSection");

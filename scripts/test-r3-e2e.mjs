@@ -265,7 +265,14 @@ export async function runR3SpeakingE2E() {
     const setup = desktop.getByRole("region", { name: "开启 8.0 计划", exact: true }); await setup.waitFor();
     await setup.getByLabel("开始日期", { exact: true }).fill("2026-11-09"); await setup.getByRole("button", { name: "开启 8.0 计划", exact: true }).click();
     const task = desktop.locator('[data-task-id="d4-speaking"]'); await task.waitFor(); evidence.uiPlanActivated = true;
-    await task.getByText("开始口语", { exact: true }).waitFor({ timeout: 6000 }); await task.getByText("开始口语", { exact: true }).click();
+    const startSpeaking = task.getByText("开始本节口语", { exact: true });
+    if (await startSpeaking.isVisible()) await startSpeaking.click();
+    else {
+      // This isolated production fixture has no prepared private bank. Keep
+      // the real course context while exercising the retained sample editor.
+      assert.match(await task.innerText(), /缺|材料/);
+      await navigate(desktop, "speaking?date=2026-11-12&day=4&task=d4-speaking");
+    }
     await workbench(desktop).waitFor(); assert.ok(new URL(desktop.url()).hash.startsWith("#/speaking"));
     assert.equal(await desktop.evaluate(() => !window.SpeechRecognition && !window.webkitSpeechRecognition), true);
     checks.push("从今日口语块进入，浏览器语音识别置空仍可使用工作台");
@@ -276,6 +283,8 @@ export async function runR3SpeakingE2E() {
     assert.equal(await desktop.evaluate(() => fetch("/api/health", { cache: "no-store" }).then(() => true, () => false)), false); evidence.offlineApiUnavailable = true;
     for (const part of [1, 2, 3]) {
       await workbench(desktop).getByLabel("口语部分", { exact: true }).selectOption(String(part));
+      const sampleQuestion = workbench(desktop).getByLabel("本组题目", { exact: true });
+      if (await sampleQuestion.isVisible()) await sampleQuestion.selectOption("0");
       if (part === 1) assert.match(await editor(desktop).innerText(), /20\s*[–—-]\s*30\s*秒/);
       await saveCaptured(part, transcripts[part], part === 2);
     }

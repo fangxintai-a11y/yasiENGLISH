@@ -26,7 +26,8 @@ export function PromptPicker({
   );
   const label = skill === "writing" ? "本机写作题库" : "本机口语题库";
   return (
-    <div style={{ minWidth: 0, maxWidth: "100%" }}>
+    <details style={{ minWidth: 0, maxWidth: "100%" }}>
+      <summary>查看/更换{skill === "writing" ? "写作" : "口语"}材料</summary>
       <label
         style={{
           display: "block",
@@ -69,9 +70,9 @@ export function PromptPicker({
         </select>
       </label>
       <p className="muted">
-        在“我的”导入本机写说题库后选题；开始作答后保留当前题目。
+        当前题目由平台安排。需要调整时可在此更换，开始作答后保留当前题目。
       </p>
-    </div>
+    </details>
   );
 }
 export function PromptStimulus({ prompt }: { prompt?: LocalPrompt }) {

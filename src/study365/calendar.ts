@@ -7,7 +7,6 @@ function startCivilDate(startDate: string, timeZone: string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate)) throw new Error('计划开始日期无效。');
   const date = new Date(`${startDate}T00:00:00Z`);
   if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== startDate) throw new Error('计划开始日期无效。');
-  if (date.getUTCDay() !== 1) throw new Error('计划开始日期必须是所选时区的周一。');
   return date;
 }
 /** startDate is a civil date in timeZone, not an instant in the host timezone.
@@ -22,16 +21,20 @@ export function weekdayOf(startDate: string, timeZone: string, day: number) {
   return weekdays[new Date(`${dayDate(startDate, timeZone, day)}T00:00:00Z`).getUTCDay()];
 }
 interface Rules {
-  calendar?: { dayOneWeekday: string; dayIndexing: string; requireMondayStart: boolean };
+  calendar?: { dayOneWeekday: string; dayIndexing: string; requireMondayStart: boolean; weeklyCycle?: string };
   baseline: { trialDays: number[]; trialTemplate: string };
   phases: { id: string; startDay: number; endDay: number; weekdayTemplate?: string }[];
   weeklySchedule: { saturdayTemplate: string; sundayTemplate: string; phase4WeekdayOverrides: Record<string, string> };
 }
-/** Template selection only; no task creation, progress updates or date advancement. */
+/** Day 1 begins a seven-training-day cycle, independently of the real weekday.
+ * Keep the legacy Monday declaration readable; its training sequence is identical. */
 export function templateFor(rules: Rules, day: number): string {
   checkDay(day);
-  if (rules.calendar?.dayOneWeekday !== 'monday' || rules.calendar.dayIndexing !== 'plan-timezone-calendar-days' || !rules.calendar.requireMondayStart)
-    throw new Error('计划日历必须明确从周一开始并按计划时区计日。');
+  const calendar = rules.calendar;
+  const legacyMonday = calendar?.dayOneWeekday === 'monday' && calendar.requireMondayStart === true;
+  const flexibleStart = calendar?.dayOneWeekday === 'any' && calendar.requireMondayStart === false && calendar.weeklyCycle === 'seven-plan-days';
+  if (calendar?.dayIndexing !== 'plan-timezone-calendar-days' || !(legacyMonday || flexibleStart))
+    throw new Error('计划日历须按计划时区计日，并明确七个训练日的周期。');
   if (day === 1) return 'baseline-listening-reading';
   if (day === 2) return 'baseline-writing';
   if (day === 3) return 'baseline-speaking';

@@ -1,5 +1,5 @@
 import type { Route } from "../lib/router";
-import { useActivePlan } from "../study365/useActivePlan";
+import { usePracticePlan } from "../study365/usePracticePlan";
 import { resolvePracticeContext } from "../study365/listeningReadingTasks";
 import { ReadingSession } from "../study365/ui/reading/ReadingSession";
 import "../styles/reading.css";
@@ -8,7 +8,7 @@ export function Reading({
 }: {
   route: Extract<Route, { page: "reading" }>;
 }) {
-  const { learning, plan, error } = useActivePlan();
+  const { learning, plan, error, creating } = usePracticePlan();
   if (!learning.ready)
     return (
       <div className="page">
@@ -20,7 +20,7 @@ export function Reading({
       <div className="page">
         <section className="panel">
           <h1>阅读练习</h1>
-          <p>请先开启365天计划。</p>
+          <p>{creating ? "正在准备随时可学的阅读练习…" : error ?? "正在准备学习记录…"}</p>
           <a href="#/">前往今日</a>
         </section>
       </div>
@@ -40,7 +40,7 @@ export function Reading({
     );
     return (
       <ReadingSession
-        key={`${learning.userId ?? "guest"}:${plan.id}:${context.date}:${context.taskId}:${route.work ?? "new"}:${route.material ?? ""}`}
+        key={`${learning.userId ?? "guest"}:${plan.id}:${context.mode}:${context.date}:${context.taskId}:${route.work ?? "new"}:${route.material ?? ""}`}
         plan={plan}
         context={context}
         userId={learning.userId}

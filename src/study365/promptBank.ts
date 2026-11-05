@@ -190,11 +190,25 @@ async function limitedText(response: Response): Promise<string> {
     reader.releaseLock();
   }
 }
-export async function loadPromptBank(
+const pendingLoads = new Map<string, Promise<LocalPrompt[]>>();
+export function loadPromptBank(userId: string | null): Promise<LocalPrompt[]> {
+  const scope = scopeFor(userId),
+    existing = pendingLoads.get(scope);
+  if (existing) return existing;
+  const pending = readPreparedPromptBank(userId).finally(() => {
+    if (pendingLoads.get(scope) === pending) pendingLoads.delete(scope);
+  });
+  pendingLoads.set(scope, pending);
+  return pending;
+}
+async function readPreparedPromptBank(
   userId: string | null,
 ): Promise<LocalPrompt[]> {
   const issues: string[] = [];
   let local: LocalPrompt[] = [];
+  let prepared = false;
+  const unavailable =
+    "平台写说材料尚未就绪，当前没有可自动安排的题目；不会用生成题或旧题补齐。";
   try {
     const parsed = await parsePromptBank({
       importVersion: 1,
@@ -207,8 +221,42 @@ export async function loadPromptBank(
       error instanceof Error ? error.message : "本机写说题库未能读取。",
     );
   }
+  if (typeof navigator === "undefined" || navigator.onLine) {
+    for (const url of userId
+      ? ["/local-bank/prompts.json", "/private/prompts.json"]
+      : ["/local-bank/prompts.json"]) {
+      try {
+        const response = await fetch(url, {
+          credentials: "same-origin",
+          cache: "no-store",
+          signal: AbortSignal.timeout(10000),
+        });
+        if (!response.ok) continue;
+        const result = await importPromptBank(
+          userId,
+          JSON.parse(await limitedText(response)),
+        );
+        const saved = await parsePromptBank({
+          importVersion: 1,
+          prompts: (await stored(userId)).map((row) => row.prompt),
+        });
+        local = saved.prompts;
+        issues.push(...result.issues, ...saved.issues);
+        prepared = true;
+        break;
+      } catch {
+        /* A usable local original remains available if the prepared directory is absent. */
+      }
+    }
+    if (!prepared && !local.length) issues.push(unavailable);
+  }
   issueCache.set(scopeFor(userId), [
-    ...new Set([...(issueCache.get(scopeFor(userId)) ?? []), ...issues]),
+    ...new Set([
+      ...(issueCache.get(scopeFor(userId)) ?? []).filter(
+        (issue) => !prepared || issue !== unavailable,
+      ),
+      ...issues,
+    ]),
   ]);
   return local;
 }

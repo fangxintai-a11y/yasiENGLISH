@@ -1,14 +1,14 @@
 import type { Route } from "../lib/router";
 import { resolveSpeakingContext } from "../study365/speakingTasks";
-import { useActivePlan } from "../study365/useActivePlan";
+import { usePracticePlan } from "../study365/usePracticePlan";
 import { SpeakingSession } from "../study365/ui/speaking/SpeakingSession";
 export function Speaking({
   route,
 }: {
   route: Extract<Route, { page: "speaking" }>;
 }) {
-  const { learning, plan, error } = useActivePlan();
-  if (!learning.ready)
+  const { learning, plan, error, creating } = usePracticePlan();
+  if (!learning.ready || creating)
     return (
       <div className="page">
         <p>正在读取口语任务…</p>

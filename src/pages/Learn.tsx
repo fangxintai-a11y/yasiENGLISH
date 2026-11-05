@@ -88,7 +88,7 @@ function Runner({ session, budgetMinutes }: { session: ActiveSession; budgetMinu
         </span>
         <AmbiencePicker />
       </header>
-      <p className="muted small" style={{ textAlign: "center" }}>{budgetMinutes === 0 ? "今天不安排词汇；到期复习不计入120分钟。" : `今日词汇预算 ${budgetMinutes} 分钟`}</p>
+      <p className="muted small" style={{ textAlign: "center" }}>{budgetMinutes === 0 ? "自主词汇练习：记忆进度正常保存，不计入今日课程完成度。" : `今日词汇预算 ${budgetMinutes} 分钟`}</p>
       <main className="learn-stage" key={`${session.id}-${session.index}`}>
         {step.kind === "intro" ? <Intro step={step} /> : <Quiz step={(step.kind === "listen" ? { ...step, kind: "meaning" } : step) as Step & { kind: QuizKind }} session={session} />}
       </main>

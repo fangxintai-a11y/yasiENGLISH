@@ -70,7 +70,7 @@ export async function saveSpeakingAttempt(
       return {
         save: (input) => {
           check();
-          return repository.saveRecord(input);
+          return repository.saveRecord(input, options.expectedUserId);
         },
         saveRecording: (id, blob) => {
           check();

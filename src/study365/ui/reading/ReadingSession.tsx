@@ -1,5 +1,4 @@
 import {
-  withListeningSequences,
   isListeningSequenceMaterial,
   LISTENING_SEQUENCE_REPLAY_EVENT,
 } from "../../listeningSequence";
@@ -21,7 +20,6 @@ import { correctionOriginal } from "../../correctionModel";
 import { withRevisionReferences } from "../../revisionReferences";
 import {
   ListeningReadingPlan,
-  practiceSelection,
   readingDailyRequirements,
   MATERIAL_SOURCE_LABELS,
   PRACTICE_SCOPE_LABELS,
@@ -40,7 +38,8 @@ import {
   clearPracticeDraft,
 } from "../../practiceDraft";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { loadLocalBank } from "../../localBank";
+import { useDailyMaterialLibrary } from "../../useDailyMaterialLibrary";
+import { automaticMaterialForTask, selectIndependentListeningReading, wasListeningReadingAttempted } from "../../dailyMaterialPlan";
 import type { LocalMaterial } from "../../localBankSchema";
 import { useLearning, getLearningState, saveRecord } from "../../repository";
 import { selectMission, saveMission } from "../../missionRecords";
@@ -54,6 +53,7 @@ import {
   readingCoverage,
   readingCoverageLabel,
 } from "../../readingModel";
+import { go } from "../../../lib/router";
 import type { PracticeContext } from "../../listeningReadingTasks";
 import type { Revision } from "../../protocol";
 import { ReadingQuestions } from "./ReadingQuestions";
@@ -93,11 +93,12 @@ export function ReadingSession({
 }) {
   const learning = useLearning();
   const atlas = useAtlas();
-  const [bank, setBank] = useState<LocalMaterial[]>([]),
-    [loaded, setLoaded] = useState(false),
-    [error, setError] = useState(""),
+  const library = useDailyMaterialLibrary(userId, plan.id);
+  const { bank, ready: loaded } = library;
+  const [error, setError] = useState(""),
     [message, setMessage] = useState("");
   const [holdout, setHoldout] = useState(false);
+  const [ignoreLocalResume, setIgnoreLocalResume] = useState(false);
   const [chosen, setChosen] = useState(initialMaterialId ?? ""),
     [answers, setAnswers] = useState<string[]>([]),
     [started, setStarted] = useState<number | null>(null),
@@ -132,28 +133,6 @@ export function ReadingSession({
     };
   }, []);
   useEffect(() => {
-    let live = true;
-    void loadLocalBank(userId)
-      .then(withListeningSequences)
-      .then(
-        (materials) => {
-          if (live) {
-            setBank(materials);
-            setLoaded(true);
-          }
-        },
-        (e) => {
-          if (live) {
-            setError(String(e));
-            setLoaded(true);
-          }
-        },
-      );
-    return () => {
-      live = false;
-    };
-  }, [userId]);
-  useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, []);
@@ -163,12 +142,6 @@ export function ReadingSession({
           record.id === activeWorkId && record.payload.skill === skill,
       ) ?? null)
     : null;
-  const materials = bank.filter(
-    (m) =>
-      m.skill === skill &&
-      ((holdout ? m.pool === "holdout" : !isHeldOutListeningReading(m, bank)) ||
-        m.id === work?.payload.contentId),
-  );
   const materialKey = (m: LocalMaterial) =>
     `${m.id}@${m.version}@${m.contentHash}`;
   const preferences = useMemo(
@@ -180,37 +153,34 @@ export function ReadingSession({
       ),
     [learning.records, plan, context.date, context.day],
   );
-  const selection = useMemo(
-    () =>
-      practiceSelection(
-        bank,
-        learning.records,
-        plan.id,
-        context.day,
-        context.date,
-        skill,
-        context.requiresFull,
-        preferences,
-      ),
-    [
-      bank,
-      learning.records,
-      plan.id,
-      context.day,
-      context.date,
-      skill,
-      context.requiresFull,
-      preferences,
-    ],
-  );
-  const preferred = holdout
-    ? (materials.find(
-        (m) =>
-          m.pool === "holdout" &&
-          (!context.requiresFull ||
-            (m.scope === "full" && m.questions.length === 40)),
-      ) ?? null)
-    : selection.preferred;
+  const automatic = useMemo(() => {
+    if (!loaded || !context.block || workflow?.retestOf) return null;
+    return automaticMaterialForTask({ plan, records: learning.records, bank,
+      prompts: library.prompts, localWorks: library.localWorks,
+      localMaterials: library.localMaterials }, { day: context.day, taskId: context.taskId });
+  }, [loaded, plan, learning.records, bank, library.prompts, library.localWorks, library.localMaterials,
+    context.block, context.day, context.taskId, workflow?.retestOf]);
+  const independent = useMemo(() => context.mode === "practice"
+    ? selectIndependentListeningReading({ skill, bank, records: learning.records,
+        preferredQuestionTypes: preferences.questionTypes[skill] }) : null,
+    [context.mode, skill, bank, learning.records, preferences]);
+  const plannedRef = automatic?.materials.find(ref => !ref.completed) ?? automatic?.materials[0];
+  const plannedMaterial = plannedRef ? bank.find(m => m.id === plannedRef.id &&
+    m.version === plannedRef.version && m.contentHash === plannedRef.contentHash) ?? null : null;
+  const localRef = context.mode === "practice" && !ignoreLocalResume ? library.localMaterials.find(ref =>
+    ref.date === context.date && ref.taskId === context.taskId && (!ref.skill || ref.skill === skill)) : null;
+  const restoredMaterial = localRef ? bank.find(m => m.skill === skill && m.contentHash === localRef.contentHash &&
+    (!localRef.id || m.id === localRef.id) && (!localRef.version || m.version === localRef.version)) ?? null : null;
+  const materials = bank.filter(m => m.skill === skill &&
+    ((holdout ? m.pool === "holdout" : !isHeldOutListeningReading(m, bank)) ||
+      (m.id === plannedMaterial?.id && m.contentHash === plannedMaterial.contentHash) ||
+      m.id === work?.payload.contentId));
+  const preferred = !loaded ? null : holdout
+    ? (materials.find(m => m.pool === "holdout" && (!context.requiresFull ||
+      (m.scope === "full" && m.questions.length === 40))) ?? null)
+    : context.mode === "practice"
+      ? localRef ? restoredMaterial : independent?.material ?? null
+      : plannedMaterial;
   const selected = work
     ? materials.find(
         (m) =>
@@ -318,7 +288,9 @@ export function ReadingSession({
   const assertRetest = () => {
     if (!material) throw new Error("材料不在当前可选题库，请重新选题。");
     if (!workflow?.retestOf) {
-      if (!holdout && isHeldOutListeningReading(material, bank))
+      if (!holdout && isHeldOutListeningReading(material, bank) &&
+          !(automatic?.checkpoint && automatic.materials.some(ref => ref.id === material.id &&
+            ref.version === material.version && ref.contentHash === material.contentHash)))
         throw new Error(
           "这是独立检查池的原件或别名；日常练习请选其他材料，检查测评请明确打开独立检查池。",
         );
@@ -366,7 +338,7 @@ export function ReadingSession({
       setError(e instanceof Error ? e.message : "复测不能开始。");
       return;
     }
-    if (context.day < 1 || context.day > 365) {
+    if (context.mode !== "practice" && (context.day < 1 || context.day > 365)) {
       setError("当天不在365天计划内，可以查看已有作答，或从今日进入有效任务。");
       return;
     }
@@ -413,7 +385,7 @@ export function ReadingSession({
         {
           planId: plan.id,
           date: context.date,
-          day: context.day,
+          ...(context.mode !== "practice" && context.day >= 1 && context.day <= 365 ? { day: context.day } : {}),
           ...(context.taskId ? { taskId: context.taskId } : {}),
         },
         state.records,
@@ -429,6 +401,10 @@ export function ReadingSession({
             )
           : undefined,
       );
+      if (context.mode === "practice" && wasListeningReadingAttempted(material, bank, state.records)) {
+        payload.firstAttempt = false;
+        payload.conditions = { ...(payload.conditions as Record<string, unknown>), firstAttempt: false, unseen: false };
+      }
       // Persist only known-correct first outcomes; wrong answers acquire a real cause in B review.
       payload.questionResults = gradeMaterial(
         applyAnswerReviewsToMaterial(material, state.records, plan.id),
@@ -452,7 +428,7 @@ export function ReadingSession({
         kind: "attempt",
         payload,
         baseRevision: null,
-      });
+      }, userId);
       if (alive.current && getLearningState().userId === userId) {
         submittedDraftKey.current = draftKey;
         activeClock.current.pause();
@@ -581,19 +557,28 @@ export function ReadingSession({
         <p className="eyebrow">365天训练 · {context.date}</p>
         <h1>{skill === "reading" ? "阅读" : "听力"}练习</h1>
         <a href="#/">返回今日</a>
-        {context.day < 1 && (
+        {context.mode !== "practice" && context.day < 1 && (
           <p>365天计划尚未开始（开始日期：{String(plan.payload.startDate)}）。可以先浏览材料，到开始日后再进行限时首答。</p>
         )}
-        {context.day > 365 && (
+        {context.mode !== "practice" && context.day > 365 && (
           <p>当天不在365天计划内；已有作答继续保留。</p>
         )}
-        {!loaded && <p>正在读取本机题库…</p>}
+        {context.mode === "practice" && <p role="status">自主练习 · 随时可学。平台自动选题，学习成果正常保存，不计入今日课程完成度。</p>}
+        {loaded && context.mode === "practice" && <p>{independent?.notice}</p>}
+        {loaded && automatic && <section aria-label="本节自动安排">
+          <h2>本节平台已安排</h2><ol>{automatic.materials.map(ref => <li key={`${ref.id}:${ref.contentHash}`}>
+            {ref.title}{ref.role === "calibration" ? " · 题型热身" : ""}{ref.role === "assessment" ? " · 独立检查" : ""}{ref.completed ? " · 已复盘" : ""}
+          </li>)}</ol><p>{automatic.notice}</p>
+        </section>}
+        {!loaded && <p role="status">正在自动准备练习材料…</p>}
+        {library.issues.length > 0 && <details><summary>材料准备提示</summary><ul>{library.issues.map((issue,index) => <li key={index}>{issue}</li>)}</ul></details>}
         {loaded && !materials.some((m) => !m.id.endsWith("-sample-01")) && (
           <p>
             题库导入后自动加入。还没导入题库，当前仅有离线样例。
             <a href="#/me">我的 → 题库</a>
           </p>
         )}
+        <details className="r4-material-options"><summary>查看或更换材料（可选）</summary>
         {loaded && (
           <ListeningReadingPlan
             bank={bank}
@@ -635,7 +620,7 @@ export function ReadingSession({
           </p>
         )}
         {!work && (
-          <label className="field">
+          <label className="field" style={{ display: "block", width: "100%", minWidth: 0, maxWidth: "100%" }}>
             <span>练习材料</span>
             <select
               aria-label="练习材料"
@@ -661,6 +646,7 @@ export function ReadingSession({
             </select>
           </label>
         )}
+        </details>
         {material && (
           <>
             <h2>{material.title}</h2>
@@ -686,7 +672,7 @@ export function ReadingSession({
                 整套60分钟。短专项单独记录，不计入长文库存。
               </p>
             )}
-            <p>本块计划 {context.plannedMinutes} 分钟；实际计时单独保存。</p>
+            <p>{context.mode === "practice" ? `自主练习参考 ${minutes} 分钟，按自己的节奏进行；实际用时单独保存。` : `本块计划 ${context.plannedMinutes} 分钟；实际计时单独保存。`}</p>
             {isReferenceShort ? (
               <ShortStudy
                 key={material.contentHash}
@@ -706,8 +692,7 @@ export function ReadingSession({
                     disabled={
                       busy ||
                       !!activeWorkId ||
-                      context.day < 1 ||
-                      context.day > 365
+                      (context.mode !== "practice" && (context.day < 1 || context.day > 365))
                     }
                   >
                     开始限时首答
@@ -906,6 +891,12 @@ export function ReadingSession({
                       目标词覆盖：
                       {readingCoverageLabel(work.payload.coverage)}
                     </p>
+                    {reviewFinished && automatic?.materials.find(ref => !ref.completed && ref.id !== material.id) &&
+                      <a className="btn btn-primary" href={automatic.materials.find(ref => !ref.completed && ref.id !== material.id)!.route}>继续本节下一份材料</a>}
+                    {context.mode === "practice" && <button className="btn btn-primary" disabled={busy} onClick={() => {
+                      setIgnoreLocalResume(true); setChosen(""); setActiveWorkId(null); setStarted(null); setAnswers([]); setHighlight(null); setMessage("");
+                      go({ page: skill, mode: "practice" });
+                    }}>再来一份自动练习</button>}
                     {context.block && (
                       <button
                         className="btn btn-primary"
@@ -922,6 +913,7 @@ export function ReadingSession({
                         setActiveWorkId(null);
                         setStarted(null);
                         setAnswers([]);
+                        if (context.mode === "practice") go({ page: skill, mode: "practice", material: selected ? materialKey(selected) : undefined });
                       }}
                       disabled={busy}
                     >
