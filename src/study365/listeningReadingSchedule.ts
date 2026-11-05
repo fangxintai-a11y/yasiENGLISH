@@ -1,6 +1,7 @@
 import { READING_QUESTION_TYPES, LISTENING_QUESTION_TYPES } from './contentSchemas';
 import type { LocalMaterial } from './localBankSchema';
 import { currentAttemptHeads } from './materialSource';
+import { listeningSectionForDay, preferSection } from './listeningLadder';
 import { isObject, validatePayload, type AttemptScope, type MaterialSource, type Revision } from './protocol';
 export interface ScheduledMaterial { id: string; version: string; skill: 'reading' | 'listening'; sourceRef: string; materialSource: MaterialSource; scope: AttemptScope; contentHash: string; questionTypes: string[]; passageNumber?: 1 | 2 | 3 }
 export interface ScheduledListeningReadingDay { day: number; readingOfficial: ScheduledMaterial | null; reading: ScheduledMaterial | null; listeningOfficial: ScheduledMaterial | null; listening: ScheduledMaterial | null }
@@ -49,7 +50,8 @@ export function buildListeningReadingSchedule(materials: readonly LocalMaterial[
     const target = Math.max(minimumLevel, dayLevel(index + 1)), candidates = reading.filter(item => item.skill === 'reading' && item.passageNumber !== undefined && item.passageNumber >= target).sort((a, b) => Number(a.skill === 'reading' ? a.passageNumber : 0) - Number(b.skill === 'reading' ? b.passageNumber : 0) || b.questions.filter(question => !seenReadingTypes.has(question.type)).length - a.questions.filter(question => !seenReadingTypes.has(question.type)).length || rank(a, b));
     const article = candidates[0] ?? null;
     if (article) { article.questions.forEach(question => seenReadingTypes.add(question.type)); reading.splice(reading.indexOf(article), 1); if (article.skill === 'reading') minimumLevel = article.passageNumber ?? minimumLevel; }
-    const audio = listening.shift() ?? null;
+    const audio = preferSection(listening, listeningSectionForDay(index + 1)).items[0] ?? null;
+    if (audio) listening.splice(listening.indexOf(audio), 1);
     return { day: index + 1, reading: article ? brief(article) : null, readingOfficial: readingOfficial[index] ? brief(readingOfficial[index]!) : null, listening: audio ? brief(audio) : null, listeningOfficial: listeningOfficial[index] ? brief(listeningOfficial[index]!) : null };
   });
   const readingReserve = reading.slice(0, 14).map(brief), missing = { reading: days.filter(day => !day.reading).length, readingReserve: Math.max(0, 14 - readingReserve.length), readingOfficialDays: days.filter(day => !day.readingOfficial).length, listening: days.filter(day => !day.listening).length, listeningOfficialDays: days.filter(day => !day.listeningOfficial).length };

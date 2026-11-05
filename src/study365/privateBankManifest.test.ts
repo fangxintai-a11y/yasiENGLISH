@@ -145,3 +145,14 @@ test("transport source duration is bound to the unchanged canonical material met
   value.contentHash = await hashLocalMaterial(value);
   await assert.rejects(parsePrivateBankManifest(value), /原始时长/);
 });
+test("a decoded source length replaces a bitrate-estimated header for transcode fidelity", async () => {
+  const value = await fixture();
+  // Header says 10s (matches the material); real decoded audio is 11.05s and so is the AAC.
+  value.audioTransports[0].sourceDecodedSeconds = 11.05;
+  value.audioTransports[0].durationSeconds = 11.05;
+  value.contentHash = await hashLocalMaterial(value);
+  await parsePrivateBankManifest(value);
+  value.audioTransports[0].durationSeconds = 10;
+  value.contentHash = await hashLocalMaterial(value);
+  await assert.rejects(parsePrivateBankManifest(value), /0.1秒/);
+});

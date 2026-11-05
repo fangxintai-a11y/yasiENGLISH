@@ -81,6 +81,44 @@ export async function probeAudio(file, ffprobe = "ffprobe") {
     channels: stream.channels,
   };
 }
+/**
+ * Container metadata for VBR/odd MP3s is often a bitrate estimate (up to ~1.3s off in the
+ * Cambridge set). The real length is the decoded sample count, so transcode fidelity is
+ * checked against this instead of against `probeAudio`.
+ */
+export const DECODE_RATE = 8000;
+export function decodedSeconds(file, ffmpeg = "ffmpeg") {
+  return new Promise((resolve, reject) => {
+    const child = spawn(
+      ffmpeg,
+      ["-v", "error", "-nostdin", "-i", file, "-map", "0:a:0", "-vn",
+        "-ac", "1", "-ar", String(DECODE_RATE), "-f", "s16le", "-"],
+      { stdio: ["ignore", "pipe", "pipe"] },
+    );
+    let bytes = 0,
+      error = "";
+    child.stdout.on("data", (chunk) => {
+      bytes += chunk.length;
+    });
+    child.stderr.on("data", (chunk) => {
+      error = (error + chunk).slice(-8000);
+    });
+    child.on("error", reject);
+    child.on("close", (code) => {
+      const seconds = bytes / 2 / DECODE_RATE;
+      if (code !== 0 || !(seconds > 0))
+        reject(new Error(`Audio could not be decoded: ${path.basename(file)} ${error}`));
+      else resolve(Math.round(seconds * 1000) / 1000);
+    });
+  });
+}
+const TOLERANCE = 0.100001;
+/** Pure decision so the rule is testable without crafting broken MP3 headers. */
+export function durationIssue({ declared, sourceProbe, sourceDecoded, encoded }) {
+  if (Math.abs(sourceProbe - declared) > TOLERANCE) return "declared";
+  if (Math.abs(encoded - sourceDecoded) > TOLERANCE) return "encoded";
+  return null;
+}
 async function sourceFile(originalPath, root) {
   const relative = originalPath.replace(/^\/local-bank\//, "");
   if (
@@ -172,10 +210,22 @@ export async function packPrivateAudio({
     processed.add(key);
     const sourceMeta = await probeAudio(source, ffprobe);
     if (
-      Math.abs(sourceMeta.durationSeconds - material.audio.durationSeconds) >
-      0.100001
+      durationIssue({
+        declared: material.audio.durationSeconds,
+        sourceProbe: sourceMeta.durationSeconds,
+        sourceDecoded: 0,
+        encoded: 0,
+      }) === "declared"
     )
       throw new Error(`Original duration does not match ${material.id}`);
+    const sourceDecoded = await decodedSeconds(source, ffmpeg);
+    const fidelity = (encodedSeconds) =>
+      durationIssue({
+        declared: material.audio.durationSeconds,
+        sourceProbe: sourceMeta.durationSeconds,
+        sourceDecoded,
+        encoded: encodedSeconds,
+      }) === null;
     let transport = previous?.audioTransports.find(
       (item) =>
         item.originalPath === originalPath &&
@@ -194,8 +244,7 @@ export async function packPrivateAudio({
         metadata.codec !== "aac" ||
         metadata.profile !== "LC" ||
         metadata.channels !== 1 ||
-        Math.abs(metadata.durationSeconds - sourceMeta.durationSeconds) >
-          0.100001
+        !fidelity(metadata.durationSeconds)
       )
         throw new Error(
           `Existing encoded audio failed validation: ${material.id}`,
@@ -239,11 +288,10 @@ export async function packPrivateAudio({
         metadata.codec !== "aac" ||
         metadata.profile !== "LC" ||
         metadata.channels !== 1 ||
-        Math.abs(metadata.durationSeconds - sourceMeta.durationSeconds) >
-          0.100001
+        !fidelity(metadata.durationSeconds)
       )
         throw new Error(
-          `Encoded audio failed codec/duration validation: ${material.id}`,
+          `Encoded audio failed codec/duration validation: ${material.id} (source decoded ${sourceDecoded}s, encoded ${metadata.durationSeconds}s)`,
         );
       const target = path.join(destination, "audio", `${sha256}.m4a`);
       await fs.rename(temporary, target);
@@ -254,6 +302,7 @@ export async function packPrivateAudio({
         sourceSha256,
         durationSeconds: metadata.durationSeconds,
         sourceDurationSeconds: sourceMeta.durationSeconds,
+        sourceDecodedSeconds: sourceDecoded,
         bitRate: metadata.bitRate,
         targetBitRate: 48000,
         codec: "aac",

@@ -57,6 +57,8 @@ import { go } from "../../../lib/router";
 import type { PracticeContext } from "../../listeningReadingTasks";
 import type { Revision } from "../../protocol";
 import { ReadingQuestions } from "./ReadingQuestions";
+import { ListeningMethodCard } from "../listening/ListeningMethodCard";
+import { listeningSectionForDay } from "../../listeningLadder";
 
 export interface PlaybackConditions {
   replayed: boolean;
@@ -162,8 +164,9 @@ export function ReadingSession({
     context.block, context.day, context.taskId, workflow?.retestOf]);
   const independent = useMemo(() => context.mode === "practice"
     ? selectIndependentListeningReading({ skill, bank, records: learning.records,
+        preferredSection: skill === "listening" ? listeningSectionForDay(context.day) : undefined,
         preferredQuestionTypes: preferences.questionTypes[skill] }) : null,
-    [context.mode, skill, bank, learning.records, preferences]);
+    [context.mode, context.day, skill, bank, learning.records, preferences]);
   const plannedRef = automatic?.materials.find(ref => !ref.completed) ?? automatic?.materials[0];
   const plannedMaterial = plannedRef ? bank.find(m => m.id === plannedRef.id &&
     m.version === plannedRef.version && m.contentHash === plannedRef.contentHash) ?? null : null;
@@ -685,6 +688,13 @@ export function ReadingSession({
               />
             ) : (
               <>
+                {skill === "listening" && (
+                  <ListeningMethodCard
+                    material={material}
+                    day={context.day}
+                    collapsed={started !== null || !!work}
+                  />
+                )}
                 {!work && started === null && (
                   <button
                     className="btn btn-primary"

@@ -17,6 +17,12 @@ import {
   selectReadingForDay,
 } from "./listeningReadingSchedule";
 import { isListeningSequenceMaterial } from "./listeningSequence";
+import {
+  ladderNotice,
+  listeningSectionForDay,
+  preferSection,
+  sectionDistance,
+} from "./listeningLadder";
 import { isHeldOutListeningReading } from "./retestSelection";
 import { acceptedMaterialPreferences } from "./weeklyReview";
 import { completedListeningReadingReview } from "./correctionModel";
@@ -326,6 +332,8 @@ export interface IndependentListeningReadingInput {
   records: readonly Revision[];
   planId?: string;
   preferredPassageNumber?: 1 | 2 | 3;
+  /** Listening only: prefer this IELTS Section (1 easiest → 4 hardest). */
+  preferredSection?: 1 | 2 | 3 | 4;
   preferredQuestionTypes?: readonly string[];
 }
 export interface IndependentListeningReadingSelection {
@@ -419,6 +427,10 @@ export function selectIndependentListeningReading(
         ? 0
         : 1
       : 0;
+  const sectionRank = (item: LocalMaterial) =>
+    input.preferredSection && item.skill === "listening" && item.scope === "section"
+      ? sectionDistance(item, input.preferredSection)
+      : 0;
   const typeRank = (item: LocalMaterial) =>
     input.preferredQuestionTypes?.length &&
     item.questions.some((question) =>
@@ -430,6 +442,7 @@ export function selectIndependentListeningReading(
     (a, b) =>
       scopeRank(a) - scopeRank(b) ||
       passageRank(a) - passageRank(b) ||
+      sectionRank(a) - sectionRank(b) ||
       typeRank(a) - typeRank(b) ||
       Math.abs(approximateMinutes(a) - 20) -
         Math.abs(approximateMinutes(b) - 20) ||
@@ -746,13 +759,18 @@ export function buildDailyMaterialPlan(
             );
           const preferredTypes =
             preferenceWeeks.get(week)!.questionTypes[skill];
-          const candidates = practiceSections.filter(
+          const unseen = practiceSections.filter(
             (item) =>
               item.skill === skill &&
               reservations.unseen(item) &&
               (skill !== "reading" ||
                 (item.skill === "reading" && item.passageNumber === wanted)),
           );
+          const ladder =
+            skill === "listening"
+              ? preferSection(unseen, listeningSectionForDay(day))
+              : null;
+          const candidates = ladder ? ladder.items : unseen;
           const typeCycle: string[] = [
             ...new Set(
               candidates.flatMap((item) =>
@@ -770,7 +788,7 @@ export function buildDailyMaterialPlan(
           result.notice =
             skill === "reading"
               ? level.notice
-              : "平台按未做材料与题型轮换安排单节听力。";
+              : ladderNotice(day, ladder?.section);
         }
         const readingWarmupRequired = skill === "reading" && day <= 14;
         const officialRef =
