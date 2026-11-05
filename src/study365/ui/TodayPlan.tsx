@@ -7,6 +7,7 @@ import type { LearningState } from "../repository";
 import { useActivePlan } from "../useActivePlan";
 import { MissionCard } from "./MissionCard";
 import { PlanSetup } from "./PlanSetup";
+import { LearningLinks } from "./LearningLinks";
 import { TaskRegistration } from "./TaskRegistration";
 import { pendingWritingHandoffs } from "../writingCalibration";
 import { latestAssessment, scoreView } from "../scoresModel";
@@ -88,30 +89,51 @@ export function TodayPlan() {
     } catch (cause) { if (alive.current) setStartError(cause instanceof Error ? cause.message : "计划未能开始，请重试。"); }
     finally { if (alive.current) setStarting(false); }
   };
-  if (!learning.ready) return <section className="panel" aria-label="365天学习计划"><p role="status">正在读取学习计划…</p></section>;
-  if (!plan) return <PlanSetup key={learning.userId ?? "guest"} userId={learning.userId} />;
+  // One home module: the plan state, anytime practice and records share a single card.
+  if (!learning.ready) return <div className="plan365"><section className="plan365-body" aria-label="365天学习计划"><p role="status">正在读取学习计划…</p></section></div>;
+  if (!plan) return <div className="plan365">
+    <PlanSetup key={learning.userId ?? "guest"} userId={learning.userId} />
+    <LearningLinks />
+  </div>;
   const resources = bundledInventory.externalReferences.filter((item, index, all) => all.findIndex((candidate) => candidate.url === item.url) === index);
-  return <section className="panel study365-plan" aria-label="365天学习计划">
-    <p className="eyebrow">365天学习计划</p>
-    <h2>{String(plan.payload.title || "8.0 计划")}</h2>
-    <p>目标总分 {GATE_TARGETS.G4.overall.toFixed(1)} · 听 {SECTION_TARGETS.listening.toFixed(1)} · 读 {SECTION_TARGETS.reading.toFixed(1)} · 写 {SECTION_TARGETS.writing.toFixed(1)} · 说 {SECTION_TARGETS.speaking.toFixed(1)}</p>
-    <p className="muted">每天 {bundledRules.goal.dailyMinutes} 分钟 · 开始日期 {String(plan.payload.startDate)} · {String(plan.payload.timeZone)}</p>
-    <nav aria-label="四科随时练" className="data-actions">
-      {([["listening", "听力"], ["reading", "阅读"], ["writing", "写作"], ["speaking", "口语"]] as const).map(([skill, label]) =>
-        <a key={skill} className="btn btn-ghost" href={`#/${skill}?mode=practice`}>{label}随时练</a>)}
-    </nav>
-    <p className="muted">四科随时开放，进入后自动选材；下方课表是今天的推荐安排。</p>
-    {error && <p role="alert">{error}</p>}
-    {dayPlan?.state === "before" && <>
-      <p role="status">距计划开始倒数 {dayPlan.daysUntilStart} 天。</p>
-      <p>原定 {String(plan.payload.startDate)} 开始。现在可以从今天开始第1天，平台将按训练节奏自动安排材料，原计划历史仍保留。</p>
-      <button className="btn btn-primary" disabled={starting} onClick={() => void beginToday()}>{starting ? "正在开启今天的任务…" : "从今天开始，自动安排"}</button>
-      {startError && <p role="alert">{startError}</p>}
-      <h3>开始前准备</h3>
-      <p>平台会优先使用已有的合法材料并保留独立检查题。四科现在也能从下方“随时练”进入，缺少材料时会明确提示。</p>
-      <ul>{resources.map((resource) => <li key={resource.id}><a href={resource.url} target="_blank" rel="noreferrer">{resource.resourceTitle}</a><p className="muted">{resource.accessRequirement}</p></li>)}</ul>
-    </>}
-    {dayPlan?.state === "active" && <><p>今天按下方顺序学习，材料由平台自动安排；每7个训练日完成一轮，测评日随计划起点顺延。</p><ActiveTasks key={`${learning.userId ?? "guest"}:${plan.id}:${String(plan.payload.startDate)}`} plan={plan} today={dayPlan} learning={learning} /></>}
-    {dayPlan?.state === "after" && <p role="status">365天计划日历已结束，学习记录将继续保留。是否达成目标以正式成绩为准。</p>}
-  </section>;
+  const targets = [
+    ["总分", GATE_TARGETS.G4.overall, "overall"],
+    ["听", SECTION_TARGETS.listening, "listening"],
+    ["读", SECTION_TARGETS.reading, "reading"],
+    ["写", SECTION_TARGETS.writing, "writing"],
+    ["说", SECTION_TARGETS.speaking, "speaking"],
+  ] as const;
+  return <div className="plan365">
+    <section className="study365-plan plan365-body" aria-label="365天学习计划">
+      <header className="plan365-head">
+        <p className="eyebrow">365天学习计划</p>
+        <h2>{String(plan.payload.title || "8.0 计划")}</h2>
+        <ul className="plan365-targets" aria-label="目标分">
+          {targets.map(([label, value, key]) => <li key={key} className={`is-${key}`}>{label} <b>{value.toFixed(1)}</b></li>)}
+        </ul>
+        <p className="muted">每天 {bundledRules.goal.dailyMinutes} 分钟 · 开始日期 {String(plan.payload.startDate)} · {String(plan.payload.timeZone)}</p>
+      </header>
+      {error && <p role="alert">{error}</p>}
+      {dayPlan?.state === "before" && <>
+        <p role="status">距计划开始倒数 {dayPlan.daysUntilStart} 天。</p>
+        <p>原定 {String(plan.payload.startDate)} 开始。现在可以从今天开始第1天，平台将按训练节奏自动安排材料，原计划历史仍保留。</p>
+        <button className="btn btn-primary" disabled={starting} onClick={() => void beginToday()}>{starting ? "正在开启今天的任务…" : "从今天开始，自动安排"}</button>
+        {startError && <p role="alert">{startError}</p>}
+        <LearningLinks />
+        <h3>开始前准备</h3>
+        <p>平台会优先使用已有的合法材料并保留独立检查题。开始前也能从“四科随时练”进入，缺少材料时会明确提示。</p>
+        <ul>{resources.map((resource) => <li key={resource.id}><a href={resource.url} target="_blank" rel="noreferrer">{resource.resourceTitle}</a><p className="muted">{resource.accessRequirement}</p></li>)}</ul>
+      </>}
+      {dayPlan?.state === "active" && <>
+        <LearningLinks />
+        <p>今天按下方顺序学习，材料由平台自动安排；每7个训练日完成一轮，测评日随计划起点顺延。</p>
+        <ActiveTasks key={`${learning.userId ?? "guest"}:${plan.id}:${String(plan.payload.startDate)}`} plan={plan} today={dayPlan} learning={learning} />
+      </>}
+      {dayPlan?.state === "after" && <>
+        <p role="status">365天计划日历已结束，学习记录将继续保留。是否达成目标以正式成绩为准。</p>
+        <LearningLinks />
+      </>}
+      {!dayPlan && <LearningLinks />}
+    </section>
+  </div>;
 }

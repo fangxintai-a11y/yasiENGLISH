@@ -37,7 +37,7 @@ export function PlanSetup({ userId }: { userId: string | null }) {
     } finally { if (alive.current) setBusy(false); }
   };
 
-  return <section className="panel" aria-label="开启 8.0 计划">
+  return <section className="plan365-setup" aria-label="开启 8.0 计划">
     <p className="eyebrow">365天学习计划</p>
     <h2>开启 {GATE_TARGETS.G4.overall.toFixed(1)} 计划</h2>
     <p>每天 {bundledRules.goal.dailyMinutes} 分钟，坚持 {bundledRules.goal.durationDays} 天。</p>

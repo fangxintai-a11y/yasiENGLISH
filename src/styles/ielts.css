@@ -2305,6 +2305,183 @@ input[type="date"],
   width: 100%;
   accent-color: var(--sage);
 }
+
+/* ---------- home: 365 module ----------
+   One Word Atlas card holds the plan state, anytime practice and today's tasks.
+   Inner study365 panels are flattened so the module reads as a single surface. */
+.plan365 {
+  margin-top: 16px;
+  padding: 22px;
+  border-radius: var(--r-xl);
+  background: var(--card);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.plan365 > section {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.plan365 > section + .plan365-practice {
+  margin-top: 20px;
+}
+.plan365 h2 {
+  font: 600 clamp(26px, 4.4vw, 36px) / 1.12 var(--serif);
+  letter-spacing: -0.015em;
+  font-variation-settings: "opsz" 96;
+  text-wrap: balance;
+}
+.plan365 h3:not(.eyebrow) {
+  font: 600 18px/1.3 var(--serif);
+  margin-top: 6px;
+}
+.plan365 > section > .btn,
+.plan365 form > .btn {
+  justify-self: start;
+}
+.plan365 ul:not(.plan365-targets) {
+  margin: 0;
+  padding-left: 1.2em;
+  display: grid;
+  gap: 8px;
+}
+.plan365-head {
+  display: grid;
+  gap: 10px;
+  padding-bottom: 16px;
+  border-bottom: 1px dashed var(--line-strong);
+}
+.plan365-targets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.plan365-targets li {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  color: var(--ink-2);
+  background: var(--paper-2);
+  border: 1px solid var(--line);
+}
+.plan365-targets b {
+  font: 700 15px/1 var(--serif);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+.plan365-targets .is-overall {
+  background: var(--ochre-soft);
+  border-color: transparent;
+}
+.plan365-practice {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border-radius: var(--r);
+  background: var(--card-2);
+  border: 1px solid var(--line);
+  min-width: 0;
+}
+.plan365-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.plan365-skills {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+.plan365-skill {
+  display: grid;
+  justify-items: start;
+  gap: 2px;
+  min-width: 0;
+  min-height: 44px;
+  padding: 12px;
+  border-radius: var(--r-sm);
+  background: var(--card);
+  border: 1px solid var(--line);
+  transition: transform 0.25s var(--spring), border-color 0.2s;
+}
+.plan365-skill:hover {
+  transform: translateY(-1px);
+  border-color: var(--line-strong);
+}
+.plan365-skill b {
+  font-size: 15px;
+}
+.plan365-skill small {
+  font-size: 12px;
+  color: var(--ink-3);
+}
+.plan365-icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  margin-bottom: 6px;
+  border-radius: 10px;
+  color: var(--pig, var(--ink));
+  background: var(--pig-soft, var(--paper-2));
+}
+.plan365-skill.is-listening { --pig: var(--sky); --pig-soft: var(--sky-soft); }
+.plan365-skill.is-reading { --pig: var(--sage-ink); --pig-soft: var(--sage-soft); }
+.plan365-skill.is-writing { --pig: var(--terra); --pig-soft: var(--terra-soft); }
+.plan365-skill.is-speaking { --pig: var(--ochre); --pig-soft: var(--ochre-soft); }
+@media (max-width: 559px) {
+  .plan365 {
+    padding: 18px 16px;
+  }
+  .plan365-skills {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.plan365-setup form {
+  display: grid;
+  gap: 4px;
+}
+.plan365-setup input:not([type="date"]),
+.plan365 select {
+  min-height: 38px;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 1px solid var(--line-strong);
+  background: var(--card);
+  color: var(--ink);
+  font: 500 15px var(--sans);
+  max-width: 100%;
+}
+.plan365 .field > span:first-child {
+  display: grid;
+  gap: 4px;
+}
+/* Today's sub-panels sit flat inside the module instead of stacking cards on cards. */
+.plan365 .study365-tasks {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.plan365 .study365-tasks > .panel {
+  padding: 16px 0 0;
+  background: none;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  box-shadow: none;
+}
+.plan365 .study365-tasks > .panel h3 {
+  margin-bottom: 8px;
+}
+.plan365 .study365-tasks > .panel .btn {
+  margin-top: 10px;
+}
 .study365-material summary {
   cursor: pointer;
   color: var(--ink-2);

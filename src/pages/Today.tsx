@@ -20,7 +20,6 @@ import { Sheet } from "../ui/Sheet";
 import { TodayPlan } from "../study365/ui/TodayPlan";
 import { useVocabularyBudget } from "../study365/useVocabularyBudget";
 import { GATE_TARGETS } from "../study365/protocol";
-import { LearningLinks } from "../study365/ui/LearningLinks";
 
 const BRAND = `${import.meta.env.BASE_URL}brand`;
 
@@ -111,8 +110,6 @@ export function Today() {
 
   return (
     <div className="page today">
-      <TodayPlan />
-      <LearningLinks />
       <header className="greet">
         <p className="eyebrow">
           {now.getMonth() + 1}月{now.getDate()}日 · 星期{"日一二三四五六"[now.getDay()]}
@@ -174,10 +171,10 @@ export function Today() {
               <h2>{budget.managed && budget.minutes === 0 ? "自主词汇加练" : "今天的词汇练习已完成。"}</h2>
               <p className="journey-lede">{budget.managed && budget.minutes === 0
                 ? budget.state === "before"
-                  ? `课程原定 ${String(budget.startDate)} 开始；你现在也可以自主背词，或在上方选择从今天开始课程。`
+                  ? `课程原定 ${String(budget.startDate)} 开始；你现在也可以自主背词，或在下方 365 计划中选择从今天开始课程。`
                   : budget.state === "after"
                     ? "365天计划已结束，可以复习到期词或查看四科练习与学习记录。"
-                    : "优先完成上方今日任务；想背词时，可在下方自选数量加练。"
+                    : "今天的课表在下方 365 计划里；想背词时，可在这里自选数量加练。"
                 : "到期复习已完成。想继续学，可以自己选择本次加练的新词数量。"}</p>
             </>
           )}
@@ -225,6 +222,8 @@ export function Today() {
           </div>
         </div>
       </section>
+
+      <TodayPlan />
 
       <div className="today-grid">
         <ShadowPanel />
