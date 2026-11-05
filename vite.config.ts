@@ -1,6 +1,7 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import fs from "node:fs";
+import { execFileSync } from "node:child_process";
 import path from "node:path";
 import type { IncomingMessage, ServerResponse } from "node:http";
 // Local-only content is never copied into dist or the public archive.
@@ -84,7 +85,11 @@ function localMedia(
     res.end();
   }
 }
+const packageInfo = JSON.parse(fs.readFileSync(new URL("./package.json", import.meta.url), "utf8")) as { version: string };
+const buildCommit = process.env.BAND_BUILD_COMMIT || execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+if (!/^[a-f0-9]{40}$/.test(buildCommit)) throw new Error("BAND_BUILD_COMMIT must identify the full Git commit.");
 export default defineConfig({
+  define: { __BAND_BUILD__: JSON.stringify({ version: packageInfo.version, commit: buildCommit.slice(0, 9), fullCommit: buildCommit }) },
   // Deploy under a sub-path with ATLAS_BASE=/words/ npm run build
   base: process.env.ATLAS_BASE || "/",
   plugins: [

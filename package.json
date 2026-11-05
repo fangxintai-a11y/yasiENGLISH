@@ -1,6 +1,6 @@
 {
   "name": "band-galaxy",
-  "version": "1.0.0",
+  "version": "365.0.0-rc1",
   "type": "module",
   "description": "雅思星图 Band Galaxy: an IELTS vocabulary app built on Word Atlas — three memory tracks per word, an exam-date plan, objective grading and exam-day recall forecasts.",
   "scripts": {

@@ -1,3 +1,4 @@
+import { buildInfo } from "../buildInfo";
 import { Download, RotateCcw, Upload } from "lucide-react";
 import { useEffect, useMemo, useRef } from "react";
 import { useAtlas } from "../atlas/context";
@@ -77,6 +78,11 @@ export function Me({ privateAvailable, focusSync = false }: { privateAvailable: 
         <p className="eyebrow">我的</p>
         <h1 className="display">你的星空</h1>
       </header>
+
+      <section className="panel" aria-label="关于雅思星图" data-testid="about-build">
+        <h2>关于雅思星图</h2>
+        <p>版本 {buildInfo.version} · 提交 <span title={buildInfo.fullCommit}>{buildInfo.commit}</span></p>
+      </section>
 
       <p><a className="btn btn-primary" href="#/progress">进度与成绩本</a></p>
 

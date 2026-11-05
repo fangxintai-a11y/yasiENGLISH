@@ -596,7 +596,7 @@ export function sequenceCheckRemaining(
   now: number,
 ) {
   return state.phase === "checking" && state.checkingEndsAt !== null
-    ? Math.max(0, Math.ceil((state.checkingEndsAt - now) / 1000))
+    ? Math.min(SEQUENCE_CHECK_SECONDS, Math.max(0, Math.floor((state.checkingEndsAt - now) / 1000)))
     : 0;
 }
 export function sequenceConditions(
