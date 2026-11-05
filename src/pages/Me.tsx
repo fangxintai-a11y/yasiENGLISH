@@ -1,6 +1,6 @@
 import { buildInfo } from "../buildInfo";
 import { Download, RotateCcw, Upload } from "lucide-react";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAtlas } from "../atlas/context";
 import { allCards } from "../ielts/exam";
 import { isMastered } from "../store/srs";
@@ -23,9 +23,15 @@ export function Me({ privateAvailable, focusSync = false }: { privateAvailable: 
   const atlas = useAtlas();
   const progress = useStore((s) => s.progress);
   const settings = useStore((s) => s.settings);
+  const [dailyNewDraft, setDailyNewDraft] = useState(String(settings.dailyNew));
+  const [dailyNewError, setDailyNewError] = useState("");
   const saveError = useStore((s) => s.saveError);
   const file = useRef<HTMLInputElement>(null);
   const learning = useLearning();
+  useEffect(() => {
+    setDailyNewDraft(String(settings.dailyNew));
+    setDailyNewError("");
+  }, [settings.dailyNew]);
   useEffect(() => {
     if (!focusSync || !learning.ready || !learning.quarantined) return;
     const frame = window.requestAnimationFrame(() => document.getElementById("learning-sync-issues")?.scrollIntoView({ block: "start" }));
@@ -53,6 +59,19 @@ export function Me({ privateAvailable, focusSync = false }: { privateAvailable: 
   }, [progress]);
 
   const set = (patch: Partial<Settings>) => store.settings(patch);
+  const chooseDailyNew = (value: number) => {
+    setDailyNewDraft(String(value));
+    setDailyNewError("");
+    set({ dailyNew: value });
+  };
+  const saveDailyNew = () => {
+    const text = dailyNewDraft.trim(), value = Number(text);
+    if (!/^\d{1,3}$/.test(text) || !Number.isInteger(value) || value < 0 || value > 100) {
+      setDailyNewError("请输入0至100之间的整数；0表示只复习。");
+      return;
+    }
+    chooseDailyNew(value);
+  };
   const download = () => {
     try {
       const blob = new Blob([exportBackup()], { type: "application/json" });
@@ -166,14 +185,24 @@ export function Me({ privateAvailable, focusSync = false }: { privateAvailable: 
 
         <section className="panel settings">
           <h3 className="eyebrow">学习设置</h3>
-          <Field label="每日新词" hint="只在没设考试日期时生效；设定后由计划自动倒推。">
+          <Field label="每日新词" hint="设置每日新词上限，0表示只复习。实际安排会按复习量、可用分钟和考前阶段减少。">
             <div className="segmented">
               {[5, 10, 15, 20, 30].map((n) => (
-                <button key={n} className={settings.dailyNew === n ? "is-on" : ""} onClick={() => set({ dailyNew: n })}>
+                <button key={n} className={settings.dailyNew === n ? "is-on" : ""} onClick={() => chooseDailyNew(n)}>
                   {n}
                 </button>
               ))}
             </div>
+            <div className="data-actions">
+              <input aria-label="每日新词数量" className="vocabulary-count-input" type="number" inputMode="numeric" min={0} max={100} step={1}
+                value={dailyNewDraft} aria-invalid={!!dailyNewError} aria-describedby={dailyNewError ? "daily-new-error" : undefined}
+                onChange={(event) => { setDailyNewDraft(event.target.value); setDailyNewError(""); }}
+                onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); saveDailyNew(); } }}
+                style={{ width: 110, maxWidth: "100%", minWidth: 0 }} />
+              <button className="btn btn-ghost" onClick={saveDailyNew}>保存数量</button>
+            </div>
+            {dailyNewError && <p id="daily-new-error" role="alert">{dailyNewError}</p>}
+            <p className="muted" aria-live="polite">当前每日新词上限：{settings.dailyNew === 0 ? "0，只复习" : `${settings.dailyNew} 个`}。</p>
           </Field>
           <Field label="从哪个难度开始" hint="跳过已经熟悉的低级别词。">
             <div className="segmented">

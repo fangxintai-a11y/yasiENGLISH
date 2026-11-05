@@ -60,6 +60,7 @@ export function TodayPlan() {
     {error && <p role="alert">{error}</p>}
     {dayPlan?.state === "before" && <>
       <p role="status">距计划开始倒数 {dayPlan.daysUntilStart} 天。</p>
+      <p>计划将于 {String(plan.payload.startDate)} 开始。今天显示开始前准备，正式每日任务从开始日起按课表出现；可以先从下方“四科练习入口”浏览材料。</p>
       <h3>开始前准备</h3>
       <p>准备合法购买或借阅的剑桥雅思 20 或同等完整真题，确认选中的整套题没有做过；已做过就另选未见材料。</p>
       <ul>{resources.map((resource) => <li key={resource.id}><a href={resource.url} target="_blank" rel="noreferrer">{resource.resourceTitle}</a><p className="muted">{resource.accessRequirement}</p></li>)}</ul>

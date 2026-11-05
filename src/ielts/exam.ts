@@ -204,7 +204,7 @@ export function examPlan(atlas: AtlasLite, p: Progress, s: Settings, tags: Pick<
   const budget = s.dailyMinutes * 60;
   const fit = Math.max(0, Math.floor((budget - existing * pace.review) / perNewSec));
   const need = learnDays > 0 ? Math.ceil(remaining / learnDays) : 0;
-  const newPerDay = budget <= 0 ? 0 : days === null ? s.dailyNew : Math.min(need, fit, 80);
+  const newPerDay = budget <= 0 ? 0 : days === null ? s.dailyNew : Math.min(s.dailyNew, need, fit, 80);
   const minutesNeeded = Math.ceil((existing * pace.review + need * perNewSec) / 60);
 
   const at = days === null ? now + 60 * DAY : examTime(s.examDate)!;

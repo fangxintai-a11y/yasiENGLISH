@@ -24,6 +24,7 @@ import { Speak } from "../ui/Speak";
 import { shareSession } from "../ui/shareSession";
 import { toast } from "../ui/Toast";
 import { useVocabularyBudget } from "../study365/useVocabularyBudget";
+import { useTypingVisibility } from "../lib/useTypingVisibility";
 
 export function Learn() {
   const atlas = useAtlas();
@@ -65,6 +66,7 @@ export function Learn() {
 
 function Runner({ session, budgetMinutes }: { session: ActiveSession; budgetMinutes: number }) {
   const step = session.steps[session.index];
+  const typed = step.kind === "spell" || step.kind === "produce" || step.kind === "dictation";
   const total = session.steps.length;
   const exit = () => {
     stopAudio();
@@ -72,7 +74,7 @@ function Runner({ session, budgetMinutes }: { session: ActiveSession; budgetMinu
     go({ page: isPractice(session) ? "ielts" : "today" });
   };
   return (
-    <div className="learn">
+    <div className={`learn${typed ? " learn-typing" : ""}`}>
       <header className="learn-top">
         <button className="icon-btn" onClick={exit} aria-label="暂停并返回">
           <X size={22} />
@@ -379,6 +381,8 @@ function SpellPrompt({ entry, refw, withAudio }: { entry: Entry; refw: WordRef; 
 
 function DictationInput({ pending, onSubmit }: { pending?: { correct: boolean; value: string }; onSubmit: (v: string) => void }) {
   const [value, setValue] = useState("");
+  const input = useRef<HTMLInputElement>(null);
+  useTypingVisibility(input, !pending);
   return (
     <form
       className="dictation"
@@ -388,6 +392,7 @@ function DictationInput({ pending, onSubmit }: { pending?: { correct: boolean; v
       }}
     >
       <input
+        ref={input}
         className={`dictation-field ${pending ? (pending.correct ? "is-ok" : "is-bad") : ""}`}
         value={pending ? pending.value : value}
         onChange={(e) => !pending && setValue(e.target.value.slice(0, 40))}
@@ -430,6 +435,7 @@ function SpellInput({
 }) {
   const [value, setValue] = useState("");
   const input = useRef<HTMLInputElement>(null);
+  useTypingVisibility(input, !pending);
   const target = entry.w;
   const prefix = target.slice(0, hints);
   useEffect(() => {

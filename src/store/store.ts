@@ -158,7 +158,7 @@ export interface Settings {
 export const defaultSettings: Settings = {
   accent: "uk",
   autoplay: true,
-  dailyNew: 10,
+  dailyNew: 20,
   retention: 0.9,
   theme: "dark",
   sfx: true,
