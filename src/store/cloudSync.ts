@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { CloudError, CloudSyncEngine, sameSnapshot, type CloudState, type CloudUser, type SyncMeta } from "./cloudSyncEngine";
-import { assertSafeOutbound, OutboundPrivacyError, sanitizeProgress, sanitizeSettings, store } from "./store";
+import { sanitizeProgress, sanitizeSettings, store } from "./store";
 import type { SyncSnapshot } from "./syncMerge";
 import { accountRequest } from "../account/api";
 
@@ -38,33 +38,10 @@ async function saveMeta(user: CloudUser, dataset: string, meta: SyncMeta): Promi
 let applying = false;
 const listeners = new Set<() => void>();
 let state: CloudState;
-let blockedMessage: string | null = null;
-function publish(next: CloudState) {
-  state = blockedMessage ? { ...next, status: "error", pending: true, message: blockedMessage } : next;
-  listeners.forEach((fn) => fn());
-}
-function localSnapshot(): SyncSnapshot | null {
-  try {
-    const snapshot = store.cloudSnapshot();
-    if (blockedMessage) { blockedMessage = null; publish(engine.state); }
-    return snapshot;
-  } catch (error) {
-    blockedMessage = error instanceof OutboundPrivacyError ? error.message : "学习记录暂时无法安全同步，原文仍保存在本机。";
-    publish(engine.state);
-    return null;
-  }
-}
 const engine = new CloudSyncEngine({
-  request: async (method, path, body) => {
-    if (method === "PUT" && path.startsWith("/api/sync/")) {
-      // Also inspect durable pending commits and merged server history before fetch.
-      try { assertSafeOutbound(body); }
-      catch (error) { throw new CloudError(error instanceof OutboundPrivacyError ? error.message : "进度未能安全发送，原文仍保存在本机。", 400); }
-    }
-    return accountRequest(method, path, body);
-  },
+  request: accountRequest,
   snapshot: () => {
-    const snapshot = localSnapshot();
+    const snapshot = store.cloudSnapshot();
     // Dataset selection belongs to this device; each dataset already has its own server record.
     return snapshot ? { ...snapshot, settings: { ...snapshot.settings, dataset: "open" } } : null;
   },
@@ -91,7 +68,7 @@ const engine = new CloudSyncEngine({
     if (navigator.locks) await navigator.locks.request("band-galaxy-cloud-sync", async () => { await task(); });
     else await task();
   },
-  changed: publish,
+  changed: (next) => { state = next; listeners.forEach((fn) => fn()); },
 });
 state = engine.state;
 
@@ -105,13 +82,11 @@ export function startCloudSync() {
     if (cached && typeof cached.id === "string" && cached.id.length > 0 && typeof cached.username === "string") engine.restoreUser(cached);
   } catch { /* a missing hint never blocks local learning */ }
   void engine.connect();
-  let previous = localSnapshot();
+  let previous = store.cloudSnapshot();
   store.subscribe(() => {
-    const wasBlocked = blockedMessage !== null;
-    const current = localSnapshot();
-    if (!current) { window.clearTimeout(saveTimer); return; }
+    const current = store.cloudSnapshot();
     if (applying) { previous = current; return; }
-    if (!wasBlocked && sameSnapshot(current, previous)) return;
+    if (!current || sameSnapshot(current, previous)) return;
     previous = current;
     engine.markChanged();
     window.clearTimeout(saveTimer);
@@ -129,12 +104,6 @@ export function startCloudSync() {
 export const loginCloud = (username: string, password: string, setupToken?: string, create?: boolean) => engine.login(username, password, setupToken, create);
 export const logoutCloud = () => engine.logout();
 export const syncNow = () => engine.sync();
-/** Account identity notifications for independent learning-record storage. */
-export const getCloudState = () => state;
-export function subscribeCloudState(listener: () => void) {
-  listeners.add(listener);
-  return () => { listeners.delete(listener); };
-}
 export function useCloudSync(): CloudState {
   return useSyncExternalStore((fn) => { listeners.add(fn); return () => listeners.delete(fn); }, () => state, () => state);
 }

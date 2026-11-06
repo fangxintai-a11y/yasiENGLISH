@@ -1,12 +1,9 @@
-import { ArrowRight, BookOpenText, CalendarClock, Headphones, PenLine, Sparkles, Swords, Waypoints, Zap } from "lucide-react";
+import { ArrowRight, BookOpenText, CalendarClock, Headphones, PenLine, Sparkles, Swords, Waypoints, Wand2, Zap } from "lucide-react";
 import { useMemo } from "react";
 import { useAtlas } from "../atlas/context";
 import { allCards, examPlan, parseKey, SPRINT_DAYS } from "../ielts/exam";
 import { useTags } from "../ielts/tags";
 import { go, type Route } from "../lib/router";
-import { useVocabularyBudget } from "../study365/useVocabularyBudget";
-import { useActivePlan } from "../study365/useActivePlan";
-import { GATE_TARGETS } from "../study365/protocol";
 import { store, useStore, type Step } from "../store/store";
 import { ExamFields } from "../ui/ExamSetup";
 import { toast } from "../ui/Toast";
@@ -19,14 +16,14 @@ import { SpellTab } from "./ielts/SpellTab";
 import { WritingTab } from "./ielts/WritingTab";
 
 const TABS = [
-  ["plan", "词汇排程", CalendarClock],
+  ["plan", "考试计划", CalendarClock],
   ["spell", "拼写诊断", Headphones],
   ["para", "同义替换", Waypoints],
   ["confuse", "易混词", Swords],
   ["flash", "一分钟闪测", Zap],
   ["import", "文章取词", BookOpenText],
-  ["reading", "错词阅读", Sparkles],
-  ["writing", "造句批改", PenLine],
+  ["reading", "AI 错词阅读", Sparkles],
+  ["writing", "AI 造句批改", PenLine],
 ] as const;
 
 export function Ielts({ route }: { route: Extract<Route, { page: "ielts" }> }) {
@@ -38,7 +35,6 @@ export function Ielts({ route }: { route: Extract<Route, { page: "ielts" }> }) {
         <h1 className="display">按雅思的考法，练每一个词。</h1>
         <p className="lede">听力要拼对、阅读要认出改写、写作要用得出。这里是每一种记忆的专项训练。</p>
       </header>
-      <PlanConnection />
       <nav className="lab-tabs" aria-label="专项">
         {TABS.map(([k, label, Icon]) => (
           <a key={k} href={`#/ielts?tab=${k}`} className={tab === k ? "is-on" : ""} aria-current={tab === k ? "page" : undefined}>
@@ -56,21 +52,6 @@ export function Ielts({ route }: { route: Extract<Route, { page: "ielts" }> }) {
       {tab === "writing" && <WritingTab />}
     </div>
   );
-}
-
-/** One course entry alongside the vocabulary tools; drills keep their actual scoring semantics. */
-function PlanConnection() {
-  const { plan, dayPlan } = useActivePlan();
-  const { minutes } = useVocabularyBudget();
-  return <section className="panel" aria-label="专项与365计划">
-    <h2>365课程 · 词汇 · 专项</h2>
-    <p>{dayPlan?.state === "active" ? `第 ${dayPlan.day} 天 · ${dayPlan.phaseTitle}。` : "四科随时可学。"}
-      今天的课程和具体材料统一在“今日”；这里补练拼写、同义替换、易混词与造句。</p>
-    <p>{plan ? `今日课内词汇 ${minutes} 分钟；自主加练可另选数量，记忆记录共用。` : "词汇新学与复习在“今日”进行，可自选加练数量。"}
-      专项表现不计为四科课程完成或雅思成绩。</p>
-    <div className="data-actions"><a className="btn btn-primary" href="#/">返回今日课程与词汇</a>
-      <a className="btn btn-ghost" href="#/review">查看四科订正</a></div>
-  </section>;
 }
 
 /** Start a drill round that never changes memory or daily stats. */
@@ -95,7 +76,7 @@ function PlanTab() {
   const atlas = useAtlas();
   const tags = useTags();
   const progress = useStore((s) => s.progress);
-  const { settings } = useVocabularyBudget();
+  const settings = useStore((s) => s.settings);
   const now = Date.now();
   const plan = useMemo(() => examPlan(atlas, progress, settings, tags, now), [atlas, progress, settings, tags]); // eslint-disable-line react-hooks/exhaustive-deps
   const load = useMemo(() => {
@@ -114,7 +95,7 @@ function PlanTab() {
   return (
     <div className="lab-grid">
       <section className="panel">
-        <h3 className="eyebrow">词汇排程参数</h3>
+        <h3 className="eyebrow">计划参数</h3>
         <ExamFields />
       </section>
 
@@ -124,7 +105,7 @@ function PlanTab() {
           <div>
             <dt>目标词</dt>
             <dd>{plan.target.toLocaleString()}</dd>
-            <small>目标 {GATE_TARGETS.G4.overall.toFixed(1)} 分对应的词汇范围 + 听力高频词 + 学术词</small>
+            <small>目标 {settings.targetBand} 分对应的难度 + 听力高频词 + 学术词</small>
           </div>
           <div>
             <dt>已遇见</dt>
@@ -207,6 +188,11 @@ function PlanTab() {
         <button className="btn btn-ghost" onClick={() => go({ page: "today" })}>
           回到今日 <ArrowRight size={18} />
         </button>
+      </section>
+
+      <section className="panel span-2 lab-ai-hint">
+        <Wand2 size={22} strokeWidth={1.6} />
+        <p className="muted">AI 错词阅读和造句批改需要你自己的 Claude API Key，在「我的 → AI 助教」里填写；Key 只保存在这台设备的浏览器里。</p>
       </section>
     </div>
   );

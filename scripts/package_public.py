@@ -39,10 +39,7 @@ PATTERNS = {
 def allowed(rel: Path) -> bool:
     p = rel.parts
     name = rel.as_posix()
-    # Workflow config is project content; all other hidden tool directories are local.
-    if any(x.startswith(".") and not (index == 0 and x == ".github") for index, x in enumerate(p[:-1])):
-        return False
-    if any(x in {".git", "node_modules", "dist", "output", "__pycache__"} or x.startswith(".env") for x in p):
+    if any(x in {".local", ".git", "node_modules", "dist", "output", "__pycache__", ".claude", ".playwright-cli"} or x.startswith(".env") for x in p):
         return False
     if len(p) == 1:
         return name in TOP

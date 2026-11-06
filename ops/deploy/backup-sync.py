@@ -20,6 +20,10 @@ VERIFIED_WORD_ONLY_SHA256 = frozenset({
 })
 
 
+# Reviewed vocabulary rollback: both executable modules are pinned; missing learning.py is insufficient.
+VERIFIED_VOCABULARY_RUNTIME = {'4d9e26d2d737e5eb1c6f3567f1e6374554106c0455c354a2d930dace7edd09d7': 'f43674a06c3a6920f34290490ceae3c0a9e78bdbaa7423a91a92bc1c86adea8b'}
+
+
 def verify_api_compatibility(database, target):
     """Read-only check; an unmarked learning API must never resume writes after v2 migration."""
     target, database = Path(target), Path(database).resolve()
@@ -29,7 +33,13 @@ def verify_api_compatibility(database, target):
     try:
         if not (target / "learning.py").exists():
             # Only exact reviewed code may use this legacy, non-learning path.
-            return hashlib.sha256((target / "app.py").read_bytes()).hexdigest() in VERIFIED_WORD_ONLY_SHA256
+            app_hash = hashlib.sha256((target / "app.py").read_bytes()).hexdigest()
+            if app_hash in VERIFIED_WORD_ONLY_SHA256:
+                return True
+            auth = target / "auth_access.py"
+            expected_auth = VERIFIED_VOCABULARY_RUNTIME.get(app_hash)
+            return bool(expected_auth and auth.is_file() and not auth.is_symlink()
+                        and hashlib.sha256(auth.read_bytes()).hexdigest() == expected_auth)
         metadata_file = target / "runtime-meta.json"
         if metadata_file.is_symlink():
             return False

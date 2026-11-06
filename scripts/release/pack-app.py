@@ -11,7 +11,7 @@ import tarfile
 import tempfile
 
 MEDIA = {'.mp3', '.m4a', '.pdf', '.wav', '.ogg', '.webm'}
-SHARED_PATHS = ('ielts/phrase', 'sfx', 'curriculum365/v1/audio')
+SHARED_PATHS = ('ielts/phrase', 'sfx')
 BLOCKED = {'local-bank', 'local-content', 'private', '.git', 'node_modules'}
 
 def digest(path):
@@ -47,7 +47,7 @@ def package(source_root, dist, out, commit, atlas_out):
     if build.get('fullCommit') != commit or build.get('sourceDirty') is not False:
         raise ValueError('Build metadata must match a clean source commit')
     runtime = json.loads((source_root/'server/runtime-files.json').read_text())
-    if not isinstance(runtime, list) or not {'app.py', 'learning.py'}.issubset(runtime) or len(runtime) != len(set(runtime)):
+    if not isinstance(runtime, list) or 'app.py' not in runtime or len(runtime) != len(set(runtime)):
         raise ValueError('Invalid API runtime manifest')
     for name in runtime:
         if not isinstance(name, str) or not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*\.py', name):

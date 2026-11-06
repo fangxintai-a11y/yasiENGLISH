@@ -3,15 +3,12 @@ import "@fontsource-variable/fraunces/opsz-italic.css";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
-import { migrateLegacy } from "./ielts/scoring";
 import "./styles/app.css";
 import "./styles/ielts.css";
+import "./styles/spelling.css";
 import { startCloudSync } from "./store/cloudSync";
-import { startLearningRecords } from "./study365/repository";
 
-migrateLegacy();
 startCloudSync();
-startLearningRecords();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

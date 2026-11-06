@@ -1,16 +1,13 @@
 import { Languages, Pause, Sparkles, Trash2, Volume2 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { useAtlas } from "../../atlas/context";
-import { buildReading, needsManualFallback, type ReadingCoverage as Coverage } from "../../ielts/scoring";
-import { SECTION_TARGETS } from "../../study365/protocol";
+import { getKey } from "../../ielts/aikey";
 import { play, stopAudio } from "../../lib/audio";
-import { openWord } from "../../lib/router";
+import { go, openWord } from "../../lib/router";
 import { headwordPattern } from "../../lib/text";
 import { recallAt } from "../../store/srs";
 import { store, useStore, type Reading } from "../../store/store";
-import { getCloudState, useCloudSync } from "../../store/cloudSync";
 import { toast } from "../../ui/Toast";
-import { ManualPrompt } from "../../ui/ManualPrompt";
 
 const LABELS = ["TRUE", "FALSE", "NOT GIVEN"] as const;
 
@@ -33,46 +30,34 @@ export function ReadingTab() {
   const atlas = useAtlas();
   const progress = useStore((s) => s.progress);
   const settings = useStore((s) => s.settings);
-  const accountId = useCloudSync().user?.id;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(progress.readings[0]?.id ?? null);
-  const [manualInput, setManualInput] = useState<Parameters<typeof buildReading>[0] | null>(null);
-  const [coverageById, setCoverageById] = useState<Record<string, Coverage>>({});
-  const request = useRef(0);
-  useEffect(() => {
-    setBusy(false); setManualInput(null); setCoverageById({});
-    return () => { request.current++; };
-  }, [atlas.id, accountId, progress.datasetId]);
   const words = useMemo(() => pickWords(progress, (id) => atlas.byId.has(id)), [progress, atlas]);
   const reading = progress.readings.find((r) => r.id === openId) ?? null;
 
-  const keepReading = (value: Reading & { coverage?: Coverage }) => {
-    // Endpoint failures are transient UI metadata and never join the snapshot.
-    const r: Reading = { id: value.id, at: value.at, title: value.title, passage: value.passage, zh: value.zh, words: value.words,
-      questions: value.questions, answers: value.answers, ...(value.src ? { src: value.src } : {}) };
-    store.progress((p) => ({ ...p, readings: [r, ...p.readings.filter((old) => old.id !== r.id)].slice(0, 30) }));
-    if (value.coverage) setCoverageById((current) => ({ ...current, [r.id]: value.coverage! }));
-    setOpenId(r.id);
-  };
   const generate = async () => {
-    const token = ++request.current;
-    const accountId = getCloudState().user?.id, datasetId = store.get().progress.datasetId;
-    const isCurrent = () => token === request.current && getCloudState().user?.id === accountId && store.get().progress.datasetId === datasetId;
+    if (!getKey()) {
+      setError("先在「我的 → AI 助教」里填入你的 Claude API Key。");
+      return;
+    }
     setBusy(true);
     setError(null);
-    setManualInput(null);
     try {
       const list = words.map((id) => atlas.byId.get(id)!);
-      const input = { words: await Promise.all(list.map(async (w) => ({ id: w.id, word: w.word, zh: w.zh, entry: await atlas.entry(w.id).catch(() => null) }))) };
-      const g = await buildReading(input, { mode: settings.feedbackMode });
-      if (!isCurrent()) return;
-      keepReading(g);
-      if (settings.feedbackMode === "manual" || needsManualFallback(g)) setManualInput(input);
+      const { generateReading } = await import("../../ielts/ai");
+      const g = await generateReading(
+        list.map((w) => ({ word: w.word, zh: w.zh })),
+        settings.targetBand,
+        settings.aiModel,
+      );
+      const r: Reading = { id: `r${Date.now()}`, at: Date.now(), title: g.title, passage: g.passage, zh: g.zh, words, questions: g.questions, answers: g.questions.map(() => null) };
+      store.progress((p) => ({ ...p, readings: [r, ...p.readings].slice(0, 30) }));
+      setOpenId(r.id);
     } catch (e) {
-      if (isCurrent()) setError(e instanceof Error ? e.message : String(e));
+      setError(e instanceof Error ? e.message : String(e));
     } finally {
-      if (token === request.current) setBusy(false);
+      setBusy(false);
     }
   };
 
@@ -80,11 +65,11 @@ export function ReadingTab() {
     <div className="lab-grid">
       <section className="panel span-2 reading-gen">
         <div>
-          <h3 className="eyebrow">用连贯阅读练你的错词</h3>
+          <h3 className="eyebrow">用你的错词，写一篇专属雅思阅读</h3>
           <p className="muted">
-            按这 {words.length} 个候选词选择连贯文章并练判断题。正文覆盖的词和未覆盖的词会分别列出，未覆盖词留待后续练习。阅读训练目标为 {SECTION_TARGETS.reading}。
+            Claude 会围绕这 {words.length} 个词写一篇 300 词左右的学术短文，再出 5 道 True / False / Not Given：错词在真实题型里再见一次，也顺便练了阅读。
           </p>
-          <ul className="chip-cloud" aria-label="候选目标词">
+          <ul className="chip-cloud">
             {words.map((id) => (
               <li key={id}>
                 <button className="chip-btn" onClick={() => openWord(id)} lang="en">
@@ -97,12 +82,16 @@ export function ReadingTab() {
         </div>
         <div className="reading-gen-actions">
           <button className="btn btn-primary" onClick={generate} disabled={busy || words.length < 5}>
-            <Sparkles size={18} /> {busy ? "正在出题…" : "生成一篇"}
+            <Sparkles size={18} /> {busy ? "Claude 正在写…" : "生成一篇"}
           </button>
+          {!getKey() && (
+            <button className="link" onClick={() => go({ page: "me" })}>
+              去填 API Key
+            </button>
+          )}
+          <small className="muted">模型：{settings.aiModel}</small>
         </div>
       </section>
-
-      {manualInput && <ManualPrompt task="reading" input={manualInput} onAccept={(value) => { keepReading(value as Reading & { coverage?: Coverage }); setManualInput(null); }} onCancel={() => setManualInput(null)} />}
 
       {progress.readings.length > 0 && (
         <section className="panel reading-list">
@@ -126,21 +115,16 @@ export function ReadingTab() {
         </section>
       )}
 
-      {reading && <ReadingView key={reading.id} r={reading} coverage={coverageById[reading.id]} />}
+      {reading && <ReadingView key={reading.id} r={reading} />}
     </div>
   );
 }
 
-function ReadingView({ r, coverage }: { r: Reading; coverage?: Coverage }) {
+function ReadingView({ r }: { r: Reading }) {
   const atlas = useAtlas();
   const accent = useStore((s) => s.settings.accent);
   const [zh, setZh] = useState(false);
   const [speaking, setSpeaking] = useState(false);
-  const covered = coverage?.coveredWordIds ?? r.words.filter((id) => {
-    const ref = atlas.byId.get(id);
-    return ref && new RegExp(headwordPattern(ref.word).source, "i").test(r.passage);
-  });
-  const uncovered = coverage?.uncoveredWordIds ?? [];
   const patterns = useMemo(
     () =>
       r.words
@@ -185,18 +169,6 @@ function ReadingView({ r, coverage }: { r: Reading; coverage?: Coverage }) {
           </button>
         </div>
       </header>
-      <section className="reading-coverage" aria-label="目标词覆盖">
-        <p className="muted">本篇已覆盖 {covered.length} 个目标词{coverage ? `，本次未覆盖 ${uncovered.length} 个` : ""}。</p>
-        {!!covered.length && <ul className="chip-cloud" aria-label="已覆盖目标词">{covered.map((id) => (
-          <li key={id}><button className="chip-btn" lang="en" onClick={() => openWord(id)}>{atlas.byId.get(id)?.word ?? id}</button></li>
-        ))}</ul>}
-        {!!uncovered.length && <>
-          <p className="muted small">以下候选词未出现在本篇中，留待后续练习：</p>
-          <ul className="chip-cloud" aria-label="未覆盖目标词">{uncovered.map((id) => (
-            <li key={id}><button className="chip-btn" lang="en" onClick={() => openWord(id)}>{atlas.byId.get(id)?.word ?? id}</button></li>
-          ))}</ul>
-        </>}
-      </section>
       <div className="reading-body" lang="en">
         {r.passage.split(/\n+/).map((para, i) => (
           <p key={i}>{highlight(para, patterns)}</p>
@@ -209,7 +181,7 @@ function ReadingView({ r, coverage }: { r: Reading; coverage?: Coverage }) {
           ))}
         </div>
       )}
-      <h3 className="eyebrow">判断题 · 以下陈述是否符合原文？</h3>
+      <h3 className="eyebrow">Questions · Do the following statements agree with the information given?</h3>
       <ol className="tfng">
         {r.questions.map((q, i) => {
           const a = r.answers[i];
@@ -232,7 +204,7 @@ function ReadingView({ r, coverage }: { r: Reading; coverage?: Coverage }) {
           );
         })}
       </ol>
-      <p className="muted small">{r.src === "rules" ? "本地主题阅读" : "由外部接口生成，可能有不准确之处"}；可点击正文中高亮的词查看词条。</p>
+      <p className="muted small">内容由 Claude 生成，可能有不准确之处；高亮的是你的目标词，点一下看词条。</p>
     </section>
   );
 }

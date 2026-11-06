@@ -61,7 +61,7 @@ export function OfflinePanel() {
           {status}
         </span>
       </div>
-      <p className="muted">建议连 Wi-Fi 下载；下载后在 iPhone 上「添加到主屏幕」打开，没网也能学习。</p>
+      <p className="muted">建议连 Wi-Fi 下载；下载后在 iPhone 上「添加到主屏幕」打开，没网也能学习（AI 功能除外）。</p>
 
       {manifest ? (
         <>

@@ -477,16 +477,6 @@ code {
   color: #fff;
 }
 
-.vocabulary-count-input {
-  min-height: 44px;
-  padding: 8px 12px;
-  border: 1px solid var(--line-strong);
-  border-radius: 10px;
-  background: var(--card);
-  color: var(--ink);
-  font-size: 16px;
-}
-
 .segmented {
   display: inline-flex;
   padding: 3px;
@@ -2287,6 +2277,7 @@ code {
 @keyframes stage-in {
   from {
     opacity: 0;
+    transform: translateX(18px);
   }
 }
 .stage-label {
@@ -2352,70 +2343,6 @@ code {
   .hint-keys {
     display: inline-flex;
     order: -1;
-  }
-}
-/* Self-rating after the meaning is revealed: three equal choices, "known" last. */
-.learn-actions.learn-rate {
-  flex-direction: column;
-  align-items: stretch;
-  gap: 10px;
-  /* Taller than the old footer: fade over a short band, then solid paper, so the
-     question never sits on top of the example sentence. */
-  padding-top: 30px;
-  background: linear-gradient(transparent, var(--paper) 26px);
-}
-.rate-question {
-  font-weight: 600;
-  color: var(--ink-2);
-  text-align: center;
-}
-.rate-buttons {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-}
-.learn-actions .rate-buttons .btn {
-  flex: none;
-  min-width: 0;
-  height: 52px;
-  padding: 0 8px;
-  white-space: normal;
-  line-height: 1.2;
-}
-.rate-unknown {
-  border-color: var(--terra);
-  color: var(--terra-ink);
-}
-.rate-unsure {
-  border-color: var(--ochre);
-}
-.rate-note {
-  text-align: center;
-}
-.learn-actions .rate-skip {
-  flex: none;
-  min-width: 0;
-  height: auto;
-  padding: 4px 0;
-  align-self: center;
-  background: none;
-  border: 0;
-  box-shadow: none;
-  color: var(--ink-3);
-  font-weight: 500;
-  font-size: 13.5px;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-@media (min-width: 760px) {
-  .learn-actions.learn-rate {
-    align-items: center;
-  }
-  .rate-buttons {
-    width: min(100%, 640px);
-  }
-  .learn-actions.learn-rate .hint-keys {
-    order: 0;
   }
 }
 
@@ -2696,34 +2623,6 @@ code {
   display: flex;
   justify-content: center;
   gap: 10px;
-}
-
-@media (max-width: 639px) {
-  .learn-typing {
-    padding-bottom: var(--typing-keyboard-inset, 0px);
-  }
-  .learn-typing .learn-stage {
-    flex: 0 0 auto;
-  }
-  .learn-typing .prompt {
-    flex: none;
-    min-height: 0;
-    padding: 8px 0 18px;
-  }
-  .learn-typing .prompt-listen {
-    gap: 10px;
-  }
-  .learn-typing .listen-orb {
-    width: 104px;
-    height: 104px;
-  }
-  .learn-typing .prompt-spell {
-    grid-template-columns: 76px minmax(0, 1fr);
-    gap: 14px;
-  }
-  .learn-typing .spell-zh {
-    font-size: 18px;
-  }
 }
 
 .feedback {

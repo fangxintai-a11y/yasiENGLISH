@@ -1,5 +1,1 @@
-[
-  "app.py",
-  "learning.py",
-  "auth_access.py"
-]
+["app.py", "auth_access.py"]

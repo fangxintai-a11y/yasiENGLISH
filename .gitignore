@@ -18,7 +18,7 @@ public/local-bank/
 *.sqlite3-wal
 *.sqlite3-shm
 
-# R6 shared/private media are supplied separately, never tracked in the current tree.
+# Shared/private media are supplied separately, never tracked in the current tree.
 *.mp3
 *.m4a
 *.pdf

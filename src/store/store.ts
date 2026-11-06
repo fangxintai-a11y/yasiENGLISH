@@ -1,10 +1,8 @@
 import { useSyncExternalStore } from "react";
 import type { Accent } from "../atlas/types";
-import { assertNoCredentials, type FeedbackMode } from "../ielts/scoring";
 import { emptyShadow, type ShadowStat } from "../ielts/shadow";
 import type { CardState, Grade } from "./srs";
 import { mergeSnapshots, type SyncSnapshot } from "./syncMerge";
-import { GATE_TARGETS } from "../study365/protocol";
 
 export type QuizKind = "meaning" | "picture" | "listen" | "spell" | "paraphrase" | "dictation" | "produce";
 /**
@@ -36,8 +34,6 @@ export interface ActiveSession {
   relearn?: Record<string, number>;
   /** Answer shown but not yet continued; survives reload without double counting. */
   pending?: { correct: boolean; value: string };
-  /** Self-rating given on each first meeting in this session (see rateIntro). */
-  intro?: Record<string, "known" | "unsure" | "unknown">;
   finished?: number;
 }
 
@@ -87,7 +83,6 @@ export interface Reading {
   words: string[];
   questions: ReadingQuestion[];
   answers: (string | null)[];
-  src?: "rules" | "ai" | "manual" | "legacy";
 }
 
 export interface Progress {
@@ -112,7 +107,7 @@ export interface Progress {
   readings: Reading[];
   /** 跟读: sentences practised, per day and per sentence. */
   shadow: ShadowStat;
-  /** 邪修记法：本地拆分 + 自写钩子，或来自外部接口。 */
+  /** 邪修 hooks written by AI for words that keep slipping away. */
   hacks: Record<string, SavedHack>;
   /** 一分钟闪测: best score so far. */
   flashBest: number;
@@ -123,7 +118,6 @@ export interface SavedHack {
   split: string;
   scene: string;
   at: number;
-  src?: "rules" | "ai" | "manual" | "legacy";
 }
 
 export interface Settings {
@@ -152,15 +146,17 @@ export interface Settings {
   /** Listening-dictation and production tracks. */
   trackL: boolean;
   trackP: boolean;
-  feedbackMode: FeedbackMode;
+  aiModel: string;
   /** Speech recognition while shadowing: "auto" leaves it off on iPhone/iPad, where it can fight the recorder for the mic. */
   shadowAsr: "auto" | "on" | "off";
 }
 
+export const AI_MODELS = ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"] as const;
+
 export const defaultSettings: Settings = {
   accent: "uk",
   autoplay: true,
-  dailyNew: 20,
+  dailyNew: 10,
   retention: 0.9,
   theme: "dark",
   sfx: true,
@@ -175,10 +171,10 @@ export const defaultSettings: Settings = {
   sentenceFirst: true,
   examDate: "",
   dailyMinutes: 30,
-  targetBand: GATE_TARGETS.G4.overall,
+  targetBand: 6.5,
   trackL: true,
   trackP: true,
-  feedbackMode: "rules",
+  aiModel: AI_MODELS[0],
   shadowAsr: "auto",
 };
 
@@ -250,7 +246,7 @@ function validCard(v: unknown): v is CardState {
 const str = (v: unknown, max = 20000): v is string => typeof v === "string" && v.length <= max;
 const strs = (v: unknown, n: number) => (Array.isArray(v) ? v.filter((x): x is string => str(x, 200)).slice(0, n) : []);
 
-export function validReading(v: unknown): v is Reading {
+function validReading(v: unknown): v is Reading {
   return (
     isObj(v) &&
     str(v.id, 80) &&
@@ -263,17 +259,6 @@ export function validReading(v: unknown): v is Reading {
     v.questions.every((q) => isObj(q) && str(q.q, 600) && ["TRUE", "FALSE", "NOT GIVEN"].includes(q.a as string) && str(q.why, 1200)) &&
     Array.isArray(v.answers)
   );
-}
-
-const validSource = (value: unknown): value is NonNullable<Reading["src"]> => typeof value === "string" && ["rules", "ai", "manual", "legacy"].includes(value);
-
-export class OutboundPrivacyError extends Error {
-  constructor() { super("学习记录中含有疑似接口密钥，已暂停导出和同步。原文保留在本机，请检查后移除密钥再重试。"); }
-}
-/** Inspect an outbound copy without deleting or rewriting the learner's text. */
-export function assertSafeOutbound(value: unknown): void {
-  try { assertNoCredentials(value); }
-  catch { throw new OutboundPrivacyError(); }
 }
 
 export function sanitizeProgress(v: unknown, datasetId: string): Progress {
@@ -291,14 +276,11 @@ export function sanitizeProgress(v: unknown, datasetId: string): Progress {
   if (isObj(pl) && num(pl.at, 0) && Array.isArray(pl.levels) && pl.levels.every((x) => num(x, 0, 1)) && num(pl.estimate, 0) && num(pl.seeded, 0))
     out.placement = { at: pl.at as number, levels: pl.levels as number[], estimate: pl.estimate as number, seeded: pl.seeded as number };
   out.queue = strs(v.queue, 2000);
-  if (Array.isArray(v.readings)) out.readings = v.readings.filter(validReading).slice(0, 30).map((r) => ({
-    id: r.id, at: r.at, title: r.title, passage: r.passage, zh: r.zh, words: r.words, questions: r.questions, answers: r.answers,
-    ...(validSource(r.src) ? { src: r.src } : {}),
-  }));
+  if (Array.isArray(v.readings)) out.readings = v.readings.filter(validReading).slice(0, 30);
   if (isObj(v.hacks))
     for (const [k, h] of Object.entries(v.hacks).slice(-3000))
       if (k.length <= 80 && isObj(h) && str(h.homophone, 400) && str(h.split, 400) && str(h.scene, 400) && num(h.at, 0))
-        out.hacks[k] = { homophone: h.homophone, split: h.split, scene: h.scene, at: h.at as number, ...(validSource(h.src) ? { src: h.src } : {}) };
+        out.hacks[k] = { homophone: h.homophone, split: h.split, scene: h.scene, at: h.at as number };
   if (num(v.flashBest, 0, 1000)) out.flashBest = v.flashBest as number;
   const sh = v.shadow;
   if (isObj(sh)) {
@@ -347,9 +329,10 @@ export function sanitizeSettings(v: unknown): Settings {
   if (typeof v.sentenceFirst === "boolean") s.sentenceFirst = v.sentenceFirst;
   if (v.examDate === "" || (typeof v.examDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v.examDate))) s.examDate = v.examDate;
   if (num(v.dailyMinutes, 5, 240)) s.dailyMinutes = Math.round(v.dailyMinutes as number);
+  if (num(v.targetBand, 4, 9) && Number.isInteger((v.targetBand as number) * 2)) s.targetBand = v.targetBand as number;
   if (typeof v.trackL === "boolean") s.trackL = v.trackL;
   if (typeof v.trackP === "boolean") s.trackP = v.trackP;
-  if (v.feedbackMode === "rules" || v.feedbackMode === "manual" || v.feedbackMode === "auto") s.feedbackMode = v.feedbackMode;
+  if ((AI_MODELS as readonly string[]).includes(v.aiModel as string)) s.aiModel = v.aiModel as string;
   if (v.shadowAsr === "auto" || v.shadowAsr === "on" || v.shadowAsr === "off") s.shadowAsr = v.shadowAsr;
   return s;
 }
@@ -466,9 +449,7 @@ export const store = {
   },
   cloudSnapshot(): { progress: Progress; settings: Settings } | null {
     if (loadedId !== state.progress.datasetId) return null;
-    const snapshot = { progress: { ...state.progress, session: null }, settings: { ...state.settings } };
-    assertSafeOutbound(snapshot);
-    return snapshot;
+    return { progress: { ...state.progress, session: null }, settings: { ...state.settings } };
   },
   appliedCloudStamp: () => state.cloudStamp,
   applyCloud(snapshot: { progress: Progress; settings: Settings }, stamp?: string) {
@@ -533,11 +514,9 @@ export function recordShadow(key: string, good: boolean, combo: number, now = Da
 /* ---------- backup ---------- */
 
 export function exportBackup() {
-  const { progress, settings } = state;
-  const backup = { app: "word-atlas", version: 2, exported: new Date().toISOString(), progress: { ...progress, session: null }, settings };
-  assertSafeOutbound(backup);
   flush();
-  return JSON.stringify(backup, null, 1);
+  const { progress, settings } = state;
+  return JSON.stringify({ app: "word-atlas", version: 2, exported: new Date().toISOString(), progress: { ...progress, session: null }, settings }, null, 1);
 }
 
 function markDirty() {
@@ -545,7 +524,7 @@ function markDirty() {
 }
 
 export function importBackup(text: string): { ok: true; cards: number } | { ok: false; error: string } {
-  // Backups never carry model-endpoint config or secrets.
+  // Backups never carry the AI key; it stays in this browser only.
   let data: unknown;
   try {
     data = JSON.parse(text);

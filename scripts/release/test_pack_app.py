@@ -27,14 +27,14 @@ class PackAppTest(unittest.TestCase):
         self.dist = self.source / 'dist'
         self.out = self.root / 'candidate.tar.gz'
         self.shared = self.root / 'shared-atlas'
-        self.runtime = ['app.py', 'learning.py', 'fixture_auth.py']
+        self.runtime = ['app.py', 'fixture_auth.py']
         api_files = {}
         for name in self.runtime:
             data = ('# Self-authored isolated API fixture: ' + name + '\nVALUE = 1\n').encode()
             self.write(self.source / 'server' / name, data)
             api_files[name] = sha(data)
         self.write(self.source / 'server/runtime-files.json', json.dumps(self.runtime))
-        self.build = {'version': '365.0.0-rc2', 'fullCommit': COMMIT, 'sourceDirty': False, 'apiFiles': api_files}
+        self.build = {'version': '1.0.0', 'fullCommit': COMMIT, 'sourceDirty': False, 'apiFiles': api_files}
         self.write(self.dist / 'build-info.json', json.dumps(self.build))
         for name, content in {
             'index.html': '<!doctype html><title>Self-authored release fixture</title>',
@@ -48,8 +48,6 @@ class PackAppTest(unittest.TestCase):
             'atlas/audio/test.mp3': b'Self-authored fixture audio bytes; packer does not decode media',
             'ielts/phrase/test.mp3': b'Self-authored phrase audio fixture',
             'sfx/test.wav': b'Self-authored effect fixture',
-            'curriculum365/v1/audio/test.mp3': b'Self-authored curriculum audio fixture',
-            'curriculum365/v1/audio/provenance.json': '{"selfAuthoredFixture":true}',
         }.items():
             self.write(self.dist / name, content)
 
@@ -77,7 +75,7 @@ class PackAppTest(unittest.TestCase):
     def test_pax_commit_and_runtime_hashes_bind_the_clean_prebuilt_candidate(self):
         result = self.package()
         self.assertEqual(result['commit'], COMMIT)
-        self.assertEqual(result['version'], '365.0.0-rc2')
+        self.assertEqual(result['version'], '1.0.0')
         self.assertEqual(result['sha256'], sha(self.out.read_bytes()))
         self.assertLess(result['archiveBytes'], 50 * 1024 * 1024)
         with tarfile.open(self.out, 'r:gz') as archive:
@@ -98,11 +96,11 @@ class PackAppTest(unittest.TestCase):
         self.assertEqual(report['sha256'], result['sha256'])
         self.assertEqual({item['path'] for item in report['files']}, set(names))
 
-    def test_atlas_and_all_three_media_trees_are_shared_once_at_their_original_urls(self):
+    def test_atlas_and_vocabulary_media_trees_are_shared_once_at_their_original_urls(self):
         result = self.package()
         self.assertTrue(result['sharedAtlas'])
-        self.assertEqual(result['sharedCopied'], 7)
-        self.assertEqual(result['sharedFiles'], 7)
+        self.assertEqual(result['sharedCopied'], 5)
+        self.assertEqual(result['sharedFiles'], 5)
         for name in ['index.json', 'img/test.webp', 'audio/test.mp3']:
             self.assertEqual((self.shared / name).read_bytes(), (self.dist / 'atlas' / name).read_bytes())
         for tree in PACK.SHARED_PATHS:

@@ -163,7 +163,7 @@ async function importOfflineStudy(page, id, at) {
   current.days["2026-11-02"] = { n: 1, r: 1, c: 1, t: 10 };
   const settings = await page.evaluate(() => JSON.parse(localStorage.getItem("word-atlas:settings") || "{}"));
   const backup = { app: "word-atlas", version: 2, exported: new Date().toISOString(), progress: current, settings };
-  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles({ name: "isolated-e2e-study.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(backup)) });
+  await page.locator('input[type="file"]').setInputFiles({ name: "isolated-e2e-study.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(backup)) });
   await eventually(() => hasWords(page, [id]), "offline imported study is persisted in the browser");
 }
 

@@ -106,7 +106,7 @@ def web_boundary(handler, method, path):
         root, relative = handler.server.private_root, path[len('/private/'):]
     elif path.startswith('/atlas/'):
         root, relative = handler.server.atlas_root, path[len('/atlas/'):]
-    elif path.startswith(('/ielts/phrase/', '/sfx/', '/curriculum365/v1/audio/')):
+    elif path.startswith(('/ielts/phrase/', '/sfx/')):
         # Only these legacy public audio locations are moved to the shared atlas.
         # Keep the root boundary at atlas_root; never relax site-root symlink checks.
         root, relative = handler.server.atlas_root, '_public/' + path.lstrip('/')

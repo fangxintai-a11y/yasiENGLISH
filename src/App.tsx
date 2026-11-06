@@ -1,4 +1,4 @@
-import { BookOpen, ChevronLeft, ChevronRight, Compass, Github, GraduationCap, Mic, Moon, Search, Sun, User } from "lucide-react";
+import { BookOpen, ChevronLeft, ChevronRight, Compass, Github, GraduationCap, Keyboard, Mic, Moon, Search, Sun, User } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { AtlasContext, useAtlas, useEntry } from "./atlas/context";
 import { loadOpenAtlas, loadPrivateAtlas } from "./atlas/data";
@@ -13,15 +13,10 @@ import { Onboarding } from "./pages/Onboarding";
 import { Practice } from "./pages/Practice";
 import { Shadow } from "./pages/Shadow";
 import { Ielts } from "./pages/Ielts";
+import { Spelling } from "./pages/Spelling";
 import { loadTags } from "./ielts/tags";
 import { loadConfusables } from "./ielts/confusables";
 import { Today } from "./pages/Today";
-import { Listening } from "./pages/Listening";
-import { Reading } from "./pages/Reading";
-import { Speaking } from "./pages/Speaking";
-import { Writing } from "./pages/Writing";
-import { Progress } from "./pages/Progress";
-import { Review } from "./pages/Review";
 import { cue } from "./lib/sound";
 import { store, useStore } from "./store/store";
 import { EntryView } from "./ui/EntryView";
@@ -34,6 +29,7 @@ import { Toasts } from "./ui/Toast";
 
 const NAV: { page: Route["page"]; label: string; icon: typeof Compass }[] = [
   { page: "today", label: "今日", icon: Compass },
+  { page: "spelling", label: "拼写", icon: Keyboard },
   { page: "ielts", label: "雅思", icon: GraduationCap },
   { page: "atlas", label: "图鉴", icon: BookOpen },
   { page: "shadow", label: "跟读", icon: Mic },
@@ -186,15 +182,10 @@ function Shell({ privateAvailable }: { privateAvailable: boolean }) {
         {route.page === "atlas" && <AtlasPage route={route} />}
         {route.page === "learn" && <Learn />}
         {route.page === "practice" && <Practice />}
+        {route.page === "spelling" && <Spelling />}
         {route.page === "shadow" && <Shadow run={!!route.run} />}
         {route.page === "ielts" && <Ielts route={route} />}
-        {route.page === "listening" && <Listening route={route} />}
-        {route.page === "reading" && <Reading route={route} />}
-        {route.page === "speaking" && <Speaking route={route} />}
-        {route.page === "writing" && <Writing route={route} />}
-        {route.page === "review" && <Review route={route} />}
-        {route.page === "progress" && <Progress />}
-        {route.page === "me" && <Me privateAvailable={privateAvailable} focusSync={route.section === "learning-sync"} />}
+        {route.page === "me" && <Me privateAvailable={privateAvailable} />}
         {route.page === "about" && <About />}
       </main>
 

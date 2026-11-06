@@ -150,7 +150,7 @@ export function SyncPanel() {
 
       {cloud.message && <p className={cloud.status === "error" || cloud.status === "auth" ? "warn-text sync-message" : "muted sync-message"} role="status" aria-live="polite">{cloud.message}</p>}
       {error && <p id={errorId} className="warn-text sync-message" role="alert">{error}</p>}
-      <p className="muted sync-scope">同步学习进度和设置；跟读录音、离线包和外部接口设置保留在各自设备上。</p>
+      <p className="muted sync-scope">同步学习进度和设置；跟读录音、离线包和 AI Key 保留在各自设备上。</p>
     </section>
   );
 }

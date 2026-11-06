@@ -189,16 +189,3 @@ test("different datasets never merge", () => {
   remote.progress.datasetId = "another-dataset";
   assert.throws(() => mergeSnapshots(null, snapshot(), remote), /不同词库/);
 });
-
-test("feedback mode merges by the same three-way rules and obsolete model IDs are never projected", () => {
-  const base = snapshot(), local = copy(base), remote = copy(base);
-  local.settings.feedbackMode = "manual";
-  remote.settings.dailyNew = 20;
-  Object.assign(local.settings, { aiModel: "legacy-model-id" });
-  Object.assign(remote.settings, { aiModel: "legacy-remote-id" });
-  const merged = mergeSnapshots(base, local, remote);
-  assert.equal(merged.settings.feedbackMode, "manual"); assert.equal(merged.settings.dailyNew, 20);
-  assert.equal(Object.hasOwn(merged.settings, "aiModel"), false);
-  assert.equal(Object.hasOwn(mergeSnapshots(null, local, null).settings, "aiModel"), false);
-  assert.equal(mergeSnapshots(null, local, null).settings.feedbackMode, "manual");
-});

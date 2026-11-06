@@ -14,9 +14,9 @@
 | 同步基线、待确认提交、应用恢复日志 | 本机 IndexedDB `band-cloud-sync` |
 | 跟读录音 | 仅本机 IndexedDB `band-voices` |
 | 词库、插图、发音与离线包 | 静态网站文件 + 浏览器 Cache Storage |
-| 外部接口设置与密钥 | 仅本机localStorage（band-galaxy:llm、band-galaxy:llm-secret:<id>），只发往你自己填写的接口地址 |
+| Claude API Key | 仅本机 localStorage，使用 AI 时发往 Anthropic |
 
-同步不会上传录音、外部接口密钥、进行中的答题轮。JSON 导出仍只包含学习进度和设置。导入和清空会改变账号的同步进度，操作前应保留备份。
+同步不会上传录音、AI Key、进行中的答题轮。JSON 导出仍只包含学习进度和设置。导入和清空会改变账号的同步进度，操作前应保留备份。
 
 ## 合并与断网恢复
 

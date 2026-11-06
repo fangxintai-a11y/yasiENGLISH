@@ -1,4 +1,4 @@
-"""R6 single-owner HTTP boundary uses disposable files, accounts and SQLite only."""
+"""Single-owner HTTP boundary uses disposable files, accounts and SQLite only."""
 import hashlib
 import http.client
 import json
@@ -73,7 +73,7 @@ class SingleOwnerAccessTest(unittest.TestCase):
 
     def test_owner_cookie_opens_root_api_and_private_file(self):
         cookie = self.login()
-        for path in ('/', '/app.js', '/api/learning/v2/changes', '/private/x.mp3', '/private/manifest.json', '/api/auth/check'):
+        for path in ('/', '/app.js', '/private/x.mp3', '/private/manifest.json', '/api/auth/check'):
             self.assertEqual(self.request('GET', path, cookie=cookie)[0], 200, path)
         self.assertIn('Path=/', cookie)
         self.assertNotIn('Path=/api', cookie)
@@ -90,6 +90,14 @@ class SingleOwnerAccessTest(unittest.TestCase):
         with self.server.database.connect() as db:
             self.assertEqual(db.execute('SELECT COUNT(*) FROM users').fetchone()[0], 1)
 
+    def test_authenticated_vocabulary_app_has_no_four_skill_record_endpoints(self):
+        cookie = self.login()
+        for path in ('/api/learning/v2/changes?after=0', '/api/learning/v2/records'):
+            self.assertEqual(self.request('GET', path, cookie=cookie)[0], 404, path)
+        status, body, _ = self.request('GET', '/api/capabilities', cookie=cookie)
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body), {'vocabularySnapshots': 2, 'learningRecords': 0})
+
     def test_private_range_and_head_require_login_then_return_exact_bytes(self):
         self.assertEqual(self.request('GET', '/private/x.mp3', headers={'Range': 'bytes=4-11'})[0], 401)
         cookie = self.login()
@@ -100,13 +108,12 @@ class SingleOwnerAccessTest(unittest.TestCase):
         self.assertEqual(self.request('GET', '/private/x.mp3', cookie=cookie, headers={'Range': 'bytes=9000-'})[0], 416)
 
     def test_extra_shared_media_uses_only_allowed_prefixes_without_escaping_atlas_root(self):
-        files = {'sfx/tap.mp3': b'synthetic effect', 'ielts/phrase/hello.mp3': b'synthetic phrase',
-                 'curriculum365/v1/audio/sample.m4a': b'synthetic lesson'}
+        files = {'sfx/tap.mp3': b'synthetic effect', 'ielts/phrase/hello.mp3': b'synthetic phrase'}
         for relative, body in files.items():
             target = self.atlas / '_public' / relative
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(body)
-        for relative in ('sfx', 'ielts/phrase', 'curriculum365/v1/audio'):
+        for relative in ('sfx', 'ielts/phrase'):
             link = self.site / relative
             link.parent.mkdir(parents=True, exist_ok=True)
             link.symlink_to(self.atlas / '_public' / relative, target_is_directory=True)

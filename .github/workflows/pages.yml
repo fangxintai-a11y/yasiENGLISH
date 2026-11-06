@@ -24,8 +24,6 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Prepare verified self-authored listening fixture outside Git
-        run: python3 scripts/curriculum/restore-r0-audio.py
       - run: npm test
       # Project pages live under /<repo>/, so the app is built for that sub-path.
       - run: npm run build

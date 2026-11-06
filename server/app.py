@@ -25,15 +25,7 @@ import time
 from urllib.parse import parse_qs, unquote, urlsplit
 import uuid
 
-try:
-    from . import learning as learning_module
-except ImportError:
-    # The release receiver also imports app.py directly from an isolated artifact.
-    import importlib.util
-    _learning_spec = importlib.util.spec_from_file_location("band_learning", Path(__file__).with_name("learning.py"))
-    learning_module = importlib.util.module_from_spec(_learning_spec)
-    _learning_spec.loader.exec_module(learning_module)
-
+import importlib.util
 
 try:
     from . import auth_access
@@ -187,8 +179,8 @@ def validate_snapshot(snapshot, dataset_id: str):
             raise ApiError(400, "同步数据包含不支持的类型。")
 
     visit(snapshot)
-    # One transition release accepts the old field; never persist or echo it.
-    return {"progress": progress, "settings": {key: value for key, value in settings.items() if key != "aiModel"}}
+    # Accept both vocabulary-era and later preference fields during rollback.
+    return snapshot
 
 
 class Database:
@@ -392,7 +384,7 @@ class ApiServer(ThreadingHTTPServer):
     daemon_threads = True
     block_on_close = True
 
-    def __init__(self, address, database, public_origin, secure_cookie, allow_register, trust_proxy, auth_limit, max_accounts, setup_token_hash, learning_write_enabled=True, single_user=False, site_root=None, private_root=None, atlas_root=None):
+    def __init__(self, address, database, public_origin, secure_cookie, allow_register, trust_proxy, auth_limit, max_accounts, setup_token_hash, single_user=False, site_root=None, private_root=None, atlas_root=None):
         if single_user:
             with database.connect() as db:
                 if db.execute("SELECT COUNT(*) FROM users").fetchone()[0] > 1:
@@ -401,8 +393,6 @@ class ApiServer(ThreadingHTTPServer):
         self.site_root = site_root
         self.private_root = private_root
         self.atlas_root = atlas_root
-        self.learning = learning_module.LearningStore(database)
-        self.learning_write_enabled = learning_write_enabled
         super().__init__(address, Handler)
         self.database = database
         self.public_origin = public_origin.rstrip("/")
@@ -628,13 +618,13 @@ class Handler(BaseHTTPRequestHandler):
             self.check_origin()
         if auth_access.web_boundary(self, method, path):
             return
+        if method == "GET" and path == "/api/capabilities":
+            return self.send_json(200, {"vocabularySnapshots": 2, "learningRecords": 0})
         if method == "GET" and path == "/api/health":
             # A database read proves the path and schema are usable.
             with self.server.database.connect() as db:
                 db.execute("SELECT id FROM users LIMIT 1").fetchone()
             return self.send_json(200, {"ok": True})
-        if learning_module.dispatch(self, method, path, request_url.query):
-            return
         if method == "GET" and path == "/api/auth/session":
             return self.send_json(200, {"user": self.server.database.user_for_token(self.token())})
         if method == "POST" and path in ("/api/auth/register", "/api/auth/login"):
@@ -685,8 +675,6 @@ class Handler(BaseHTTPRequestHandler):
             self.dispatch(method)
         except ApiError as error:
             self.send_json(error.status, {"error": error.message})
-        except learning_module.LearningError as error:
-            self.send_json(error.status, error.body)
         except (BrokenPipeError, ConnectionResetError, TimeoutError):
             self.close_connection = True
         except Exception:
@@ -708,7 +696,7 @@ class Handler(BaseHTTPRequestHandler):
 
 def create_server(host="127.0.0.1", port=5189, db_path=None, public_origin=None,
                   secure_cookie=None, allow_register=True, trust_proxy=False, auth_limit=20,
-                  max_accounts=1, setup_token_hash=None, learning_write_enabled=None,
+                  max_accounts=1, setup_token_hash=None,
                   single_user=None, site_root=None, private_root=None, atlas_root=None):
     db_path = db_path or os.environ.get("BAND_DB_PATH", "./var/band-galaxy.sqlite3")
     public_origin = public_origin or os.environ.get("BAND_PUBLIC_ORIGIN", "http://localhost:5188")
@@ -727,10 +715,6 @@ def create_server(host="127.0.0.1", port=5189, db_path=None, public_origin=None,
         raise ValueError("BAND_SETUP_TOKEN_HASH must be a lowercase SHA-256 hash")
     if not isinstance(max_accounts, int) or not 1 <= max_accounts <= 1000:
         raise ValueError("BAND_MAX_ACCOUNTS must be between 1 and 1000")
-    if learning_write_enabled is None:
-        learning_write_enabled = os.environ.get("BAND_LEARNING_WRITES_ENABLED", "1") == "1"
-    if not isinstance(learning_write_enabled, bool):
-        raise ValueError("Learning write availability must be a boolean")
     if single_user is None:
         single_user = os.environ.get("BAND_SINGLE_USER", "0") == "1"
     if single_user:
@@ -738,7 +722,7 @@ def create_server(host="127.0.0.1", port=5189, db_path=None, public_origin=None,
     site_root = site_root or os.environ.get("BAND_SITE_ROOT")
     private_root = private_root or os.environ.get("BAND_PRIVATE_ROOT")
     atlas_root = atlas_root or os.environ.get("BAND_ATLAS_ROOT")
-    return ApiServer((host, port), Database(db_path), public_origin, secure_cookie, allow_register, trust_proxy, auth_limit, max_accounts, setup_token_hash, learning_write_enabled, single_user, site_root, private_root, atlas_root)
+    return ApiServer((host, port), Database(db_path), public_origin, secure_cookie, allow_register, trust_proxy, auth_limit, max_accounts, setup_token_hash, single_user, site_root, private_root, atlas_root)
 
 
 def main():

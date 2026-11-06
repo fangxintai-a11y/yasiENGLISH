@@ -419,41 +419,5 @@ class ServerTest(unittest.TestCase):
             self.assertEqual(db.execute("SELECT COUNT(*) FROM sessions WHERE user_id=?", (user["id"],)).fetchone()[0], 0)
 
 
-class SnapshotFeedbackTest(unittest.TestCase):
-    def test_legacy_settings_are_accepted_but_not_stored_in_sqlite(self):
-        value = snapshot()
-        value["settings"]["aiModel"] = "legacy-model-id"
-        clean = app_module.validate_snapshot(value, DATASET)
-        self.assertNotIn("aiModel", clean["settings"])
-        with tempfile.TemporaryDirectory() as directory:
-            database = Database(Path(directory) / "progress.sqlite3")
-            with database.connect() as db:
-                db.execute("INSERT INTO users VALUES (?,?,?,?)", ("fixture-user", "fixture-user", "not-an-auth-fixture", 1))
-            accepted, result = database.put_snapshot("fixture-user", DATASET, 0, clean, str(uuid.uuid4()))
-            self.assertTrue(accepted)
-            self.assertNotIn("aiModel", result["snapshot"]["settings"])
-            with database.connect() as db:
-                stored = json.loads(db.execute("SELECT payload FROM snapshots").fetchone()[0])
-            self.assertNotIn("aiModel", stored["settings"])
-
-    def test_feedback_mode_only_accepts_the_three_supported_values(self):
-        for mode in ("rules", "manual", "auto"):
-            with self.subTest(mode=mode):
-                value = snapshot(); value["settings"]["feedbackMode"] = mode
-                self.assertEqual(app_module.validate_snapshot(value, DATASET)["settings"]["feedbackMode"], mode)
-        for mode in ("unknown", None, 1, {}, []):
-            with self.subTest(mode=mode):
-                value = snapshot(); value["settings"]["feedbackMode"] = mode
-                with self.assertRaises(app_module.ApiError):
-                    app_module.validate_snapshot(value, DATASET)
-
-    def test_secrets_are_rejected_even_inside_ordinary_progress_text(self):
-        for secret in ("sk-" + "a" * 20, "sk-proj-" + "b" * 24, "xai-" + "c" * 24, "AIza" + "d" * 30, "ghp_" + "e" * 24, "gho_" + "f" * 24, "sk-ant-" + "g" * 24):
-            with self.subTest(prefix=secret[:8]):
-                value = snapshot(); value["progress"]["readings"] = [{"passage": "Stored text " + secret}]
-                with self.assertRaises(app_module.ApiError):
-                    app_module.validate_snapshot(value, DATASET)
-
-
 if __name__ == "__main__":
     unittest.main()

@@ -247,8 +247,8 @@ manifest = source / 'runtime-files.json'
 if not manifest.is_file() or manifest.is_symlink():
     raise ValueError('API runtime manifest is required')
 files = json.loads(manifest.read_text())
-if not isinstance(files, list) or not {'app.py', 'learning.py'}.issubset(files) or len(files) != len(set(files)):
-    raise ValueError('API runtime manifest must include app.py and learning.py')
+if not isinstance(files, list) or 'app.py' not in files or len(files) != len(set(files)):
+    raise ValueError('API runtime manifest must include app.py')
 for name in files:
     if not isinstance(name, str) or not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*\.py', name):
         raise ValueError('Unexpected API runtime file')
@@ -278,14 +278,19 @@ with tempfile.TemporaryDirectory(prefix='band-candidate-') as scratch:
         with urllib.request.urlopen(base + '/api/auth/session', timeout=10) as response:
             assert json.load(response) == {'user': None}
         with urllib.request.urlopen(base + '/api/capabilities', timeout=10) as response:
-            version = json.load(response)['learningRecords']
-            assert type(version) is int and version >= 2
-        try:
-            urllib.request.urlopen(base + f'/api/learning/v{version}/changes', timeout=10)
-        except urllib.error.HTTPError as error:
-            assert error.code == 401
-        else:
-            raise AssertionError('Learning records must require authentication')
+            capabilities = json.load(response)
+            version = capabilities['learningRecords']
+            if (artifact / 'learning.py').exists():
+                assert type(version) is int and version >= 2
+            else:
+                assert type(version) is int and version == 0 and capabilities['vocabularySnapshots'] == 2
+        if version:
+            try:
+                urllib.request.urlopen(base + f'/api/learning/v{version}/changes', timeout=10)
+            except urllib.error.HTTPError as error:
+                assert error.code == 401
+            else:
+                raise AssertionError('Learning records must require authentication')
         database = pathlib.Path(scratch) / 'check.sqlite3'
         schema = 0
         if database.is_file():

@@ -1,4 +1,4 @@
-name: Stage validation
+name: Vocabulary candidate validation
 on:
   push:
     branches: ['codex/**']
@@ -7,7 +7,7 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -18,19 +18,13 @@ jobs:
         with:
           python-version: '3.12'
       - run: npm ci
+      - run: npm test
+      - run: npm run test:server
+      - run: python3 -m unittest discover -s scripts/release -p test_pack_app.py
+      - run: python3 -m unittest discover -s ops/deploy -p test_vocabulary_runtime.py
+      - run: npm run build
       - run: npx playwright install --with-deps chromium
       - name: Select isolated browser executable
         run: node --input-type=module -e "import {chromium} from 'playwright'; console.log('CHROME_PATH='+chromium.executablePath())" >> "$GITHUB_ENV"
-      - name: Prepare verified self-authored listening fixture outside Git
-        run: python3 scripts/curriculum/restore-r0-audio.py
-      - run: npm test
-      - run: npx tsc -b
-      - run: npm run test:server
-      - run: npm run check:curriculum
-      - run: npm run check:vendor-text
-      - run: npm run build
-      - run: npm run check:vendor-text -- --dist
-      - run: npm run test:learning
+      - run: node scripts/test-spelling-e2e.mjs
       - run: npm run test:sync
-      - run: node scripts/test-learning-storage-e2e.mjs
-      - run: node scripts/test-scoring-e2e.mjs

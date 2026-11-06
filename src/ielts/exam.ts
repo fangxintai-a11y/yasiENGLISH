@@ -204,7 +204,7 @@ export function examPlan(atlas: AtlasLite, p: Progress, s: Settings, tags: Pick<
   const budget = s.dailyMinutes * 60;
   const fit = Math.max(0, Math.floor((budget - existing * pace.review) / perNewSec));
   const need = learnDays > 0 ? Math.ceil(remaining / learnDays) : 0;
-  const newPerDay = budget <= 0 ? 0 : days === null ? s.dailyNew : Math.min(s.dailyNew, need, fit, 80);
+  const newPerDay = days === null ? s.dailyNew : Math.min(need, fit, 80);
   const minutesNeeded = Math.ceil((existing * pace.review + need * perNewSec) / 60);
 
   const at = days === null ? now + 60 * DAY : examTime(s.examDate)!;
@@ -258,8 +258,6 @@ export interface TodayPlan {
 }
 
 const TRACK_WEIGHT: Record<Track, number> = { r: 1, l: 0.9, p: 0.8 };
-/** Learning-state cards shown beyond the minute budget per day (see todayPlan). */
-export const LEARNING_DUE_CAP = 40;
 
 export function priority(key: string, c: CardState, now: number, target: Set<string>) {
   const { track, id } = parseKey(key);
@@ -307,25 +305,11 @@ export function todayPlan(atlas: AtlasLite, p: Progress, s: Settings, tags: Pick
     due.push(key);
     used += cost(key);
   }
-  // Words still being learned (new, relearning, or self-rated "unsure"/"unknown") are never
-  // deferred by the minute budget: on a course day with 0 vocabulary minutes they would otherwise
-  // never come back. Capped so a long break cannot turn into an endless session.
-  const queued = new Set(due);
-  let learningExtra = 0;
-  for (const key of dueAll) {
-    if (learningExtra >= LEARNING_DUE_CAP) break;
-    const c = getCard(p, key);
-    if (queued.has(key) || !c || (c.st !== 1 && c.st !== 3)) continue;
-    due.push(key);
-    queued.add(key);
-    used += cost(key);
-    learningExtra++;
-  }
   const deferred = dueAll.length - due.length;
   const backlog = deferred > 0;
 
   let fresh: string[] = [];
-  if (budget > 0 && !backlog && plan.phase !== "sprint" && plan.phase !== "after") {
+  if (!backlog && plan.phase !== "sprint" && plan.phase !== "after") {
     const want = Math.max(0, plan.newPerDay - newToday);
     const room = Math.floor((budget - used) / plan.pace.fresh);
     const n = s.examDate ? Math.min(want, room) : Math.min(want, Math.max(3, room));
