@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { createHash } from "node:crypto";
 import { tsImport } from "tsx/esm/api";
-import { packPrivateAudio } from "./pack-private-audio.mjs";
+import { durationIssue, packPrivateAudio } from "./pack-private-audio.mjs";
 const { hashLocalMaterial } = await tsImport(
   "../../src/study365/localBankSchema.ts",
   import.meta.url,
@@ -187,4 +187,21 @@ test("packer rejects source SHA changes rather than rewriting a bank to fit the 
   } finally {
     await fs.rm(f.root, { recursive: true, force: true });
   }
+});
+test("duration check compares the transcode with the decoded source, not a bitrate-estimated header", () => {
+  // Real case c10t1s1: header 454.947s, decoded 455.993s, AAC 455.993s.
+  assert.equal(
+    durationIssue({ declared: 454.947, sourceProbe: 454.947, sourceDecoded: 455.993, encoded: 455.993 }),
+    null,
+  );
+  assert.equal(
+    durationIssue({ declared: 454.947, sourceProbe: 454.947, sourceDecoded: 455.993, encoded: 454.947 }),
+    "encoded",
+    "a transcode that truncates real audio still fails",
+  );
+  assert.equal(
+    durationIssue({ declared: 400, sourceProbe: 454.947, sourceDecoded: 455.993, encoded: 455.993 }),
+    "declared",
+    "a bank whose declared length disagrees with the file it hashes still fails",
+  );
 });

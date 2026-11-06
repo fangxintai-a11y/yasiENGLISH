@@ -14,6 +14,7 @@ import {
   selectReadingForDay,
 } from "../../listeningReadingSchedule";
 import { currentAttempts } from "../../readingModel";
+import { listeningSectionForDay, sectionDistance } from "../../listeningLadder";
 export const MATERIAL_SOURCE_LABELS = {
   official: "官方",
   cambridge: "剑桥",
@@ -183,7 +184,9 @@ export function practiceSelection(
                       : 3;
               const frequency = (m: LocalMaterial) =>
                 m.frequency === "high" ? 0 : m.frequency === "medium" ? 1 : 2;
+              const wanted = listeningSectionForDay(day);
               return (
+                sectionDistance(a, wanted) - sectionDistance(b, wanted) ||
                 source(a) - source(b) ||
                 frequency(a) - frequency(b) ||
                 a.id.localeCompare(b.id)

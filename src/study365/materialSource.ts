@@ -20,14 +20,16 @@ function completeFullAttempt(payload: LearningPayload): boolean {
   const counts = [payload.score, payload.correct].filter(value => value !== undefined);
   return counts.length > 0 && counts.every(value => typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 40 && value === counts[0]);
 }
-/** Exact same-sitting association only. Never infer a source from an ID prefix or a reviewer label. */
-export function assessmentMaterialEligibility(payload: LearningPayload, records: readonly Revision[] = []) {
+/** Exact same-sitting association only. Never infer a source from an ID prefix or a reviewer label.
+ * attemptHeads may carry a precomputed currentAttemptHeads(records, payload.planId). */
+export function assessmentMaterialEligibility(payload: LearningPayload, records: readonly Revision[] = [], attemptHeads?: readonly Revision[]) {
   const formal = isFormalResult(payload);
   const result = {} as Record<ListeningReadingSkill, { eligible: boolean; materialSource: MaterialSource | null }>;
+  let heads = attemptHeads;
   for (const skill of ['listening', 'reading'] as const) {
     if (formal) { result[skill] = { eligible: true, materialSource: 'official' }; continue; }
     const attempt = typeof payload.planId === 'string' && typeof payload.materialId === 'string' && typeof payload.date === 'string'
-      ? currentAttemptHeads(records, payload.planId).find(item => item.payload.date === payload.date && (item.payload.contentId === payload.materialId || item.payload.sourceRef === payload.materialId) && item.payload.skill === skill) : undefined;
+      ? (heads ??= currentAttemptHeads(records, payload.planId)).find(item => item.payload.date === payload.date && (item.payload.contentId === payload.materialId || item.payload.sourceRef === payload.materialId) && item.payload.skill === skill) : undefined;
     const source = attempt ? readAttemptMaterialSource(attempt.payload) : null;
     let valid = false;
     if (attempt) { try { validatePayload('attempt', attempt.payload); valid = true; } catch { /* An invalid imported record cannot provide qualification. */ } }
@@ -37,9 +39,12 @@ export function assessmentMaterialEligibility(payload: LearningPayload, records:
 }
 /** Derived records only: retain every sitting (including ineligible ones) in the G3 sequence. */
 export function materialQualifiedRecords(records: readonly Revision[], planId: string): Revision[] {
+  // One pass over attempts for all assessments; they all belong to this plan.
+  let heads: Revision[] | undefined;
   return records.map(record => {
     if (record.kind !== 'assessment' || record.planId !== planId || isFormalResult(record.payload) || !isObject(record.payload.scores)) return record;
-    const eligible = assessmentMaterialEligibility(record.payload, records);
+    const samePlan = record.payload.planId === planId;
+    const eligible = assessmentMaterialEligibility(record.payload, records, samePlan ? (heads ??= currentAttemptHeads(records, planId)) : undefined);
     const scores = { ...record.payload.scores }, scoreSources = isObject(record.payload.scoreSources) ? { ...record.payload.scoreSources } : undefined;
     for (const skill of ['listening', 'reading'] as const) if (!eligible[skill].eligible) { scores[skill] = null; if (scoreSources) scoreSources[skill] = null; }
     return { ...record, payload: { ...record.payload, scores, ...(scoreSources ? { scoreSources } : {}) } };

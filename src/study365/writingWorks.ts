@@ -28,7 +28,7 @@ async function save(draft: WritingDraft, stage: 'draft' | 'submitted', options: 
     const repository = await import('./repository');
     const check = () => { const state = repository.getLearningState();
       if (!state.ready || writingScope(state.userId) !== options.scope || options.expectedUserId !== undefined && state.userId !== options.expectedUserId) throw new Error('账号已经切换，请在原账号继续写作。'); };
-    return { save: request => { check(); return repository.saveRecord(request); }, persist: (scope, value) => { check(); return saveWritingDraft(scope, value); } };
+    return { save: request => { check(); return repository.saveRecord(request, options.expectedUserId); }, persist: (scope, value) => { check(); return saveWritingDraft(scope, value); } };
   })();
   await port.persist(options.scope, draft);
   const work = await port.save({ id: draft.recordId, kind: 'essay', payload, baseRevision: draft.baseRevision });

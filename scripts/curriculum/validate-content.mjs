@@ -175,7 +175,7 @@ export function evaluateRuleScore(goal, source, sections) {
 export function checkRules(rules) {
   object(rules, "rules"); equal(rules.schemaVersion, 1, "schemaVersion");
   object(rules.calendar, "calendar");
-  equal(rules.calendar, { dayOneWeekday: "monday", dayIndexing: "plan-timezone-calendar-days", requireMondayStart: true }, "calendar");
+  equal(rules.calendar, { dayOneWeekday: "any", dayIndexing: "plan-timezone-calendar-days", requireMondayStart: false, weeklyCycle: "seven-plan-days" }, "calendar");
   checkGoal(rules); checkGates(rules); checkBaseline(rules); checkBudgetTemplates(rules);
   const boundaries = [["baseline", 1, 7], ["phase1", 8, 90], ["phase2", 91, 210], ["phase3", 211, 300], ["phase4", 301, 365]];
   if (!Array.isArray(rules.phases)) fail("phases", "365-day phases required");

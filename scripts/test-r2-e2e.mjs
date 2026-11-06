@@ -179,8 +179,13 @@ export async function runR2LearningE2E({ proof = process.env.BAND_R2_E2E_PROOF }
     await setup.getByRole("button", { name: "开启 8.0 计划", exact: true }).click();
     const writingTask = desktop.locator('[data-task-id="d7-writing"]'); await writingTask.waitFor();
     evidence.uiPlanActivated = true;
-    await writingTask.getByText("开始写作", { exact: true }).waitFor({ timeout: 6000 });
-    await writingTask.getByText("开始写作", { exact: true }).click(); await workbench(desktop).waitFor();
+    const startWriting = writingTask.getByText("开始本节写作", { exact: true });
+    if (await startWriting.isVisible()) await startWriting.click();
+    else {
+      assert.match(await writingTask.innerText(), /缺|材料/);
+      await navigate(desktop, "writing?date=2026-11-15&day=7&task=d7-writing");
+    }
+    await workbench(desktop).waitFor();
     assert.ok(new URL(desktop.url()).hash.startsWith("#/writing"));
     await workbench(desktop).getByLabel("练习类型", { exact: true }).selectOption("task2");
     // Keep edited drafts newer than the untouched Sunday Task 1 starter.

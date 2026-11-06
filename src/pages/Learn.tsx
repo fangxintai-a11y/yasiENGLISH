@@ -11,7 +11,7 @@ import { burst } from "../lib/burst";
 import { cue } from "../lib/sound";
 import { go } from "../lib/router";
 import { gap, normalize } from "../lib/text";
-import { answer, advance, atlasSynonyms, buildSession, gradeFor, isPractice, markKnown, RELEARN_RUN, sessionStats, SPEED_LIMIT, stepKey, trackOf } from "../store/session";
+import { answer, advance, atlasSynonyms, buildSession, gradeFor, isPractice, markKnown, rateIntro, RELEARN_RUN, sessionStats, SPEED_LIMIT, stepKey, trackOf, type IntroRating } from "../store/session";
 import { Rating, type Grade } from "../store/srs";
 import { store, useStore, type ActiveSession, type QuizKind, type Step, type Track } from "../store/store";
 import { EntryView, Highlight } from "../ui/EntryView";
@@ -88,7 +88,7 @@ function Runner({ session, budgetMinutes }: { session: ActiveSession; budgetMinu
         </span>
         <AmbiencePicker />
       </header>
-      <p className="muted small" style={{ textAlign: "center" }}>{budgetMinutes === 0 ? "今天不安排词汇；到期复习不计入120分钟。" : `今日词汇预算 ${budgetMinutes} 分钟`}</p>
+      <p className="muted small" style={{ textAlign: "center" }}>{budgetMinutes === 0 ? "自主词汇练习：记忆进度正常保存，不计入今日课程完成度。" : `今日词汇预算 ${budgetMinutes} 分钟`}</p>
       <main className="learn-stage" key={`${session.id}-${session.index}`}>
         {step.kind === "intro" ? <Intro step={step} /> : <Quiz step={(step.kind === "listen" ? { ...step, kind: "meaning" } : step) as Step & { kind: QuizKind }} session={session} />}
       </main>
@@ -118,11 +118,6 @@ function Intro({ step }: { step: Step }) {
     // The sentence first, then the word on its own once the sentence has played through.
     void play(atlas.audio(entry, exI ? "ex2" : "ex"), "", "us").then((r) => r === "recorded" && word());
   }, [entry, atlas, settings.autoplay, settings.accent, exI]);
-  const next = useCallback(() => {
-    stopAudio();
-    if (store.get().settings.sfx) void cue("flip");
-    advance(elapsed());
-  }, [elapsed]);
   const reveal = useCallback(() => {
     setRevealed(true);
     if (store.get().settings.sfx) void cue("flip");
@@ -134,7 +129,22 @@ function Intro({ step }: { step: Step }) {
     markKnown(step.id);
     toast("不教了：它会在两三周后抽查一次，答错再回到计划里", "ok");
   }, [step.id]);
-  useKeys(revealed ? { Enter: next, " ": next } : { Enter: reveal, " ": reveal });
+  const rate = useCallback(
+    (rating: IntroRating) => {
+      stopAudio();
+      if (store.get().settings.sfx) void cue("flip");
+      rateIntro(step.id, rating, elapsed());
+      if (rating !== "known")
+        toast(
+          store.get().settings.trackL
+            ? "已加入复习：这组做完先听音拼一次，几分钟后和之后几天会再出现"
+            : "已加入复习：几分钟后和之后几天会再出现",
+          "ok",
+        );
+    },
+    [step.id, elapsed],
+  );
+  useKeys(revealed ? { "1": () => rate("unknown"), "2": () => rate("unsure"), "3": () => rate("known") } : { Enter: reveal, " ": reveal });
   if (!entry || !ref) return <span className="spinner" />;
   return (
     <div className={`intro ${revealed ? "" : "is-guessing"}`}>
@@ -156,22 +166,42 @@ function Intro({ step }: { step: Step }) {
         <EntryView entry={entry} mode="intro" />
         <MnemonicBlock refw={ref} />
       </div>
-      <footer className="learn-actions">
-        <button className="btn btn-ghost" onClick={known}>
-          我早就会了
-        </button>
+      <footer className={`learn-actions${revealed ? " learn-rate" : ""}`}>
         {revealed ? (
-          <button className="btn btn-primary btn-xl" onClick={next} autoFocus>
-            看完了，下一个 <ArrowRight size={20} />
-          </button>
+          <>
+            <p className="rate-question">看完意思，你对这个词：</p>
+            <div className="rate-buttons" role="group" aria-label="初见自评">
+              <button className="btn btn-ghost rate-unknown" onClick={() => rate("unknown")}>
+                不认识
+              </button>
+              <button className="btn btn-ghost rate-unsure" onClick={() => rate("unsure")}>
+                不确定 / 不熟
+              </button>
+              <button className="btn btn-primary rate-known" onClick={() => rate("known")}>
+                认识 <ArrowRight size={20} />
+              </button>
+            </div>
+            <p className="rate-note muted small">只有选「认识」才按正常节奏复习；其余两项会加进复习，并要求听音拼写。</p>
+            <button className="btn btn-link rate-skip" onClick={known}>
+              我早就会了（不教，两三周后抽查）
+            </button>
+            <span className="hint-keys">
+              <kbd>1</kbd> 不认识 <kbd>2</kbd> 不确定 <kbd>3</kbd> 认识
+            </span>
+          </>
         ) : (
-          <button className="btn btn-primary btn-xl" onClick={reveal} autoFocus>
-            想好了，看答案 <ArrowRight size={20} />
-          </button>
+          <>
+            <button className="btn btn-ghost" onClick={known}>
+              我早就会了
+            </button>
+            <button className="btn btn-primary btn-xl" onClick={reveal} autoFocus>
+              想好了，看答案 <ArrowRight size={20} />
+            </button>
+            <span className="hint-keys">
+              <kbd>Enter</kbd> 揭晓
+            </span>
+          </>
         )}
-        <span className="hint-keys">
-          <kbd>Enter</kbd> {revealed ? "继续" : "揭晓"}
-        </span>
       </footer>
     </div>
   );
@@ -675,7 +705,7 @@ function Summary({ session }: { session: ActiveSession }) {
           ))}
         </ul>
         <p className="summary-note">
-          {practice ? "专项练习只更新拼写诊断，不改变复习排程。" : "每张卡的成绩都由对错和反应时间自动判定。FSRS 已排好下次相遇：答错的会更早回来，考前两周会自动加密复习。"}
+          {practice ? "专项练习只更新拼写诊断，不改变复习排程。" : "每张卡的成绩都由对错和反应时间自动判定；初见时选了「不确定」或「不认识」的词，按你的自评加进复习。FSRS 已排好下次相遇：答错的会更早回来，考前两周会自动加密复习。"}
         </p>
         <div className="summary-actions">
           {wrong.length > 0 && !practice && (

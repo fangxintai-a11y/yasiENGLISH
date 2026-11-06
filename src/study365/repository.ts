@@ -133,6 +133,8 @@ async function ensureReady() {
 }
 
 export function getLearningState() { return state; }
+/** Distinguish a new login to the same account from an older in-flight operation. */
+export function getLearningContextEpoch() { return context.epoch; }
 export function useLearning(): LearningState {
   return useSyncExternalStore((listener) => { listeners.add(listener); return () => { listeners.delete(listener); }; }, getLearningState, getLearningState);
 }
@@ -165,8 +167,13 @@ async function saveInContext(c: Context, input: SaveInput): Promise<Revision> {
   return saved;
 }
 
-export async function saveRecord(input: SaveInput): Promise<Revision> {
-  return saveInContext(await ensureReady(), input);
+export async function saveRecord(input: SaveInput, expectedUserId?: string | null): Promise<Revision> {
+  const expectedContext = context, current = await ensureReady();
+  if (expectedUserId !== undefined) {
+    assertActive(expectedContext);
+    if (current.userId !== expectedUserId) throw new Error("账号已经切换，此操作未应用到其他账号。");
+  }
+  return saveInContext(current, input);
 }
 
 export async function removeRecord(id: string) {

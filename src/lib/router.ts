@@ -9,10 +9,10 @@ export type Route =
   /** 跟读; run is the immersive round itself. */
   | { page: "shadow"; run?: boolean }
   | { page: "ielts"; tab?: string }
-  | { page: "writing"; task?: string; date?: string; day?: number; minutes?: number; work?: string; correctionId?: string; retestOf?: string; material?: string }
-  | { page: "speaking"; task?: string; date?: string; day?: number; minutes?: number; work?: string; correctionId?: string; retestOf?: string; material?: string }
-  | { page: "reading"; task?: string; date?: string; day?: number; minutes?: number; work?: string; material?: string; correctionId?: string; retestOf?: string }
-  | { page: "listening"; task?: string; date?: string; day?: number; minutes?: number; work?: string; material?: string; correctionId?: string; retestOf?: string }
+  | { page: "writing"; mode?: "practice"; task?: string; date?: string; day?: number; minutes?: number; work?: string; correctionId?: string; retestOf?: string; material?: string }
+  | { page: "speaking"; mode?: "practice"; task?: string; date?: string; day?: number; minutes?: number; work?: string; correctionId?: string; retestOf?: string; material?: string }
+  | { page: "reading"; mode?: "practice"; task?: string; date?: string; day?: number; minutes?: number; work?: string; material?: string; correctionId?: string; retestOf?: string }
+  | { page: "listening"; mode?: "practice"; task?: string; date?: string; day?: number; minutes?: number; work?: string; material?: string; correctionId?: string; retestOf?: string }
   | { page: "review"; correctionId?: string; tab?: "corrections" | "weekly" | "answers" | "coverage" }
   | { page: "progress" }
   | { page: "me"; section?: "learning-sync" }
@@ -36,13 +36,13 @@ function parse(hash: string): Location {
   else if (seg[0] === "practice") route = { page: "practice" };
   else if (seg[0] === "shadow") route = { page: "shadow", run: params.get("go") === "1" };
   else if (seg[0] === "ielts") route = { page: "ielts", tab: params.get("tab") || undefined };
-  else if (seg[0] === "writing") route = { page: "writing", task: params.get("task") || undefined, date: params.get("date") || undefined,
+  else if (seg[0] === "writing") route = { page: "writing", mode: params.get("mode") === "practice" ? "practice" : undefined, task: params.get("task") || undefined, date: params.get("date") || undefined,
     day: params.has("day") ? Number(params.get("day")) : undefined, minutes: params.has("minutes") ? Number(params.get("minutes")) : undefined, work: params.get("work") || undefined, correctionId: params.get("correctionId") || undefined, retestOf: params.get("retestOf") || undefined, material: params.get("material") || undefined };
-  else if (seg[0] === "speaking") route = { page: "speaking", task: params.get("task") || undefined, date: params.get("date") || undefined,
+  else if (seg[0] === "speaking") route = { page: "speaking", mode: params.get("mode") === "practice" ? "practice" : undefined, task: params.get("task") || undefined, date: params.get("date") || undefined,
     day: params.has("day") ? Number(params.get("day")) : undefined, minutes: params.has("minutes") ? Number(params.get("minutes")) : undefined, work: params.get("work") || undefined, correctionId: params.get("correctionId") || undefined, retestOf: params.get("retestOf") || undefined, material: params.get("material") || undefined };
-  else if (seg[0] === "reading") route = { page: "reading", task: params.get("task") || undefined, date: params.get("date") || undefined,
+  else if (seg[0] === "reading") route = { page: "reading", mode: params.get("mode") === "practice" ? "practice" : undefined, task: params.get("task") || undefined, date: params.get("date") || undefined,
     day: params.has("day") ? Number(params.get("day")) : undefined, minutes: params.has("minutes") ? Number(params.get("minutes")) : undefined, work: params.get("work") || undefined, correctionId: params.get("correctionId") || undefined, retestOf: params.get("retestOf") || undefined, material: params.get("material") || undefined };
-  else if (seg[0] === "listening") route = { page: "listening", task: params.get("task") || undefined, date: params.get("date") || undefined,
+  else if (seg[0] === "listening") route = { page: "listening", mode: params.get("mode") === "practice" ? "practice" : undefined, task: params.get("task") || undefined, date: params.get("date") || undefined,
     day: params.has("day") ? Number(params.get("day")) : undefined, minutes: params.has("minutes") ? Number(params.get("minutes")) : undefined, work: params.get("work") || undefined, correctionId: params.get("correctionId") || undefined, retestOf: params.get("retestOf") || undefined, material: params.get("material") || undefined };
   else if (seg[0] === "review") route = { page: "review", correctionId: params.get("correctionId") || undefined, tab: ["corrections", "weekly", "answers", "coverage"].includes(params.get("tab") ?? "") ? params.get("tab") as "corrections" | "weekly" | "answers" | "coverage" : undefined };
   else if (seg[0] === "progress") route = { page: "progress" };
@@ -61,7 +61,7 @@ export function href(route: Route, word?: string | null) {
     if (route.view) params.set("view", route.view);
   }
   if (route.page === "writing" || route.page === "speaking" || route.page === "reading" || route.page === "listening") {
-    for (const key of ["task", "date", "day", "minutes", "work", "correctionId", "retestOf", "material"] as const) if (route[key] !== undefined) params.set(key, String(route[key]));
+    for (const key of ["mode", "task", "date", "day", "minutes", "work", "correctionId", "retestOf", "material"] as const) if (route[key] !== undefined) params.set(key, String(route[key]));
   }
   if ((route.page === "reading" || route.page === "listening") && route.material) params.set("material", route.material);
   if (route.page === "review" && route.tab) params.set("tab", route.tab);

@@ -266,7 +266,9 @@ export function SpeakingQuestionEditor(
       <label>
         <input
           type="checkbox"
-          disabled={busy || !!work || recording}
+          disabled={
+            busy || !!work || recording || !draft.conditions.firstAttempt
+          }
           checked={draft.conditions.unseen}
           onChange={(event) =>
             setDraft((value) => ({

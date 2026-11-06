@@ -5,6 +5,7 @@ import type { Revision } from "../../protocol";
 import { validateNewListeningReadingAttempt } from "../../protocol";
 import type { PracticeContext } from "../../listeningReadingTasks";
 import { getLearningState, saveRecord } from "../../repository";
+import { wasListeningReadingAttempted } from "../../dailyMaterialPlan";
 import { currentAttempts, isFirstMaterialAttempt } from "../../readingModel";
 import { saveMission } from "../../missionRecords";
 import { ReadingVocabulary } from "./ReadingVocabulary";
@@ -48,11 +49,12 @@ export function ShortStudy({
           86400,
           Math.max(0, (Date.now() - started) / 1000),
         ),
-        first = isFirstMaterialAttempt(state.records, plan.id, material);
+        first = context.mode === "practice" ? !wasListeningReadingAttempted(material, [material], state.records)
+          : isFirstMaterialAttempt(state.records, plan.id, material);
       const payload = {
         planId: plan.id,
         date: context.date,
-        day: context.day,
+        ...(context.mode !== "practice" && context.day >= 1 && context.day <= 365 ? { day: context.day } : {}),
         ...(context.taskId ? { taskId: context.taskId } : {}),
         contentId: material.id,
         contentVersion: material.version,
@@ -78,7 +80,7 @@ export function ShortStudy({
         kind: "attempt",
         payload,
         baseRevision: null,
-      });
+      }, userId);
       recorded = true;
       onSaved(result);
       setMessage("对照学习已保存，未换算分数。");
@@ -120,7 +122,7 @@ export function ShortStudy({
       {!work && started === null && (
         <button
           className="btn btn-primary"
-          disabled={context.day < 1 || context.day > 365}
+          disabled={context.mode !== "practice" && (context.day < 1 || context.day > 365)}
           onClick={() => setStarted(Date.now())}
         >
           开始对照学习计时

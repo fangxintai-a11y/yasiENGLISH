@@ -61,11 +61,25 @@ test("before and after dates are civil-day boundary states with no generated tas
   assert.equal(before.day, 0); assert.equal(before.state, "before"); assert.equal(before.daysUntilStart, 1); assert.deepEqual(before.blocks, []);
   assert.equal(after.day, 366); assert.equal(after.state, "after"); assert.deepEqual(after.blocks, []);
 });
-test("date helpers respect the plan timezone and require Monday starts", () => {
+test("date helpers respect the plan timezone and permit starting today on any weekday", () => {
   assert.equal(todayInTimeZone(new Date("2026-11-08T17:00:00Z"), "Asia/Shanghai"), "2026-11-09");
   assert.equal(todayInTimeZone(new Date("2026-11-08T17:00:00Z"), "America/New_York"), "2026-11-08");
   assert.equal(nextMonday("2026-11-09", plan.timeZone), "2026-11-09"); assert.equal(nextMonday("2026-11-03", plan.timeZone), "2026-11-09");
-  assert.throws(() => buildDayPlan(rules, { ...plan, startDate: "2026-11-03" }, "2026-11-09"), /周一/);
+  const current = buildDayPlan(rules, { ...plan, startDate: "2026-11-05" }, "2026-11-05");
+  assert.equal(current.day, 1); assert.equal(current.state, "active"); assert.equal(current.weekday, "thursday");
+  assert.equal(current.templateId, "baseline-listening-reading");
+});
+test("all 365 Thursday-start days preserve the existing training order and 120-minute budgets", () => {
+  const shifted = { ...plan, startDate: "2026-11-05" };
+  for (let day = 1; day <= 365; day++) {
+    const actual = buildDayPlan(rules, shifted, dayDate(shifted.startDate, shifted.timeZone, day));
+    const monday = onDay(day);
+    assert.equal(actual.day, day); assert.equal(actual.state, "active");
+    assert.equal(actual.weekday, weekdayOf(shifted.startDate, shifted.timeZone, day));
+    assert.equal(actual.templateId, monday.templateId);
+    assert.deepEqual(actual.blocks, monday.blocks);
+    assert.equal(actual.blocks.reduce((sum, block) => sum + block.minutes, 0), 120);
+  }
 });
 test("first fourteen days expose real inventory references and missing requirements", () => {
   const first = onDay(1);

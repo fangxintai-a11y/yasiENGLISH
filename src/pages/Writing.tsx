@@ -7,7 +7,7 @@ import {
   type WritingDraft,
 } from "../study365/writingModel";
 import { isObject, type Revision } from "../study365/protocol";
-import { useActivePlan } from "../study365/useActivePlan";
+import { usePracticePlan } from "../study365/usePracticePlan";
 import {
   availableWritingMaterials,
   externalWritingId,
@@ -58,7 +58,16 @@ import {
   writingWithPrompt,
   retestWorkId,
   matchesRetestWork,
+  selectWritingPrompt,
+  writingPromptReferences,
+  practicePrompts,
+  selectIndependentPracticePrompt,
+  unattemptedPrompts,
 } from "../study365/promptWorkSelection";
+import {
+  automaticMaterialForTask,
+  promptPoolForDay,
+} from "../study365/dailyMaterialPlan";
 import {
   PromptPicker,
   PromptStimulus,
@@ -85,23 +94,30 @@ function createDraft(
   context: WritingContext,
   taskType: "task1" | "task2",
   paragraph = false,
+  assigned?: LocalPrompt | null,
 ): WritingDraft {
   const id = crypto.randomUUID();
-  const material = availableWritingMaterials(context.day).find(
-    (item) => item.taskType === taskType,
-  );
+  const material =
+    assigned === undefined
+      ? availableWritingMaterials(context.day).find(
+          (item) => item.taskType === taskType,
+        )
+      : undefined;
   return newWritingDraft({
     id,
     planId: plan.id,
     taskType,
     scope: paragraph ? "paragraph" : "full",
     date: context.date,
-    day: context.day,
+    ...(context.day >= 1 && context.day <= 365 ? { day: context.day } : {}),
     taskId: context.taskId,
-    prompt: material?.prompt ?? "",
+    prompt: assigned?.prompt ?? material?.prompt ?? "",
     contentId:
-      material?.id ?? `${externalWritingId(context.date, Date.now())}-${id}`,
-    contentVersion: material?.version,
+      assigned?.id ??
+      material?.id ??
+      `${externalWritingId(context.date, Date.now())}-${id}`,
+    contentVersion: assigned?.version ?? material?.version,
+    sourceRef: assigned?.sourceRef,
     materialSelfCheck: material?.selfCheck ?? [],
     tableDescription: tableDescription(material),
     timer: {
@@ -117,8 +133,8 @@ function createDraft(
   });
 }
 export function Writing({ route }: { route: WritingRoute }) {
-  const { learning, plan, error } = useActivePlan();
-  if (!learning.ready)
+  const { learning, plan, error, creating } = usePracticePlan();
+  if (!learning.ready || creating)
     return (
       <div className="page">
         <p>正在读取写作任务…</p>
@@ -197,6 +213,102 @@ function WritingEditor({
   const [histories, setHistories] = useState<Record<string, Revision[]>>({});
   const [historyWork, setHistoryWork] = useState<string | null>(null);
   const [localArchive, setLocalArchive] = useState<WritingDraft[]>([]);
+  const makeDraft = (
+    taskType: "task1" | "task2",
+    paragraph = false,
+    local = localArchive,
+    continueCurrent = true,
+  ) => {
+    const practice = context.mode === "practice";
+    const pool = practice
+      ? "practice"
+      : promptPoolForDay(context.day, "writing");
+    const specified =
+      selectedMaterial && continueCurrent
+        ? promptBank.prompts.find(
+            (prompt) => promptKey(prompt) === selectedMaterial,
+          )
+        : undefined;
+    const eligibleSpecified =
+      specified?.skill === "writing" &&
+      specified.taskType === taskType &&
+      specified.ready !== false &&
+      (pool === "holdout"
+        ? specified.pool === "holdout"
+        : practicePrompts(promptBank.prompts).includes(specified));
+    const selectionInput = {
+      prompts: promptBank.prompts,
+      records: learning.records,
+      planId: plan.id,
+      day: context.day,
+      date: context.date,
+      taskId: context.taskId,
+      plannedMinutes: context.plannedMinutes,
+      pool,
+      localWorks: writingPromptReferences(local),
+      continueCurrent,
+      historyScope: practice ? ("account" as const) : ("plan" as const),
+    };
+    const selection = practice
+      ? selectIndependentPracticePrompt(selectionInput, {
+          skill: "writing",
+          taskType,
+        })
+      : selectWritingPrompt(selectionInput, taskType);
+    const scheduledType =
+      context.defaultMode === "pair" ||
+      (context.defaultMode === "task1"
+        ? taskType === "task1"
+        : taskType === "task2");
+    const scheduled =
+      !practice && continueCurrent && context.block && scheduledType
+        ? automaticMaterialForTask(
+            {
+              plan,
+              records: learning.records,
+              bank: [],
+              prompts: promptBank.prompts,
+              localWorks: writingPromptReferences(local),
+            },
+            context,
+          )
+        : null;
+    const reference = scheduled?.materials.find(
+      (material) => material.taskType === taskType,
+    );
+    const planned = reference
+      ? promptBank.prompts.find(
+          (prompt) =>
+            prompt.id === reference.id &&
+            prompt.version === reference.version &&
+            prompt.contentHash === reference.contentHash,
+        )
+      : undefined;
+    const wrongType =
+      !!specified &&
+      (specified.skill !== "writing" || specified.taskType !== taskType) &&
+      context.defaultMode !== "pair";
+    const chosen =
+      selectedMaterial &&
+      continueCurrent &&
+      (!specified ||
+        wrongType ||
+        (specified.skill === "writing" &&
+          specified.taskType === taskType &&
+          !eligibleSpecified))
+        ? null
+        : eligibleSpecified
+          ? specified
+          : scheduled
+            ? (planned ?? null)
+            : selection.prompt;
+    const draft = createDraft(plan, context, taskType, paragraph, chosen);
+    if (practice && chosen) {
+      const repeat = !unattemptedPrompts(selectionInput, "writing").has(chosen);
+      draft.conditions = { firstAttempt: !repeat, unseen: !repeat };
+    }
+    return draft;
+  };
   draftsRef.current = drafts;
   const works = learning.records
     .filter(
@@ -252,7 +364,7 @@ function WritingEditor({
     let active = true;
     setLoaded(false);
     setRetestError("");
-    if (retest && !promptBank.loaded)
+    if (!promptBank.loaded)
       return () => {
         active = false;
       };
@@ -332,8 +444,11 @@ function WritingEditor({
       } else {
         const candidates = all.filter(
           (draft) =>
-            draft.date === context.date &&
-            draft.taskId === context.taskId &&
+            ((draft.date === context.date && draft.taskId === context.taskId) ||
+              (context.mode === "practice" &&
+                draft.taskId?.startsWith("practice-writing-") &&
+                draft.stage === "draft" &&
+                !!(draft.text.trim() || draft.outline.trim()))) &&
             !draft.retestOf,
         );
         const byType = new Map<string, WritingDraft>();
@@ -341,23 +456,93 @@ function WritingEditor({
           if (!byType.has(`${draft.taskType}:${draft.scope}`))
             byType.set(`${draft.taskType}:${draft.scope}`, draft);
         restored = await Promise.all([...byType.values()].map(reconcile));
+        if (!restored.length) {
+          const remoteTypes = new Map<string, Revision>();
+          for (const work of works.filter(
+            (work) =>
+              work.payload.date === context.date &&
+              work.payload.taskId === context.taskId &&
+              !work.payload.retestOf,
+          ))
+            if (
+              !remoteTypes.has(`${work.payload.taskType}:${work.payload.scope}`)
+            )
+              remoteTypes.set(
+                `${work.payload.taskType}:${work.payload.scope}`,
+                work,
+              );
+          restored = [...remoteTypes.values()].map((work) =>
+            withTaskTimer(draftFromRevision(work)),
+          );
+        }
         if (!restored.length && context.block)
           restored =
             context.defaultMode === "pair"
-              ? [
-                  createDraft(plan, context, "task1"),
-                  createDraft(plan, context, "task2"),
-                ]
+              ? [makeDraft("task1", false, all), makeDraft("task2", false, all)]
               : [
-                  createDraft(
-                    plan,
-                    context,
+                  makeDraft(
                     context.defaultMode === "task1" ? "task1" : "task2",
                     context.defaultMode === "paragraph",
+                    all,
                   ),
                 ];
       }
       if (!active) return;
+      if (
+        !retest &&
+        !selectedWorkId &&
+        context.block &&
+        context.defaultMode === "pair" &&
+        !restored.some((draft) => draft.scope === "paragraph")
+      ) {
+        for (const type of ["task1", "task2"] as const) {
+          if (
+            restored.some(
+              (draft) => draft.taskType === type && draft.scope === "full",
+            )
+          )
+            continue;
+          const remote = works.find(
+            (work) =>
+              work.payload.date === context.date &&
+              work.payload.taskId === context.taskId &&
+              work.payload.taskType === type &&
+              work.payload.scope !== "paragraph" &&
+              !work.payload.retestOf,
+          );
+          restored.push(
+            remote
+              ? withTaskTimer(draftFromRevision(remote))
+              : makeDraft(type, false, all),
+          );
+        }
+      }
+      restored = restored.map((draft) => {
+        if (
+          retest ||
+          selectedWorkId ||
+          draft.prompt.trim() ||
+          !canChooseWritingPrompt(draft)
+        )
+          return draft;
+        const scheduled = makeDraft(
+          draft.taskType,
+          draft.scope === "paragraph",
+          all,
+        );
+        return scheduled.prompt.trim()
+          ? {
+              ...draft,
+              prompt: scheduled.prompt,
+              contentId: scheduled.contentId,
+              contentVersion: scheduled.contentVersion,
+              sourceRef: scheduled.sourceRef,
+              tableDescription: scheduled.tableDescription,
+              materialSelfCheck: scheduled.materialSelfCheck,
+              conditions: scheduled.conditions,
+            }
+          : draft;
+      });
       setMode(
         restoredWritingMode(
           restored,
@@ -375,7 +560,9 @@ function WritingEditor({
       if (active) {
         setLoaded(true);
         setDrafts(
-          !retest && context.block ? [createDraft(plan, context, "task1")] : [],
+          !retest && context.block
+            ? [createDraft(plan, context, "task1", false, null)]
+            : [],
         );
         if (retest)
           setRetestError(
@@ -391,7 +578,7 @@ function WritingEditor({
     return () => {
       active = false;
     };
-  }, [scope, selectedWorkId, retest ? promptBank.loaded : true]);
+  }, [scope, selectedWorkId, promptBank.loaded]);
   // Remote heads are reconciled against the latest in-memory text, including
   // keystrokes still inside the 300ms local-save window. Never reload over it.
   const remoteHeadsKey = works
@@ -520,14 +707,39 @@ function WritingEditor({
   };
   const update = (id: string, change: (draft: WritingDraft) => WritingDraft) =>
     setDrafts((previous) =>
-      previous.map((draft) =>
-        draft.id === id && draft.stage !== "submitted"
-          ? {
-              ...change(draft),
-              updatedAt: Math.max(Date.now(), draft.updatedAt + 1),
-            }
-          : draft,
-      ),
+      previous.map((draft) => {
+        if (draft.id !== id || draft.stage === "submitted") return draft;
+        const next = change(draft);
+        if (
+          context.mode === "practice" &&
+          (next.contentId !== draft.contentId ||
+            next.contentVersion !== draft.contentVersion)
+        ) {
+          const source = promptBank.prompts.find(
+            (prompt) =>
+              prompt.id === next.contentId &&
+              prompt.version === next.contentVersion,
+          );
+          if (source) {
+            const repeat = !unattemptedPrompts(
+              {
+                prompts: promptBank.prompts,
+                records: learning.records.filter(
+                  (work) => work.id !== draft.recordId,
+                ),
+                planId: plan.id,
+                historyScope: "account",
+              },
+              "writing",
+            ).has(source);
+            next.conditions = { firstAttempt: !repeat, unseen: !repeat };
+          }
+        }
+        return {
+          ...next,
+          updatedAt: Math.max(Date.now(), draft.updatedAt + 1),
+        };
+      }),
     );
   const changeMode = (next: WritingMode) => {
     setMode(next);
@@ -543,7 +755,9 @@ function WritingEditor({
               draft.scope === (next === "paragraph" ? "paragraph" : "full"),
           )
         )
-          values.push(createDraft(plan, context, type, next === "paragraph"));
+          values.push(
+            makeDraft(type, next === "paragraph", [...localArchive, ...values]),
+          );
       return values;
     });
   };
@@ -600,7 +814,7 @@ function WritingEditor({
     );
   const unresolved = (draft: WritingDraft) => unresolvedFor(draft).length > 0;
   const updateMission = async (includeRetestCheckpoint = false) => {
-    if (!context.block) return;
+    if (!context.block || context.mode === "practice") return;
     checkAccount();
     const submitted = getLearningState().records.filter(
       (work) =>
@@ -694,18 +908,22 @@ function WritingEditor({
       for (const draft of paused.filter((draft) => draft.stage === "draft"))
         await saveWritingDraft(scope, draft);
       checkAccount();
+      if (selectedWorkId && context.mode !== "practice") {
+        go({ page: "writing", mode: "practice" });
+        return;
+      }
       const next =
         context.defaultMode === "pair"
           ? [
-              createDraft(plan, context, "task1"),
-              createDraft(plan, context, "task2"),
+              makeDraft("task1", false, [...localArchive, ...paused], false),
+              makeDraft("task2", false, [...localArchive, ...paused], false),
             ]
           : [
-              createDraft(
-                plan,
-                context,
+              makeDraft(
                 context.defaultMode === "task1" ? "task1" : "task2",
                 context.defaultMode === "paragraph",
+                [...localArchive, ...paused],
+                false,
               ),
             ];
       const newest =
@@ -913,9 +1131,21 @@ function WritingEditor({
         aria-label="写作工作台"
         data-testid="writing-workbench"
       >
-        <p className="eyebrow">365天训练 · {context.date}</p>
+        <p className="eyebrow">
+          {context.mode === "practice" ? "自主练习" : "365天训练"} ·{" "}
+          {context.date}
+        </p>
         <h1>写作工作台</h1>
-        <p>今日写作计划 {context.plannedMinutes} 分钟。提纲时间计入写作。</p>
+        <p>
+          {context.mode === "practice"
+            ? "参考40分钟，可随时练习和保存；本次作品不完成当天课程任务。"
+            : `今日写作计划 ${context.plannedMinutes} 分钟。提纲时间计入写作。`}
+        </p>
+        {context.block && !retest && (
+          <p>
+            平台按本节训练范围自动安排题目；已保存稿件继续使用原题，无需先选择材料。
+          </p>
+        )}
         <a href="#/">返回今日任务</a>
         {retest && (
           <p>
@@ -958,6 +1188,13 @@ function WritingEditor({
             )}
             {visible.map((draft) => (
               <div key={draft.id}>
+                {context.mode === "practice" &&
+                  !draft.conditions.firstAttempt && (
+                    <p role="status">复习已做原题，本次不算未见新题。</p>
+                  )}
+                {context.mode === "practice" && draft.date !== context.date && (
+                  <p>继续 {draft.date} 的未交草稿，题目与正文保留。</p>
+                )}
                 <fieldset
                   disabled={busy}
                   style={{ border: 0, padding: 0, minWidth: 0 }}
@@ -1348,7 +1585,7 @@ function DraftEditor({
           : "external",
   );
   const imported = prompts.find(
-    (prompt) =>
+    (prompt): prompt is Extract<LocalPrompt, { skill: "writing" }> =>
       prompt.skill === "writing" &&
       prompt.id === draft.contentId &&
       prompt.version === draft.contentVersion,
@@ -1380,6 +1617,18 @@ function DraftEditor({
       data-draft-id={draft.id}
     >
       <h2>{labelOf(draft).replace("写作 ", "")}</h2>
+      {imported ? (
+        <p role="status">
+          平台已安排{draft.taskType === "task1" ? "Task 1" : "Task 2"} ·{" "}
+          {imported.questionType}，材料已就绪。
+        </p>
+      ) : (
+        !draft.prompt.trim() && (
+          <p role="alert">
+            平台暂缺本节已就绪的新题；原题图或材料补齐后会自动安排，不用旧题或生成题充数。
+          </p>
+        )
+      )}
       {!promptLocked && (
         <PromptPicker
           prompts={prompts}
@@ -1397,23 +1646,25 @@ function DraftEditor({
         disabled={draft.stage === "submitted"}
         style={{ border: 0, padding: 0, minWidth: 0 }}
       >
-        <label className="field">
-          <span>题目来源</span>
-          <select
-            aria-label="题目来源"
-            disabled={locked}
-            value={imported ? "external" : source}
-            onChange={(event) =>
-              chooseSource(event.target.value as typeof source)
-            }
-          >
-            {available.length > 0 && (
-              <option value="builtin">当天内置题</option>
-            )}
-            <option value="external">外部题</option>
-            <option value="custom">自定义题</option>
-          </select>
-        </label>
+        {!imported && (
+          <label className="field">
+            <span>题目来源</span>
+            <select
+              aria-label="题目来源"
+              disabled={locked}
+              value={imported ? "external" : source}
+              onChange={(event) =>
+                chooseSource(event.target.value as typeof source)
+              }
+            >
+              {available.length > 0 && (
+                <option value="builtin">当天内置题</option>
+              )}
+              <option value="external">外部题</option>
+              <option value="custom">自定义题</option>
+            </select>
+          </label>
+        )}
         {source === "builtin" && !imported && (
           <>
             <label>
@@ -1448,7 +1699,7 @@ function DraftEditor({
         )}
         {(source === "external" || imported) && (
           <label className="field">
-            <span>外部题出处（必填）</span>
+            <span>{imported ? "平台材料出处" : "外部题出处（必填）"}</span>
             <input
               aria-label="外部题出处"
               readOnly={locked}
@@ -1527,7 +1778,7 @@ function DraftEditor({
           <button
             className="btn btn-primary"
             type="button"
-            disabled={draft.timer.runningSince !== null}
+            disabled={draft.timer.runningSince !== null || !draft.prompt.trim()}
             onClick={onStart}
           >
             开始计时
@@ -1593,6 +1844,7 @@ function DraftEditor({
         <label>
           <input
             type="checkbox"
+            disabled={!draft.conditions.firstAttempt}
             checked={draft.conditions.unseen}
             onChange={(event) =>
               onChange((previous) => ({

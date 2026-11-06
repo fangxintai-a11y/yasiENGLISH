@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { go, useLocation } from "../../../lib/router";
 import { saveMission, selectMission } from "../../missionRecords";
 import type { Revision } from "../../protocol";
@@ -30,7 +30,17 @@ import {
   speakingWithPrompt,
   retestWorkId,
   matchesRetestWork,
+  selectScheduledSpeakingPrompts,
+  selectSpeakingPrompt,
+  practicePrompts,
+  selectIndependentPracticePrompt,
+  unattemptedPrompts,
 } from "../../promptWorkSelection";
+import {
+  automaticMaterialForTask,
+  promptPoolForDay,
+} from "../../dailyMaterialPlan";
+import type { LocalPrompt } from "../../promptBankSchema";
 import { PromptPicker } from "../prompts/PromptPicker";
 import { speakingRetestDraft } from "../../retestWorkDrafts";
 import { withRevisionReferences } from "../../revisionReferences";
@@ -39,21 +49,26 @@ function seedFor(
   context: SpeakingContext,
   part: SpeakingPart,
   index = 0,
+  assigned?: LocalPrompt | null,
 ): SpeakingDraft {
-  const material = availableSpeakingMaterials(context.day).find(
-      (value) => value.part === part,
-    ),
+  const material =
+      assigned === undefined
+        ? availableSpeakingMaterials(context.day).find(
+            (value) => value.part === part,
+          )
+        : undefined,
     id = crypto.randomUUID();
   return newSpeakingDraft({
     id,
     planId: plan.id,
     date: context.date,
-    day: context.day,
+    ...(context.day >= 1 && context.day <= 365 ? { day: context.day } : {}),
     taskId: context.taskId,
     part,
-    prompt: material?.prompts[index] ?? "",
-    contentId: material?.id ?? `external-${context.date}-${id}`,
-    contentVersion: material?.version,
+    prompt: assigned?.prompt ?? material?.prompts[index] ?? "",
+    contentId: assigned?.id ?? material?.id ?? `external-${context.date}-${id}`,
+    contentVersion: assigned?.version ?? material?.version,
+    sourceRef: assigned?.sourceRef,
   });
 }
 type SessionProps = {
@@ -91,7 +106,71 @@ function SpeakingSessionEditor({
     promptBank = usePromptBank(learning.userId);
   const [retestReady, setRetestReady] = useState(!retest),
     [retestError, setRetestError] = useState("");
+  const [automaticReady, setAutomaticReady] = useState(!!initialWorkId);
   const works = listSpeakingWorks(learning.records, plan.id);
+  const scheduleInput = {
+    prompts: promptBank.prompts,
+    records: learning.records,
+    planId: plan.id,
+    day: context.day,
+    date: context.date,
+    taskId: context.taskId,
+    plannedMinutes: context.plannedMinutes,
+    historyScope:
+      context.mode === "practice" ? ("account" as const) : ("plan" as const),
+    pool:
+      context.mode === "practice"
+        ? ("practice" as const)
+        : promptPoolForDay(context.day, "speaking"),
+  };
+  const assignments = useMemo(() => {
+    if (context.mode === "practice")
+      return ([1, 2, 3] as const).map((part) =>
+        selectIndependentPracticePrompt(scheduleInput, {
+          skill: "speaking",
+          part,
+        }),
+      );
+    if (!context.block) return selectScheduledSpeakingPrompts(scheduleInput);
+    const scheduled = automaticMaterialForTask(
+      {
+        plan,
+        records: learning.records,
+        bank: [],
+        prompts: promptBank.prompts,
+      },
+      context,
+    );
+    return ([1, 2, 3] as const).map((part) => {
+      const reference = scheduled?.materials.find(
+        (material) => material.part === part,
+      );
+      const prompt = reference
+        ? (promptBank.prompts.find(
+            (prompt) =>
+              prompt.id === reference.id &&
+              prompt.version === reference.version &&
+              prompt.contentHash === reference.contentHash,
+          ) ?? null)
+        : null;
+      return {
+        skill: "speaking" as const,
+        part,
+        prompt,
+        status: prompt ? ("assigned" as const) : ("missing" as const),
+        notice: scheduled?.notice ?? `缺少本课 Part ${part} 的平台材料。`,
+      };
+    });
+  }, [
+    promptBank.prompts,
+    learning.records,
+    plan.id,
+    context.day,
+    context.date,
+    context.taskId,
+    context.plannedMinutes,
+    context.mode,
+  ]);
   const initial = works.find((work) => work.id === initialWorkId);
   const [selected, setSelected] = useState<Revision | null>(initial ?? null),
     [part, setPart] = useState<SpeakingPart>(
@@ -118,6 +197,89 @@ function SpeakingSessionEditor({
   const liveSelected = selected
     ? (works.find((work) => work.id === selected.id) ?? selected)
     : null;
+  const automaticSeed = (value: SpeakingPart, continueCurrent = true) => {
+    const specified =
+      selectedMaterial && continueCurrent
+        ? promptBank.prompts.find(
+            (prompt) => promptKey(prompt) === selectedMaterial,
+          )
+        : undefined;
+    const selectedForPart =
+      specified?.skill === "speaking" && specified.part === value;
+    const allowed =
+      selectedForPart &&
+      specified.ready !== false &&
+      (scheduleInput.pool === "holdout"
+        ? specified.pool === "holdout"
+        : practicePrompts(promptBank.prompts).includes(specified));
+    const assignment =
+      context.mode === "practice"
+        ? selectIndependentPracticePrompt(scheduleInput, {
+            skill: "speaking",
+            part: value,
+          })
+        : continueCurrent
+          ? assignments.find((item) => item.part === value)
+          : selectSpeakingPrompt({ ...scheduleInput, continueCurrent }, value);
+    const prompt =
+      selectedMaterial &&
+      continueCurrent &&
+      (!specified || (selectedForPart && !allowed))
+        ? null
+        : allowed
+          ? specified
+          : (assignment?.prompt ?? null);
+    const next = seedFor(plan, context, value, 0, prompt);
+    if (context.mode === "practice" && prompt) {
+      const repeat = !unattemptedPrompts(scheduleInput, "speaking").has(prompt);
+      next.conditions = {
+        timed: false,
+        firstAttempt: !repeat,
+        unseen: !repeat,
+      };
+    }
+    return next;
+  };
+  const automaticInitialized = useRef(false);
+  useEffect(() => {
+    if (retest || !promptBank.loaded || automaticInitialized.current) return;
+    automaticInitialized.current = true;
+    if (initialWorkId || !context.block) {
+      setAutomaticReady(true);
+      return;
+    }
+    const specified = selectedMaterial
+      ? promptBank.prompts.find(
+          (prompt) =>
+            promptKey(prompt) === selectedMaterial &&
+            prompt.skill === "speaking",
+        )
+      : undefined;
+    const value =
+      specified?.skill === "speaking"
+        ? specified.part
+        : (([1, 2, 3] as const).find(
+            (part) =>
+              !works.some(
+                (work) =>
+                  work.payload.date === context.date &&
+                  work.payload.taskId === context.taskId &&
+                  work.payload.part === part,
+              ),
+          ) ?? 1);
+    const existing = works.find(
+      (work) =>
+        work.payload.date === context.date &&
+        work.payload.taskId === context.taskId &&
+        work.payload.part === value,
+    );
+    setPart(value);
+    if (existing) {
+      setSelected(existing);
+      setSeed(speakingDraftFromRevision(existing));
+    } else setSeed(automaticSeed(value));
+    setAutomaticReady(true);
+  }, [retest, promptBank.loaded]);
   const routeRestored = useRef(!!initial);
   useEffect(() => {
     if (routeRestored.current || !initialWorkId || !initial) return;
@@ -181,7 +343,7 @@ function SpeakingSessionEditor({
     };
   }, [retest, promptBank.loaded]);
   const updateMission = async (status: "partial" | "completed") => {
-    if (!context.block) return;
+    if (!context.block || context.mode === "practice") return;
     const state = getLearningState();
     if (state.userId !== learning.userId)
       throw new Error("账号已经切换，请在原账号继续。");
@@ -238,11 +400,26 @@ function SpeakingSessionEditor({
     if (isNew) pendingSeconds.current.set(work.id, seconds);
     await updateMission("partial");
   };
-  const choosePart = (value: SpeakingPart, index = 0) => {
+  const choosePart = (value: SpeakingPart, index?: number) => {
     setPart(value);
-    setQuestion(index);
-    setSelected(null);
-    setSeed(seedFor(plan, context, value, index));
+    setQuestion(index ?? 0);
+    const existing =
+      index === undefined
+        ? works.find(
+            (work) =>
+              work.payload.date === context.date &&
+              work.payload.taskId === context.taskId &&
+              work.payload.part === value,
+          )
+        : undefined;
+    setSelected(existing ?? null);
+    setSeed(
+      existing
+        ? speakingDraftFromRevision(existing)
+        : index === undefined
+          ? automaticSeed(value)
+          : seedFor(plan, context, value, index),
+    );
     setMessage("");
   };
   const open = (work: Revision) => {
@@ -279,9 +456,11 @@ function SpeakingSessionEditor({
     try {
       await updateMission("completed");
       setMessage(
-        retest || seed.retestOf
-          ? "复测作答与用时已保存。请回订正页完成自查；本次作答只记入原口语块的部分进度。"
-          : "本次口语任务已完成，实际用时已记录。",
+        context.mode === "practice"
+          ? "自主口语作品已保留，不完成当天课程任务。"
+          : retest || seed.retestOf
+            ? "复测作答与用时已保存。请回订正页完成自查；本次作答只记入原口语块的部分进度。"
+            : "本次口语任务已完成，实际用时已记录。",
       );
     } catch (error) {
       setMessage(
@@ -315,7 +494,7 @@ function SpeakingSessionEditor({
       await removeRecord(current.id);
       if (alive.current && getLearningState().userId === learning.userId) {
         setSelected(null);
-        setSeed(seedFor(plan, context, part));
+        setSeed(automaticSeed(part));
         setMessage("作答已删除；本机录音、历史版本和备份信息仍保留。");
       }
     } catch (error) {
@@ -335,26 +514,48 @@ function SpeakingSessionEditor({
         aria-label="口语练习"
         data-testid="speaking-workbench"
       >
-        <p className="eyebrow">365天训练 · {context.date}</p>
-        <h1>口语练习</h1>
-        <p>
-          本块计划 {context.plannedMinutes}{" "}
-          分钟。每题独立保存，最后再完成本次任务。
+        <p className="eyebrow">
+          {context.mode === "practice" ? "自主练习" : "365天训练"} ·{" "}
+          {context.date}
         </p>
+        <h1>口语练习</h1>
+        {context.mode === "practice" ? (
+          <p>参考20分钟，Part 1、2、3随时可练；保存作品不完成当天课程任务。</p>
+        ) : (
+          <p>
+            本块计划 {context.plannedMinutes}{" "}
+            分钟。每题独立保存，最后再完成本次任务。
+          </p>
+        )}
         <a href="#/">返回今日</a>
+        {context.block && !retest && (
+          <p>
+            平台已按本节安排 Part 1 → Part 2 → Part
+            3，保存本题后可直接继续下一部分，无需先选材料。
+          </p>
+        )}
         {retest && (
           <p>
             跨天新题复测：保留原Part。请先保存转写或录音，再离开页面；已保存作答可从同一链接恢复。
           </p>
         )}
-        {!retestReady ? (
-          <p role="status">正在读取本机复测题…</p>
+        {!retestReady || !promptBank.loaded || (!retest && !automaticReady) ? (
+          <p role="status">正在准备本节口语材料…</p>
         ) : retestError ? (
           <p role="alert">
             {retestError} <a href="#/review">返回订正</a>
           </p>
         ) : context.block || selected ? (
           <>
+            {context.mode === "practice" && !seed.conditions.firstAttempt && (
+              <p role="status">复习已做原题，本次不算未见新题。</p>
+            )}
+            {!retest && !seed.prompt.trim() && (
+              <p role="alert">
+                {assignments.find((assignment) => assignment.part === part)
+                  ?.notice ?? "平台暂缺本节就绪新题；已有作答与录音保留。"}
+              </p>
+            )}
             <label className="field">
               <span>口语部分</span>
               <select
@@ -388,6 +589,17 @@ function SpeakingSessionEditor({
                   if (dirty || deleting) return;
                   const next = speakingWithPrompt(seed, prompt);
                   if (next !== seed) {
+                    if (context.mode === "practice") {
+                      const repeat = !unattemptedPrompts(
+                        scheduleInput,
+                        "speaking",
+                      ).has(prompt);
+                      next.conditions = {
+                        timed: false,
+                        firstAttempt: !repeat,
+                        unseen: !repeat,
+                      };
+                    }
                     setSeed(next);
                     setSelected(null);
                     setMessage("已选择本机原题，作答后保留本题。");
@@ -461,6 +673,35 @@ function SpeakingSessionEditor({
                 }
               />
             )}
+            {!retest && liveSelected && part < 3 && (
+              <button
+                type="button"
+                className="btn btn-primary"
+                disabled={
+                  dirty ||
+                  deleting ||
+                  assignments.find((assignment) => assignment.part === part + 1)
+                    ?.status !== "assigned"
+                }
+                onClick={() => choosePart((part + 1) as SpeakingPart)}
+              >
+                继续平台安排：Part {part + 1}
+              </button>
+            )}
+            {context.mode === "practice" && !retest && (
+              <button
+                type="button"
+                className="btn btn-ghost"
+                disabled={dirty || deleting}
+                onClick={() => {
+                  setSelected(null);
+                  setSeed(automaticSeed(part, false));
+                  setMessage("已安排下一道自主练习，已有作答仍保留。");
+                }}
+              >
+                再练一道 Part {part}
+              </button>
+            )}
             {!retest &&
               !seed.retestOf &&
               selected &&
@@ -471,6 +712,13 @@ function SpeakingSessionEditor({
                   disabled={dirty || deleting}
                   onClick={() => {
                     const next = rerecordSpeaking(liveSelected!);
+                    if (context.mode === "practice") {
+                      next.date = context.date;
+                      next.taskId = context.taskId;
+                      delete next.day;
+                      if (context.day >= 1 && context.day <= 365)
+                        next.day = context.day;
+                    }
                     if (context.correctionId && !context.retestOf)
                       Object.assign(next, {
                         correctionId: context.correctionId,
@@ -543,17 +791,30 @@ function SpeakingSessionEditor({
                 dirty ||
                 deleting ||
                 !context.block ||
-                !works.some(
-                  (work) =>
-                    work.payload.taskId === context.taskId &&
-                    work.payload.date === context.date,
-                )
+                !(context.mode === "practice" || retest || seed.retestOf
+                  ? works.some(
+                      (work) =>
+                        work.payload.taskId === context.taskId &&
+                        work.payload.date === context.date,
+                    )
+                  : ([1, 2, 3] as const).every((part) =>
+                      works.some(
+                        (work) =>
+                          work.payload.taskId === context.taskId &&
+                          work.payload.date === context.date &&
+                          work.payload.part === part,
+                      ),
+                    ))
               }
               onClick={() => {
                 void finish();
               }}
             >
-              {retest || seed.retestOf ? "保存本次复测进度" : "完成本次口语"}
+              {context.mode === "practice"
+                ? "结束本次自主练习"
+                : retest || seed.retestOf
+                  ? "保存本次复测进度"
+                  : "完成本次口语"}
             </button>
           </>
         ) : (

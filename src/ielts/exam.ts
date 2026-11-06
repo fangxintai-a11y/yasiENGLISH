@@ -258,6 +258,8 @@ export interface TodayPlan {
 }
 
 const TRACK_WEIGHT: Record<Track, number> = { r: 1, l: 0.9, p: 0.8 };
+/** Learning-state cards shown beyond the minute budget per day (see todayPlan). */
+export const LEARNING_DUE_CAP = 40;
 
 export function priority(key: string, c: CardState, now: number, target: Set<string>) {
   const { track, id } = parseKey(key);
@@ -304,6 +306,20 @@ export function todayPlan(atlas: AtlasLite, p: Progress, s: Settings, tags: Pick
     if (used + cost(key) > budget && due.length) break;
     due.push(key);
     used += cost(key);
+  }
+  // Words still being learned (new, relearning, or self-rated "unsure"/"unknown") are never
+  // deferred by the minute budget: on a course day with 0 vocabulary minutes they would otherwise
+  // never come back. Capped so a long break cannot turn into an endless session.
+  const queued = new Set(due);
+  let learningExtra = 0;
+  for (const key of dueAll) {
+    if (learningExtra >= LEARNING_DUE_CAP) break;
+    const c = getCard(p, key);
+    if (queued.has(key) || !c || (c.st !== 1 && c.st !== 3)) continue;
+    due.push(key);
+    queued.add(key);
+    used += cost(key);
+    learningExtra++;
   }
   const deferred = dueAll.length - due.length;
   const backlog = deferred > 0;

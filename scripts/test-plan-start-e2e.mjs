@@ -31,6 +31,7 @@ async function enter(skill) {
   await visible(page.getByRole('region', { name: '365天学习计划', exact: true }));
   await page.getByRole('link', { name: `${skill === 'listening' ? '听力' : '阅读'}与听读错题`, exact: true }).click();
   await visible(page.getByTestId('lr-workbench'));
+  await page.getByText('查看或更换材料（可选）', { exact: true }).click();
   const select = page.getByLabel('练习材料', { exact: true });
   await visible(select);
   const deadline = Date.now() + 60000;
@@ -56,10 +57,10 @@ try {
   await visible(page.getByText('距计划开始倒数 4 天。', { exact: true }));
   for (const skill of ['listening', 'reading']) {
     const result = await enter(skill);
-    assert.equal(await result.button.isDisabled(), true, 'Before-start browsing must not start a learning attempt');
-    await visible(page.getByText(/计划.*尚未开始/));
+    assert.equal(await result.button.isEnabled(), true, 'Independent practice is available before the course starts');
+    await visible(page.getByRole('status').filter({ hasText: '自主练习 · 随时可学' }));
     evidence[`before-${skill}`] = { full: result.full, width: result.width };
-    checks.push(`future plan: ${skill} opens with real materials and a disabled start`);
+    checks.push(`future plan: ${skill} opens with real materials and an enabled independent start`);
   }
   await page.goto(`${origin}/#/review`, { waitUntil: 'domcontentloaded' });
   await visible(page.getByRole('region', { name: '订正任务', exact: true }));

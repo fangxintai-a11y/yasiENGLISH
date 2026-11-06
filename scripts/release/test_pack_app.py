@@ -34,7 +34,7 @@ class PackAppTest(unittest.TestCase):
             self.write(self.source / 'server' / name, data)
             api_files[name] = sha(data)
         self.write(self.source / 'server/runtime-files.json', json.dumps(self.runtime))
-        self.build = {'version': '365.0.0-rc1', 'fullCommit': COMMIT, 'sourceDirty': False, 'apiFiles': api_files}
+        self.build = {'version': '365.0.0-rc2', 'fullCommit': COMMIT, 'sourceDirty': False, 'apiFiles': api_files}
         self.write(self.dist / 'build-info.json', json.dumps(self.build))
         for name, content in {
             'index.html': '<!doctype html><title>Self-authored release fixture</title>',
@@ -77,7 +77,7 @@ class PackAppTest(unittest.TestCase):
     def test_pax_commit_and_runtime_hashes_bind_the_clean_prebuilt_candidate(self):
         result = self.package()
         self.assertEqual(result['commit'], COMMIT)
-        self.assertEqual(result['version'], '365.0.0-rc1')
+        self.assertEqual(result['version'], '365.0.0-rc2')
         self.assertEqual(result['sha256'], sha(self.out.read_bytes()))
         self.assertLess(result['archiveBytes'], 50 * 1024 * 1024)
         with tarfile.open(self.out, 'r:gz') as archive:

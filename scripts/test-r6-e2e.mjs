@@ -77,6 +77,15 @@ async function click(locator) {
   await locator.scrollIntoViewIfNeeded();
   await locator.click();
 }
+/** Since 879abe2cf pickers are collapsed under a <details> summary; open it once. */
+async function openPicker(area, summary) {
+  const details = area.locator("details", {
+    has: area.page().getByText(summary, { exact: true }),
+  });
+  await details.first().waitFor();
+  if (!(await details.first().evaluate((element) => element.open)))
+    await click(area.getByText(summary, { exact: true }));
+}
 async function navigate(page, route) {
   await page.evaluate((value) => {
     location.hash = `#/${value}`;
@@ -649,6 +658,7 @@ export async function runR6ReleaseE2E({ historyOnly = false } = {}) {
     },
     external = [],
     privateResponses = [],
+    privateFailures = [],
     mediaEvents = [];
   let apiPort = await port(),
     webPort = await port();
@@ -675,6 +685,16 @@ export async function runR6ReleaseE2E({ historyOnly = false } = {}) {
           status: r.status(),
           cache: r.headers()["cache-control"],
           worker: r.fromServiceWorker(),
+          path: new URL(r.url()).pathname,
+          at: Date.now(),
+        });
+    });
+    ctx.on("requestfailed", (r) => {
+      if (new URL(r.url()).pathname.startsWith("/private/"))
+        privateFailures.push({
+          path: new URL(r.url()).pathname,
+          failure: r.failure()?.errorText ?? "unknown",
+          at: Date.now(),
         });
     });
   };
@@ -762,6 +782,9 @@ export async function runR6ReleaseE2E({ historyOnly = false } = {}) {
     await navigate(page, routeFor(skill, n));
     const area = bench(page, skill);
     await area.waitFor();
+    // Since 879abe2cf the platform pre-selects material; the picker sits in a
+    // collapsed "查看或更换材料（可选）" block until the learner opens it.
+    await openPicker(area, "查看或更换材料（可选）");
     if (material.__sequence) {
       let value;
       await eventually(async () => {
@@ -880,6 +903,7 @@ export async function runR6ReleaseE2E({ historyOnly = false } = {}) {
     const prompt = fixtures.prompts.find(
       (p) => p.id === `r6-d${point.checkpoint}-writing-1`,
     );
+    await openPicker(area, "查看/更换写作材料");
     await area
       .getByLabel("本机写作题库", { exact: true })
       .selectOption(keyOf(prompt));
@@ -951,6 +975,7 @@ export async function runR6ReleaseE2E({ historyOnly = false } = {}) {
       const prompt = fixtures.prompts.find(
         (p) => p.id === `r6-d${point.checkpoint}-speaking-${part}`,
       );
+      await openPicker(area, "查看/更换口语材料");
       await area
         .getByLabel("本机口语题库", { exact: true })
         .selectOption(keyOf(prompt));
@@ -1436,11 +1461,11 @@ export async function runR6ReleaseE2E({ historyOnly = false } = {}) {
     const buildInfo = JSON.parse(
       await fs.readFile(path.join(dist, "build-info.json"), "utf8"),
     );
-    assert.equal(buildInfo.version, "365.0.0-rc1");
+    assert.equal(buildInfo.version, "365.0.0-rc2");
     assert.match(buildInfo.fullCommit, /^[a-f0-9]{40}$/);
     const buildDisplay = page.getByTestId("about-build");
     await buildDisplay.waitFor();
-    assert.match(await buildDisplay.innerText(), /365\.0\.0-rc1/);
+    assert.match(await buildDisplay.innerText(), /365\.0\.0-rc2/);
     assert.ok(
       (await buildDisplay.innerText()).includes(
         buildInfo.fullCommit.slice(0, 9),
@@ -1521,23 +1546,33 @@ export async function runR6ReleaseE2E({ historyOnly = false } = {}) {
         );
         entry.tasks = tasks;
         await navigate(page, routeFor("writing", point.checkpoint));
-        await page
-          .getByRole("region", { name: "写作工作台", exact: true })
-          .waitFor();
-        if ([1, 365].includes(point.checkpoint))
-          assert.match(
-            await page.locator("body").innerText(),
-            /这一天没有写作任务/,
+        const writingBench = page.getByRole("region", {
+          name: "写作工作台",
+          exact: true,
+        });
+        await writingBench.waitFor();
+        // Since 879abe2cf a route without a task opens anytime practice: a day
+        // without a writing block is no longer a locked page.
+        if ([1, 365].includes(point.checkpoint)) {
+          await eventually(
+            async () => /自主练习/.test(await writingBench.innerText()),
+            `day${point.checkpoint} writing opens anytime practice`,
           );
+          assert.match(await writingBench.innerText(), /不完成当天课程任务/);
+        }
         await navigate(page, routeFor("speaking", point.checkpoint));
-        await page
-          .getByRole("region", { name: "口语练习", exact: true })
-          .waitFor();
-        if ([1, 365].includes(point.checkpoint))
-          assert.match(
-            await page.locator("body").innerText(),
-            /没有口语|没有安排口语/,
+        const speakingBench = page.getByRole("region", {
+          name: "口语练习",
+          exact: true,
+        });
+        await speakingBench.waitFor();
+        if ([1, 365].includes(point.checkpoint)) {
+          await eventually(
+            async () => /自主练习/.test(await speakingBench.innerText()),
+            `day${point.checkpoint} speaking opens anytime practice`,
           );
+          assert.match(await speakingBench.innerText(), /不完成当天课程任务/);
+        }
         phase = `day${point.checkpoint} full listening and reading`;
         const parts = fixtures.materials
           .filter((m) => m.examId === `R6-D${point.checkpoint}-ORIGINAL`)
@@ -2123,6 +2158,10 @@ export async function runR6ReleaseE2E({ historyOnly = false } = {}) {
         syscall: error.cause.syscall,
       };
     evidence.failureUrl = page?.url();
+    evidence.privateTail = {
+      responses: privateResponses.slice(-8),
+      failures: privateFailures.slice(-8),
+    };
     evidence.failureText = await page
       ?.locator("body")
       .innerText()

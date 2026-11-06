@@ -222,7 +222,7 @@ export async function runR1LearningE2E() {
       }, "phone did not read exactly the same plan mission and baseline revisions");
       for (const [id, status] of Object.entries(states)) {
         const task = phoneToday.locator(`[data-task-id="d4-${id}"]`);
-        assert.match(await task.getByRole("status").innerText(), new RegExp({ completed: "已完成", partial: "部分完成", skipped: "已跳过" }[status]));
+        assert.match(await task.getByRole("status").filter({ hasText: /^状态：/ }).innerText(), new RegExp({ completed: "已完成", partial: "部分完成", skipped: "已跳过" }[status]));
       }
       await navigate(phone, "progress");
       const scoreBook = phone.getByRole("region", { name: "成绩本", exact: true });
@@ -248,7 +248,7 @@ export async function runR1LearningE2E() {
       assert.equal(pending.recordId, firstMissions.find((record) => record.payload.taskId === "d4-speaking").id);
       await phone.reload({ waitUntil: "domcontentloaded" });
       await eventually(async () => (await localScope(phone))?.outbox.some((item) => item.body.revisionId === pending.body.revisionId && item.body.mutationId === pending.body.mutationId), "second offline refresh lost the original queued request");
-      await eventually(async () => /已完成/.test(await speaking.getByRole("status").innerText()), "offline refresh did not render the persisted task completion");
+      await eventually(async () => /已完成/.test(await speaking.getByRole("status").filter({ hasText: /^状态：/ }).innerText()), "offline refresh did not render the persisted task completion");
       checks.push("生产band-v5 SW真实断网刷新仍有五块任务，离线勾选再刷新保留同一outbox ID");
 
       phase = "reconnect once and cross-device readback without duplicate missions";
@@ -265,7 +265,7 @@ export async function runR1LearningE2E() {
       await eventually(async () => (await localScope(desktop))?.heads[pending.recordId]?.revisionId === pending.body.revisionId, "desktop did not receive the original offline completion");
       const finalMissions = (await serverRecords(desktop)).filter((record) => record.kind === "mission" && record.planId === plan.id);
       assert.equal(finalMissions.length, 5); assert.equal(new Set(finalMissions.map((record) => record.id)).size, 5);
-      assert.match(await todayPanel.locator('[data-task-id="d4-speaking"]').getByRole("status").innerText(), /已完成/);
+      assert.match(await todayPanel.locator('[data-task-id="d4-speaking"]').getByRole("status").filter({ hasText: /^状态：/ }).innerText(), /已完成/);
       checks.push("联网自动补传原mutation/revision，电脑回读同ID；SQLite五块无重复且该修订仅一份");
     }
     assert.deepEqual(pageErrors, [], "uncaught production browser errors");

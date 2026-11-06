@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { emptyProgress, defaultSettings, type Progress } from "../store/store";
 import { meanRecall, recallAt, review, Rating } from "../store/srs";
-import { bandLevel, cardKey, daysLeft, effectiveRetention, examPlan, loadPerNew, parseKey, phaseOf, sprintLength, todayPlan } from "./exam";
+import { bandLevel, cardKey, daysLeft, effectiveRetention, examPlan, LEARNING_DUE_CAP, loadPerNew, parseKey, phaseOf, sprintLength, todayPlan } from "./exam";
 
 const DAY = 86400000;
 const words = Array.from({ length: 3000 }, (_, i) => ({ id: `w${i}`, cefr: Math.floor(i / 500), order: i }));
@@ -144,4 +144,24 @@ test("imported words are learned before the regular path", () => {
   const p = { ...emptyProgress("t"), queue: ["w2500", "w2400"] };
   const t = todayPlan(atlas, p, { ...defaultSettings, dailyNew: 5 }, tags, now, 0);
   assert.deepEqual(t.fresh.slice(0, 2), ["w2500", "w2400"]);
+});
+
+test("words still being learned come back even when the day has no vocabulary minutes", () => {
+  const p = emptyProgress("t");
+  // Self-rated "unsure" words: learning state, due now.
+  for (let i = 0; i < 5; i++) p.cards[`w${i}`] = { ...review(undefined, Rating.Hard, now - DAY), due: now - 60000 };
+  // Steady words due today may wait for a day with minutes.
+  for (let i = 100; i < 130; i++) p.cards[`w${i}`] = { ...withCards(1, -1).cards.w0 };
+  const t = todayPlan(atlas, p, { ...defaultSettings, dailyMinutes: 0 }, tags, now, 0);
+  for (let i = 0; i < 5; i++) assert.ok(t.due.includes(`w${i}`), `learning word w${i} is shown`);
+  assert.ok(t.due.filter((key) => Number(key.slice(1)) >= 100).length <= 1, "review cards still follow the minute budget");
+  assert.deepEqual(t.fresh, [], "no new words on a zero-minute day");
+});
+
+test("the learning-word allowance beyond the budget is capped", () => {
+  const p = emptyProgress("t");
+  for (let i = 0; i < LEARNING_DUE_CAP + 30; i++) p.cards[`w${i}`] = { ...review(undefined, Rating.Again, now - DAY), due: now - 60000 };
+  const t = todayPlan(atlas, p, { ...defaultSettings, dailyMinutes: 0 }, tags, now, 0);
+  assert.ok(t.due.length <= LEARNING_DUE_CAP + 1, `${t.due.length}`);
+  assert.equal(t.deferred, LEARNING_DUE_CAP + 30 - t.due.length);
 });

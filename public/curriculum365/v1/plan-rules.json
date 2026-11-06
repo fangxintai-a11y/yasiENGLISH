@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "bandgalaxy-365-r0-rules",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "goal": {
     "statement": "让我学习365天之后拿到雅思8分",
     "durationDays": 365,
@@ -644,8 +644,9 @@
     }
   ],
   "calendar": {
-    "dayOneWeekday": "monday",
+    "dayOneWeekday": "any",
     "dayIndexing": "plan-timezone-calendar-days",
-    "requireMondayStart": true
+    "requireMondayStart": false,
+    "weeklyCycle": "seven-plan-days"
   }
 }

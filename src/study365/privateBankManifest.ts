@@ -14,6 +14,8 @@ export const PrivateAudioTransportSchema = z
     sourceSha256: sha,
     durationSeconds: z.number().finite().positive().max(7200),
     sourceDurationSeconds: z.number().finite().positive().max(7200),
+    /** Decoded sample length of the original; container metadata can be a bitrate estimate. */
+    sourceDecodedSeconds: z.number().finite().positive().max(7200).optional(),
     bitRate: z.number().int().positive(),
     targetBitRate: z.literal(48000),
     codec: z.literal("aac"),
@@ -33,7 +35,12 @@ export const PrivateAudioTransportSchema = z
         path: ["path"],
         message: "私有音频路径与压缩SHA不一致。",
       });
-    if (Math.abs(item.durationSeconds - item.sourceDurationSeconds) > 0.100001)
+    if (
+      Math.abs(
+        item.durationSeconds -
+          (item.sourceDecodedSeconds ?? item.sourceDurationSeconds),
+      ) > 0.100001
+    )
       ctx.addIssue({
         code: "custom",
         path: ["durationSeconds"],

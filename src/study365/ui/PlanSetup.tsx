@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { bundledRules } from "../planData";
-import { nextMonday, todayInTimeZone } from "../planEngine";
+import { todayInTimeZone } from "../planEngine";
 import { enablePlan } from "../planRecords";
 import { GATE_TARGETS, SECTION_TARGETS } from "../protocol";
 import { getLearningState, saveRecord } from "../repository";
@@ -8,7 +8,7 @@ import { getLearningState, saveRecord } from "../repository";
 export function PlanSetup({ userId }: { userId: string | null }) {
   const defaultZone = bundledRules.calendarPolicy.timeZone;
   const [timeZone, setTimeZone] = useState(defaultZone);
-  const [startDate, setStartDate] = useState(() => nextMonday(todayInTimeZone(Date.now(), defaultZone), defaultZone));
+  const [startDate, setStartDate] = useState(() => todayInTimeZone(Date.now(), defaultZone));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const editedDate = useRef(false);
@@ -17,7 +17,7 @@ export function PlanSetup({ userId }: { userId: string | null }) {
   const changeZone = (zone: string) => {
     setTimeZone(zone);
     if (!editedDate.current) {
-      try { setStartDate(nextMonday(todayInTimeZone(Date.now(), zone), zone)); } catch { /* Validate the complete form on save. */ }
+      try { setStartDate(todayInTimeZone(Date.now(), zone)); } catch { /* Validate the complete form on save. */ }
     }
   };
   const submit = async (event: FormEvent) => {
@@ -37,13 +37,13 @@ export function PlanSetup({ userId }: { userId: string | null }) {
     } finally { if (alive.current) setBusy(false); }
   };
 
-  return <section className="panel" aria-label="开启 8.0 计划">
+  return <section className="plan365-setup" aria-label="开启 8.0 计划">
     <p className="eyebrow">365天学习计划</p>
     <h2>开启 {GATE_TARGETS.G4.overall.toFixed(1)} 计划</h2>
     <p>每天 {bundledRules.goal.dailyMinutes} 分钟，坚持 {bundledRules.goal.durationDays} 天。</p>
     <p>目标总分 {GATE_TARGETS.G4.overall.toFixed(1)}：听 {SECTION_TARGETS.listening.toFixed(1)} · 读 {SECTION_TARGETS.reading.toFixed(1)} · 写 {SECTION_TARGETS.writing.toFixed(1)} · 说 {SECTION_TARGETS.speaking.toFixed(1)}。</p>
     <form onSubmit={(event) => { void submit(event); }}>
-      <label className="field"><span>开始日期<small>请选择周一，今天是周一时可以从今天开始。</small></span>
+      <label className="field"><span>开始日期<small>默认今天即可开始；训练按每7个计划日的节奏推进，不必等到周一。</small></span>
         <input aria-label="开始日期" type="date" required value={startDate} disabled={busy}
           onChange={(event) => { editedDate.current = true; setStartDate(event.target.value); }} />
       </label>

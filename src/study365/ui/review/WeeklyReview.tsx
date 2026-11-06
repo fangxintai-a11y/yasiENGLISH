@@ -290,7 +290,7 @@ function WeeklyReviewPanel(props: WeeklyReviewProps) {
       <h2>第 {model.weekIndex} 周：本周校准与调整</h2>
       <p>
         近28天统计：{model.since} 至 {date}
-        。周日汇总与登记使用原15分钟校准块，订正使用原复盘块；每天仍为120分钟。
+        。每7个训练日的汇总与登记使用原15分钟校准块，订正使用原复盘块；每天仍为120分钟。
       </p>
       <h3>门槛有效分差</h3>
       <ul>
