@@ -658,6 +658,7 @@ export async function runR6ReleaseE2E({ historyOnly = false } = {}) {
     },
     external = [],
     privateResponses = [],
+    privateFailures = [],
     mediaEvents = [];
   let apiPort = await port(),
     webPort = await port();
@@ -684,6 +685,16 @@ export async function runR6ReleaseE2E({ historyOnly = false } = {}) {
           status: r.status(),
           cache: r.headers()["cache-control"],
           worker: r.fromServiceWorker(),
+          path: new URL(r.url()).pathname,
+          at: Date.now(),
+        });
+    });
+    ctx.on("requestfailed", (r) => {
+      if (new URL(r.url()).pathname.startsWith("/private/"))
+        privateFailures.push({
+          path: new URL(r.url()).pathname,
+          failure: r.failure()?.errorText ?? "unknown",
+          at: Date.now(),
         });
     });
   };
@@ -2147,6 +2158,10 @@ export async function runR6ReleaseE2E({ historyOnly = false } = {}) {
         syscall: error.cause.syscall,
       };
     evidence.failureUrl = page?.url();
+    evidence.privateTail = {
+      responses: privateResponses.slice(-8),
+      failures: privateFailures.slice(-8),
+    };
     evidence.failureText = await page
       ?.locator("body")
       .innerText()
