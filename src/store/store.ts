@@ -476,8 +476,8 @@ export function useStore<T>(select: (s: State) => T): T {
   return useSyncExternalStore(store.subscribe, () => select(state), () => select(state));
 }
 
-export function bumpDay(p: Progress, patch: Partial<DayStat>): Progress {
-  const k = dayKey();
+export function bumpDay(p: Progress, patch: Partial<DayStat>, now = Date.now()): Progress {
+  const k = dayKey(new Date(now));
   const d = p.days[k] ?? { n: 0, r: 0, c: 0, t: 0 };
   return {
     ...p,

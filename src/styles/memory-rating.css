@@ -1,0 +1,149 @@
+.learn:has(.memory-card) {
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+}
+.learn-stage:has(.memory-card) {
+  animation-name: memory-fade;
+  min-width: 0;
+  min-height: 0;
+  padding-bottom: 0;
+}
+@keyframes memory-fade {
+  from {
+    opacity: 0;
+  }
+}
+.memory-card {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  width: 100%;
+}
+.memory-question {
+  display: grid;
+  justify-items: center;
+  align-content: safe center;
+  grid-auto-rows: max-content;
+  gap: 18px;
+  padding: 36px 0;
+  text-align: center;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+.memory-question > .speak {
+  height: 44px;
+  align-self: center;
+}
+.memory-question .headword {
+  overflow-wrap: anywhere;
+  max-width: 100%;
+}
+.memory-question-example {
+  max-width: 720px;
+  font: 400 22px/1.7 var(--serif);
+  overflow-wrap: anywhere;
+}
+.memory-question-example mark {
+  background: linear-gradient(transparent 58%, var(--mark) 58%);
+  color: inherit;
+  font-weight: 650;
+  padding: 0 1px;
+}
+.memory-answer {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 4px 20px;
+}
+.memory-reveal {
+  flex: none;
+  text-align: center;
+  padding-top: 10px;
+}
+.memory-reveal p {
+  margin: 0 0 10px;
+}
+.memory-rating-help {
+  font-size: 13px;
+  margin: 12px 0 0;
+  flex: none;
+}
+.memory-ratings {
+  display: block;
+  flex: none;
+  position: static;
+  margin: 0;
+  padding: 12px 0 calc(12px + env(safe-area-inset-bottom));
+  background: var(--paper);
+}
+.memory-rating-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  outline: none;
+  width: 100%;
+}
+.memory-grade.btn {
+  display: grid;
+  grid-template-rows: auto auto auto;
+  justify-items: center;
+  align-content: center;
+  height: auto;
+  min-height: 100px;
+  border: 1px solid var(--line-strong);
+  border-radius: 18px;
+  gap: 5px;
+  padding: 14px 8px;
+  min-width: 0;
+  white-space: normal;
+  line-height: 1.4;
+}
+.memory-grade.btn:disabled {
+  opacity: 0.65;
+}
+.memory-grade b {
+  font-size: 18px;
+}
+.memory-grade small {
+  font-size: 13px;
+}
+.memory-grade span {
+  font-size: 11px;
+  color: var(--ink-3);
+}
+.memory-grade.btn.memory-grade-good {
+  border-color: var(--sage);
+  background: color-mix(in oklab, var(--sage) 12%, var(--paper));
+}
+.memory-grade.btn.memory-grade-again {
+  border-color: var(--terra);
+  background: color-mix(in oklab, var(--terra) 12%, var(--paper));
+}
+.memory-grade.btn.memory-grade-hard {
+  border-color: var(--ochre);
+  background: color-mix(in oklab, var(--ochre) 12%, var(--paper));
+}
+@media (max-width: 639px) {
+  .memory-rating-options {
+    gap: 7px;
+  }
+  .memory-grade.btn {
+    padding: 13px 4px;
+    min-height: 96px;
+  }
+  .memory-grade b {
+    font-size: 16px;
+  }
+  .memory-grade span {
+    font-size: 10px;
+  }
+  .memory-grade kbd {
+    display: none;
+  }
+  .memory-question {
+    padding: 20px 0;
+  }
+}

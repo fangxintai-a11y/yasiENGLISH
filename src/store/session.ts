@@ -5,7 +5,7 @@ import { confusablesOf } from "../ielts/confusables";
 import { diagnose } from "../ielts/spelling";
 import { getTags } from "../ielts/tags";
 import { hashSeed, normalize, shuffle } from "../lib/text";
-import { isMastered, review, Rating, seedKnown, type CardState, type Grade } from "./srs";
+import { isMastered, review, Rating, type CardState, type Grade } from "./srs";
 import { bumpDay, dayKey, store, type ActiveSession, type Progress, type QuizKind, type Settings, type Step, type Track } from "./store";
 
 export function newToday(p: Progress) {
@@ -147,14 +147,14 @@ export function buildSession(atlas: Atlas, p: Progress, s: Settings, opts?: Sess
     newIds = opts?.reviewOnly ? [] : plan.fresh;
     unlock = opts?.reviewOnly ? [] : plan.unlock;
   }
-  // Reviews first while attention is fresh, then the new skills, then new words in small
-  // groups: meet five, then recall those five in a different order.
+  // Reviews first, then new skills and new words. Objective drills retain their five-word groups.
   reviewKeys.forEach((k, i) => steps.push(quizStep(atlas, p, k, seed + i)));
   unlock.forEach((k, i) => steps.push(quizStep(atlas, p, k, seed + 500 + i)));
   for (let g = 0; g < newIds.length; g += 5) {
     const group = newIds.slice(g, g + 5);
     group.forEach((id) => steps.push({ id, kind: "intro" }));
-    shuffle(group, seed + g).forEach((id, i) => steps.push(quizStep(atlas, p, id, seed + 1000 + g + i)));
+    // Normal first meetings are rated directly; drills keep their objective questions.
+    if (opts?.practice) shuffle(group, seed + g).forEach((id, i) => steps.push(quizStep(atlas, p, id, seed + 1000 + g + i)));
   }
   const reviewIds = [...new Set(reviewKeys.filter((k) => parseKey(k).track === "r"))];
   const skillKeys = [...reviewKeys.filter((k) => parseKey(k).track !== "r"), ...unlock];
@@ -254,35 +254,66 @@ export function answer(atlas: Atlas, step: Step & { kind: QuizKind }, correct: b
   });
 }
 
-/**
- * "I already know this word" on a first meeting: no teaching and no quiz now, one spot check in
- * 10–30 days instead (like the placement test's known words). It does not use up a new-word slot.
- */
-export function markKnown(id: string) {
-  const now = Date.now();
-  store.progress((p) => {
-    const s = p.session;
-    if (!s) return p;
-    const steps = s.steps.filter((x, i) => i <= s.index || x.id !== id);
-    const index = s.index + 1;
-    const due = now + (10 + (hashSeed(id) % 21)) * 86400000;
-    return {
-      ...p,
-      cards: p.cards[id] ? p.cards : { ...p.cards, [id]: seedKnown(now, due, 25) },
-      session: { ...s, steps, index, newIds: s.newIds.filter((x) => x !== id), pending: undefined, finished: index >= steps.length ? now : undefined },
-    };
-  });
+/** Pull a genuinely due card from this round back in at a step boundary, without waiting or interrupting. */
+export function withDueRecall(atlas: Atlas, p: Progress, now: number): Progress {
+  const s = p.session;
+  if (!s || isPractice(s) || s.pending) return p;
+  const id = Object.keys(s.graded)
+    .filter((key) => parseKey(key).track === "r" && atlas.byId.has(key) && p.cards[key]?.due <= now)
+    .sort((a, b) => p.cards[a].due - p.cards[b].due)[0];
+  if (!id) return p;
+  const current = s.steps[s.index];
+  if (current?.id === id && trackOf(current) === "r") return p;
+  const remaining = s.steps.slice(s.index).filter((step) => step.id !== id || trackOf(step) !== "r");
+  const steps = [...s.steps.slice(0, s.index), quizStep(atlas, p, id, now, true), ...remaining];
+  return { ...p, session: { ...s, steps, finished: undefined } };
+}
+
+export type RecallGrade = typeof Rating.Again | typeof Rating.Hard | typeof Rating.Good;
+
+/** Pure transition: grade exactly this visible step, preserving the first answer and unrelated tracks. */
+export function applyRecallRating(atlas: Atlas, p: Progress, settings: Settings,
+  expected: { sessionId: string; index: number; id: string }, grade: RecallGrade, seconds: number, now: number): Progress {
+  const s = p.session;
+  const step = s?.steps[s.index];
+  if (!s || s.finished || s.pending || s.id !== expected.sessionId || s.index !== expected.index ||
+    step?.id !== expected.id || trackOf(step) !== "r" ||
+    ![Rating.Again, Rating.Hard, Rating.Good].includes(grade)) return p;
+  const id = step.id;
+  const first = s.graded[id] === undefined;
+  const practice = isPractice(s);
+  const spent = Number.isFinite(seconds) ? Math.max(0, Math.min(90, Math.round(seconds))) : 0;
+  let next = p;
+  if (!practice) {
+    next = bumpDay(p, { r: 1, c: grade === Rating.Again ? 0 : 1, n: first && s.newIds.includes(id) && !p.cards[id] ? 1 : 0, t: spent }, now);
+    next = { ...next, cards: { ...next.cards, [id]: review(p.cards[id], grade, now, effectiveRetention(settings, now)) },
+      mistakes: grade === Rating.Again ? [id, ...p.mistakes.filter((value) => value !== id)].slice(0, 300) : p.mistakes };
+  }
+  // Also removes the old, ungraded recognition question after an intro in saved pre-change rounds.
+  const steps = practice ? s.steps : s.steps.filter((value, index) => index <= s.index || value.id !== id || trackOf(value) !== "r");
+  const index = s.index + 1;
+  next = { ...next, session: { ...s, steps, index, pending: undefined,
+    graded: !practice && first ? { ...s.graded, [id]: grade } : s.graded,
+    ms: !practice && first ? { ...(s.ms ?? {}), [id]: spent * 1000 } : s.ms,
+    finished: index >= steps.length ? now : undefined } };
+  return withDueRecall(atlas, next, now);
+}
+
+export function rateRecall(atlas: Atlas, expected: { sessionId: string; index: number; id: string }, grade: RecallGrade, seconds: number) {
+  const { settings } = store.get();
+  store.progress((p) => applyRecallRating(atlas, p, settings, expected, grade, seconds, Date.now()));
 }
 
 /** Move to the next step; `seconds` is time spent on this step, capped so idle tabs don't inflate stats. */
-export function advance(seconds: number) {
+export function advance(seconds: number, atlas?: Atlas) {
   store.progress((p) => {
     const s = p.session;
     if (!s) return p;
     const index = s.index + 1;
     const finished = index >= s.steps.length ? Date.now() : undefined;
     const next = isPractice(s) ? p : bumpDay(p, { t: Math.max(0, Math.min(90, Math.round(seconds))) });
-    return { ...next, session: { ...s, index, pending: undefined, finished } };
+    const advanced = { ...next, session: { ...s, index, pending: undefined, finished } };
+    return atlas ? withDueRecall(atlas, advanced, Date.now()) : advanced;
   });
 }
 

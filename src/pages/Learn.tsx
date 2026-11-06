@@ -1,5 +1,5 @@
 import { ArrowRight, Check, Mic, RotateCcw, Share2, Timer, Volume2, X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { prefetch, useAtlas, useEntry } from "../atlas/context";
 import type { Entry, WordRef } from "../atlas/types";
 import { parseKey } from "../ielts/exam";
@@ -11,9 +11,11 @@ import { burst } from "../lib/burst";
 import { cue } from "../lib/sound";
 import { go } from "../lib/router";
 import { gap } from "../lib/text";
-import { answer, advance, atlasSynonyms, buildSession, gradeFor, isPractice, markKnown, RELEARN_RUN, sessionStats, SPEED_LIMIT, stepKey, trackOf } from "../store/session";
-import { Rating, type Grade } from "../store/srs";
+import { answer, advance, atlasSynonyms, buildSession, gradeFor, isPractice, rateRecall, RELEARN_RUN, sessionStats, SPEED_LIMIT, stepKey, trackOf } from "../store/session";
+import { formatInterval, preview, Rating, type Grade } from "../store/srs";
 import { store, useStore, type ActiveSession, type QuizKind, type Step, type Track } from "../store/store";
+import type { RecallGrade } from "../store/session";
+import { effectiveRetention } from "../ielts/exam";
 import { EntryView, Highlight } from "../ui/EntryView";
 import { Illustration } from "../ui/Illustration";
 import { HackBlock, MnemonicBlock, WhyTags } from "../ui/Memory";
@@ -22,7 +24,6 @@ import { AmbiencePicker } from "../ui/Ambience";
 import { Ring } from "../ui/Ring";
 import { Speak } from "../ui/Speak";
 import { shareSession } from "../ui/shareSession";
-import { toast } from "../ui/Toast";
 import { TypingField } from "../ui/TypingField";
 
 export function Learn() {
@@ -85,7 +86,7 @@ function Runner({ session }: { session: ActiveSession }) {
         <AmbiencePicker />
       </header>
       <main className="learn-stage" key={`${session.id}-${session.index}`}>
-        {step.kind === "intro" ? <Intro step={step} /> : <Quiz step={(step.kind === "listen" ? { ...step, kind: "meaning" } : step) as Step & { kind: QuizKind }} session={session} />}
+        {step.kind === "intro" || (!isPractice(session) && trackOf(step) === "r" && !session.pending) ? <RecallWord step={step} session={session} /> : <Quiz step={(step.kind === "listen" ? { ...step, kind: "meaning" } : step) as Step & { kind: QuizKind }} session={session} />}
       </main>
     </div>
   );
@@ -96,80 +97,85 @@ function useStepTimer() {
   return () => (performance.now() - t.current) / 1000;
 }
 
-function Intro({ step }: { step: Step }) {
+const RECALL_CHOICES = [
+  { grade: Rating.Good, label: "认识", hint: "能想起主要意思", tone: "good" },
+  { grade: Rating.Again, label: "不认识", hint: "想不起或认错", tone: "again" },
+  { grade: Rating.Hard, label: "不太记得", hint: "想了较久才想起", tone: "hard" },
+] as const;
+
+function RecallWord({ step, session }: { step: Step; session: ActiveSession }) {
   const atlas = useAtlas();
   const { entry } = useEntry(step.id);
   const settings = useStore((s) => s.settings);
+  const card = useStore((s) => s.progress.cards[step.id]);
   const elapsed = useStepTimer();
   const ref = atlas.byId.get(step.id);
-  // Guess first: trying to recall a meaning before seeing it makes it stick better than just reading it.
-  const [revealed, setRevealed] = useState(!settings.guessFirst);
-  // 句子优先: meet the word inside its IELTS sentence (the everyday one when there is none).
+  const fresh = step.kind === "intro";
+  const [revealed, setRevealed] = useState(fresh && !settings.guessFirst);
+  const [reviewAt, setReviewAt] = useState(Date.now);
+  const locked = useRef(false);
+  const choices = useRef<HTMLDivElement>(null);
+  const answerArea = useRef<HTMLDivElement>(null);
+  const intervals = useMemo(() => preview(card, reviewAt, effectiveRetention(settings, reviewAt)), [card, reviewAt, settings.retention, settings.examDate]); // eslint-disable-line react-hooks/exhaustive-deps
   const exI = entry && settings.sentenceFirst && entry.ex.length ? (entry.ex[1]?.en ? 1 : 0) : null;
   useEffect(() => {
     if (!entry || !settings.autoplay) return;
-    const word = () => void play(atlas.audio(entry, settings.accent), entry.w, settings.accent);
-    if (exI === null) return word();
-    // The sentence first, then the word on its own once the sentence has played through.
-    void play(atlas.audio(entry, exI ? "ex2" : "ex"), "", "us").then((r) => r === "recorded" && word());
-  }, [entry, atlas, settings.autoplay, settings.accent, exI]);
-  const next = useCallback(() => {
-    stopAudio();
-    if (store.get().settings.sfx) void cue("flip");
-    advance(elapsed());
-  }, [elapsed]);
-  const reveal = useCallback(() => {
+    void play(atlas.audio(entry, settings.accent), entry.w, settings.accent);
+    return () => stopAudio();
+  }, [entry, atlas, settings.autoplay, settings.accent]);
+  useLayoutEffect(() => {
+    if (revealed) {
+      choices.current?.focus({ preventScroll: true });
+      const area = answerArea.current;
+      const body = area?.querySelector(".entry-body");
+      if (area && body) {
+        area.scrollTop += body.getBoundingClientRect().top - area.getBoundingClientRect().top;
+        const meanings = area.querySelector(".senses")?.getBoundingClientRect();
+        if (meanings) area.scrollTop += Math.max(0, meanings.bottom - area.getBoundingClientRect().bottom + 8);
+      }
+    }
+  }, [revealed]);
+  const reveal = () => {
+    setReviewAt(Date.now());
     setRevealed(true);
-    if (store.get().settings.sfx) void cue("flip");
-    // On phones the meanings sit below the illustration: bring them into view.
-    window.setTimeout(() => document.querySelector(".intro .senses")?.scrollIntoView({ block: "center", behavior: "smooth" }), 60);
-  }, []);
-  const known = useCallback(() => {
+    if (settings.sfx) void cue("flip");
+  };
+  const rate = (grade: RecallGrade) => {
+    if (!revealed || locked.current) return;
+    locked.current = true;
     stopAudio();
-    markKnown(step.id);
-    toast("不教了：它会在两三周后抽查一次，答错再回到计划里", "ok");
-  }, [step.id]);
-  useKeys(revealed ? { Enter: next, " ": next } : { Enter: reveal, " ": reveal });
+    if (settings.sfx) void cue("flip");
+    rateRecall(atlas, { sessionId: session.id, index: session.index, id: step.id }, grade, elapsed());
+  };
+  useKeys(revealed ? { "1": () => rate(Rating.Good), "2": () => rate(Rating.Again), "3": () => rate(Rating.Hard) } : { Enter: reveal, " ": reveal });
   if (!entry || !ref) return <span className="spinner" />;
-  return (
-    <div className={`intro ${revealed ? "" : "is-guessing"}`}>
-      <p className="stage-label">
-        <span className="dot dot-new" /> 初次见面{revealed ? "" : exI !== null ? " · 先从句子里猜它的意思" : " · 先猜它的意思"}
-      </p>
-      <WhyTags id={entry.id} />
-      <div className="guess-zone" onClick={revealed ? undefined : reveal}>
-        {exI !== null && (
-          <section className="intro-sentence">
-            <p className="eyebrow">{exI ? "雅思语境" : "例句"} · 先在句子里认识它</p>
-            <p className="intro-sentence-en" lang="en">
-              <Highlight text={entry.ex[exI].en} word={entry.w} />
-              <Speak url={atlas.audio(entry, exI ? "ex2" : "ex")} text={entry.ex[exI].en} accent="us" size="sm" className="ex-speak" />
-            </p>
-            <p className="ex-zh">{entry.ex[exI].zh}</p>
-          </section>
-        )}
-        <EntryView entry={entry} mode="intro" />
-        <MnemonicBlock refw={ref} />
+  return <div className="intro memory-card">
+    <p className="stage-label"><span className={`dot ${fresh ? "dot-new" : "dot-review"}`} />
+      {fresh ? "新词学习" : "到期复习"} · 回忆词义</p>
+    <WhyTags id={entry.id} />
+    {!revealed ? <section className="memory-question">
+      <h2 className="headword" lang="en">{entry.w}</h2>
+      <Speak url={atlas.audio(entry, settings.accent)} text={entry.w} accent={settings.accent} label="听发音" />
+      {exI !== null && <p className="memory-question-example" lang="en"><Highlight text={entry.ex[exI].en} word={entry.w} /></p>}
+    </section> : <div ref={answerArea} className="memory-answer">
+      <EntryView entry={entry} mode="intro" />
+      <MnemonicBlock refw={ref} />
+    </div>}
+    {!revealed && <div className="memory-reveal"><p className="muted">先回忆中文意思，再查看释义。</p>
+      <button className="btn btn-primary" onClick={reveal} autoFocus>查看释义 <kbd>Space</kbd></button></div>}
+    <p className="memory-rating-help muted">{revealed ? "按查看释义前的回忆选择；看答案才想起，请选“不认识”。" : "查看释义后，再选择下面的回忆情况。"}{revealed && fresh && "新词先做短间隔确认，稳定想起后再逐步延长。"}</p>
+    <footer className="learn-actions memory-ratings">
+      <div ref={choices} className="memory-rating-options" role="group" aria-label="回忆情况" tabIndex={-1}>
+        {RECALL_CHOICES.map(({ grade, label, hint, tone }, i) => <button key={grade} type="button"
+          className={`btn memory-grade memory-grade-${tone}`} aria-label={label} disabled={!revealed}
+          title={`${hint}；${isPractice(session) ? "专项练习不改排程" : `约${formatInterval(intervals[grade])}后复习`}`}
+          onClick={() => rate(grade)}>
+          <b>{label}</b><small>{isPractice(session) ? "本轮练习" : `约${formatInterval(intervals[grade])}后`}</small>
+          <span>{hint} <kbd>{i + 1}</kbd></span>
+        </button>)}
       </div>
-      <footer className="learn-actions">
-        <button className="btn btn-ghost" onClick={known}>
-          我早就会了
-        </button>
-        {revealed ? (
-          <button className="btn btn-primary btn-xl" onClick={next} autoFocus>
-            看完了，下一个 <ArrowRight size={20} />
-          </button>
-        ) : (
-          <button className="btn btn-primary btn-xl" onClick={reveal} autoFocus>
-            想好了，看答案 <ArrowRight size={20} />
-          </button>
-        )}
-        <span className="hint-keys">
-          <kbd>Enter</kbd> {revealed ? "继续" : "揭晓"}
-        </span>
-      </footer>
-    </div>
-  );
+    </footer>
+  </div>;
 }
 
 const KIND_LABEL: Record<QuizKind, string> = {
@@ -217,8 +223,8 @@ function Quiz({ step, session }: { step: Step & { kind: QuizKind }; session: Act
 
   const next = useCallback(() => {
     stopAudio();
-    advance(elapsed());
-  }, [elapsed]);
+    advance(elapsed(), atlas);
+  }, [elapsed, atlas]);
 
   const listenNow = step.kind === "dictation";
   useEffect(() => {
@@ -503,7 +509,7 @@ function Summary({ session }: { session: ActiveSession }) {
         <div className="summary-stats">
           <Ring value={stats.accuracy / 100} size={128} tone={stats.accuracy >= 60 ? "sage" : "terra"}>
             <b>{stats.accuracy}%</b>
-            <small>首次正确</small>
+            <small>首答回忆</small>
           </Ring>
           <dl>
             <div>
@@ -541,7 +547,7 @@ function Summary({ session }: { session: ActiveSession }) {
           ))}
         </ul>
         <p className="summary-note">
-          {practice ? "专项练习只更新拼写诊断，不改变复习排程。" : "每张卡的成绩都由对错和反应时间自动判定。FSRS 已排好下次相遇：答错的会更早回来，考前两周会自动加密复习。"}
+          {practice ? "专项练习只更新拼写诊断，不改变复习排程。" : "词义识别按你的回忆反馈安排，听写和产出按实际作答判分。FSRS 已安排下次复习；忘记的词会更早回来。"}
         </p>
         <div className="summary-actions">
           {wrong.length > 0 && !practice && (

@@ -46,9 +46,17 @@ export function Today() {
   const tags = useTags();
   const progress = useStore((s) => s.progress);
   const settings = useStore((s) => s.settings);
+  const [clock, setClock] = useState(Date.now);
+  useEffect(() => {
+    const update = () => setClock(Date.now());
+    const timer = window.setInterval(update, 15_000);
+    window.addEventListener("focus", update);
+    document.addEventListener("visibilitychange", update);
+    return () => { window.clearInterval(timer); window.removeEventListener("focus", update); document.removeEventListener("visibilitychange", update); };
+  }, []);
   const [setup, setSetup] = useState(false);
   const [quantity, setQuantity] = useState<"daily" | "extra" | null>(null);
-  const plan = useMemo(() => todayPlan(atlas, progress, settings), [atlas, progress, settings, tags]); // eslint-disable-line react-hooks/exhaustive-deps
+  const plan = useMemo(() => todayPlan(atlas, progress, settings, clock), [atlas, progress, settings, tags, clock]); // eslint-disable-line react-hooks/exhaustive-deps
   // Warm the first cards of today's journey so the session opens instantly.
   const firstIds = [...plan.due.slice(0, 4).map((k) => parseKey(k).id), ...plan.fresh.slice(0, 6)].join(",");
   useEffect(() => {
@@ -56,7 +64,7 @@ export function Today() {
     const t = window.setTimeout(() => void prefetch(atlas, ids), 800);
     return () => window.clearTimeout(t);
   }, [atlas, firstIds]);
-  const now = new Date();
+  const now = new Date(clock);
   const today = progress.days[dayKey()];
   const learnedToday = today?.n ?? 0;
   const unseen = atlas.words.filter((word) => !progress.cards[word.id]).length;
