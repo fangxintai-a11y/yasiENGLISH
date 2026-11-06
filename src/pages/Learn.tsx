@@ -108,6 +108,7 @@ function RecallWord({ step, session }: { step: Step; session: ActiveSession }) {
   const { entry } = useEntry(step.id);
   const settings = useStore((s) => s.settings);
   const card = useStore((s) => s.progress.cards[step.id]);
+  const priority = useStore((s) => s.progress.queue.includes(`review:${step.id}`));
   const elapsed = useStepTimer();
   const ref = atlas.byId.get(step.id);
   const fresh = step.kind === "intro";
@@ -151,7 +152,7 @@ function RecallWord({ step, session }: { step: Step; session: ActiveSession }) {
   if (!entry || !ref) return <span className="spinner" />;
   return <div className="intro memory-card">
     <p className="stage-label"><span className={`dot ${fresh ? "dot-new" : "dot-review"}`} />
-      {fresh ? "新词学习" : "到期复习"} · 回忆词义</p>
+      {fresh ? "新词学习" : priority ? "优先复习" : "到期复习"} · 回忆词义</p>
     <WhyTags id={entry.id} />
     {!revealed ? <section className="memory-question">
       <h2 className="headword" lang="en">{entry.w}</h2>

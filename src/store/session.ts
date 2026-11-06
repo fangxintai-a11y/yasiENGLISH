@@ -4,6 +4,7 @@ import { cardKey, effectiveRetention, getCard, nextNew, parseKey, targetIds, tod
 import { confusablesOf } from "../ielts/confusables";
 import { diagnose } from "../ielts/spelling";
 import { getTags } from "../ielts/tags";
+import { priorityWords, removePriorityWord } from "../ielts/priority";
 import { hashSeed, normalize, shuffle } from "../lib/text";
 import { isMastered, review, Rating, type CardState, type Grade } from "./srs";
 import { bumpDay, dayKey, store, type ActiveSession, type Progress, type QuizKind, type Settings, type Step, type Track } from "./store";
@@ -173,6 +174,24 @@ export function buildSession(atlas: Atlas, p: Progress, s: Settings, opts?: Sess
   };
 }
 
+/** Prioritize explicitly selected words after the current question, preserving an unfinished round. */
+export function buildPrioritySession(atlas: Atlas, p: Progress, settings: Settings, requested: string[]): ActiveSession | null {
+  const eligible = new Set(priorityWords(atlas, p));
+  const ids = [...new Set(requested)].filter((id) => eligible.has(id)).slice(0, 100);
+  if (!ids.length) return null;
+  const s = p.session;
+  if (!s || s.finished) return buildSession(atlas, p, settings, { ids, label: "优先学词" });
+  if (isPractice(s)) return null;
+  const selected = new Set(ids);
+  const current = s.steps[s.index];
+  const nextIds = ids.filter((id) => s.pending || current?.id !== id || trackOf(current) !== "r");
+  const extra: Step[] = nextIds.map((id, i) => p.cards[id] ? quizStep(atlas, p, id, Date.now() + i) : { id, kind: "intro" });
+  const remaining = s.steps.slice(s.index + 1).filter((step) => !selected.has(step.id) || trackOf(step) !== "r");
+  return { ...s, steps: [...s.steps.slice(0, s.index + 1), ...extra, ...remaining],
+    newIds: [...new Set([...s.newIds, ...ids.filter((id) => !p.cards[id])])],
+    reviewIds: [...new Set([...s.reviewIds, ...ids.filter((id) => !!p.cards[id])])] };
+}
+
 /** Thresholds behind the automatic grade; shown to the learner so the grade is never a mystery. */
 export const SPEED_LIMIT: Record<QuizKind, number> = {
   meaning: 3000,
@@ -286,7 +305,7 @@ export function applyRecallRating(atlas: Atlas, p: Progress, settings: Settings,
   let next = p;
   if (!practice) {
     next = bumpDay(p, { r: 1, c: grade === Rating.Again ? 0 : 1, n: first && s.newIds.includes(id) && !p.cards[id] ? 1 : 0, t: spent }, now);
-    next = { ...next, cards: { ...next.cards, [id]: review(p.cards[id], grade, now, effectiveRetention(settings, now)) },
+    next = { ...removePriorityWord(next, id), cards: { ...next.cards, [id]: review(p.cards[id], grade, now, effectiveRetention(settings, now)) },
       mistakes: grade === Rating.Again ? [id, ...p.mistakes.filter((value) => value !== id)].slice(0, 300) : p.mistakes };
   }
   // Also removes the old, ungraded recognition question after an intro in saved pre-change rounds.

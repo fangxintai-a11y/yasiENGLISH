@@ -29,4 +29,5 @@ jobs:
       - run: node scripts/test-spelling-e2e.mjs
       - run: node scripts/test-daily-quantity-e2e.mjs
       - run: node scripts/test-recall-e2e.mjs
+      - run: node scripts/test-shadow-priority-e2e.mjs
       - run: npm run test:sync

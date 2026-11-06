@@ -11,6 +11,10 @@ import { cue, duck } from "../lib/sound";
 import { headwordPattern } from "../lib/text";
 import { countTakes, getTakes, saveTake, type VoiceTake } from "../lib/voices";
 import { dayKey, recordShadow, store, useStore } from "../store/store";
+import { priorityLookup, priorityWords, sentenceWordCandidates } from "../ielts/priority";
+import { useCloudSync } from "../store/cloudSync";
+import { PriorityLearning } from "../ui/PriorityLearning";
+import { ShadowWordSheet } from "../ui/ShadowWordSheet";
 import { toast } from "../ui/Toast";
 import { useKeys } from "./Learn";
 
@@ -27,6 +31,12 @@ const STEPS: [Phase, string, string][] = [
 ];
 
 export function Shadow({ run }: { run: boolean }) {
+  const atlas = useAtlas();
+  const cloud = useCloudSync();
+  return <ShadowPage key={`${atlas.id}:${cloud.user?.id ?? "local"}`} run={run} />;
+}
+
+function ShadowPage({ run }: { run: boolean }) {
   const [round, setRound] = useState(0);
   const again = () => {
     shadowNext([]);
@@ -84,6 +94,8 @@ function ShadowHome() {
         </button>
         {!canRecord() && <p className="shadow-note">这个浏览器不能录音：仍可以听和跟读，只是没法回放自己的声音。</p>}
       </section>
+
+      <PriorityLearning />
 
       <section className="shadow-stats" aria-label="跟读记录">
         <div>
@@ -273,6 +285,11 @@ function Sentence({
 }) {
   const atlas = useAtlas();
   const asr = useStore((s) => s.settings.shadowAsr);
+  const progress = useStore((s) => s.progress);
+  const [inspecting, setInspecting] = useState<string | null>(null);
+  const closeWord = useCallback(() => setInspecting(null), []);
+  const lookup = useMemo(() => priorityLookup(atlas.words), [atlas]);
+  const queued = useMemo(() => new Set(priorityWords(atlas, progress)), [atlas, progress.queue, progress.cards]);
   const url = atlas.audio(item.entry, item.ref.i ? "ex2" : "ex");
   const [phase, setPhase] = useState<Phase>("listen");
   const [word, setWord] = useState(-1);
@@ -286,6 +303,7 @@ function Sentence({
   const [listens, setListens] = useState(0);
   const times = useMemo(() => wordTimes(item.en), [item.en]);
   const words = useMemo(() => sentenceWords(item.en), [item.en]);
+  const matches = useMemo(() => words.map((w) => sentenceWordCandidates(w.w, lookup)), [words, lookup]);
   const target = useMemo(() => {
     const m = headwordPattern(item.entry.w).exec(item.en);
     return m ? [m.index, m.index + m[0].length] : null;
@@ -389,7 +407,7 @@ function Sentence({
   const playPast = () => past && void play(past.url, "");
 
   const primary = phase === "listen" ? (listens ? toShadow : () => (setListens(1), void speak())) : phase === "shadow" ? toSay : phase === "say" ? (rec ? stopRec : startRec) : () => onRate(true);
-  useKeys({ Enter: primary, " ": primary });
+  useKeys(inspecting ? {} : { Enter: primary, " ": primary });
 
   const flags = heard !== null ? heardWords(item.en, heard) : null;
   const score = heard !== null ? heardScore(item.en, heard) : null;
@@ -417,20 +435,26 @@ function Sentence({
         ) : (
           <p className="shadow-en" lang="en">
             {words.map((w, k) => (
-              <span
+              <button
+                type="button"
                 key={k}
+                aria-label={`查看单词 ${w.w}`}
+                disabled={!!rec || micState === "asking"}
+                onClick={() => setInspecting(w.w)}
                 className={[
-                  "sw",
+                  "sw shadow-word-token",
+                  matches[k].some((id) => queued.has(id)) ? "is-pending-word" : "",
                   k === word ? "is-now" : "",
                   target && w.start < target[1] && w.end > target[0] ? "is-target" : "",
                   flags ? (flags[k] ? "is-heard" : "is-missed") : "",
                 ].join(" ")}
               >
                 {w.w}{" "}
-              </span>
+              </button>
             ))}
           </p>
         )}
+        {!hidden && <p className="shadow-vocabulary-tip">点原文中的词可标记生词；点线表示已加入优先待学池。</p>}
         {!hidden && (
           <button className={`shadow-zh-toggle ${showZh || phase === "compare" ? "is-open" : ""}`} onClick={() => setShowZh(true)}>
             {showZh || phase === "compare" ? item.zh : "点一下看中文"}
@@ -532,6 +556,7 @@ function Sentence({
           </>
         )}
       </div>
+      {inspecting && <ShadowWordSheet key={inspecting} surface={inspecting} onClose={closeWord} />}
     </div>
   );
 }
@@ -583,6 +608,7 @@ function RoundSummary({ count, best, onAgain }: { count: number; best: number; o
           </div>
         </dl>
         </div>
+        <PriorityLearning />
         <p className="summary-note">练过的句子会在 1、3、7、16 天后回来；第一次和最近一次的录音存在声音日记里，下次能听到第一次的自己。</p>
         <div className="summary-actions">
           <button className="btn btn-ghost" onClick={() => go({ page: "shadow" })}>

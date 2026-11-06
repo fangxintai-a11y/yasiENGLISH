@@ -102,7 +102,7 @@ export interface Progress {
   spell: Record<string, number>;
   spellLog: SpellMiss[];
   placement: Placement | null;
-  /** Words to learn before the regular path (from pasted texts). */
+  /** Priority new words (IDs) and explicitly requested reviews (review:ID). */
   queue: string[];
   readings: Reading[];
   /** 跟读: sentences practised, per day and per sentence. */

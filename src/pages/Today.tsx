@@ -17,6 +17,7 @@ import { OfflineNudge } from "../ui/OfflineNudge";
 import { Ring } from "../ui/Ring";
 import { ExamFields } from "../ui/ExamSetup";
 import { Sheet } from "../ui/Sheet";
+import { PriorityLearning } from "../ui/PriorityLearning";
 import { DailyNewWordSettings, NewWordCountForm } from "../ui/NewWordCount";
 
 const BRAND = `${import.meta.env.BASE_URL}brand`;
@@ -122,6 +123,8 @@ export function Today() {
         </div>
         <button className="btn btn-ghost" onClick={() => setQuantity("daily")}>调整每日数量</button>
       </section>
+
+      <PriorityLearning />
 
       <ExamHero plan={plan.plan} onSetup={() => setSetup(true)} />
 

@@ -9,6 +9,7 @@ import "./styles/spelling.css";
 import "./styles/typing-flow.css";
 import "./styles/new-word-count.css";
 import "./styles/memory-rating.css";
+import "./styles/shadow-vocabulary.css";
 import { startCloudSync } from "./store/cloudSync";
 
 startCloudSync();

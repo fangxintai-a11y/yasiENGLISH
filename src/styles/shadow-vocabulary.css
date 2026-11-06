@@ -1,0 +1,120 @@
+.shadow-word-token {
+  font: inherit;
+  line-height: inherit;
+  letter-spacing: inherit;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  text-align: inherit;
+  vertical-align: baseline;
+}
+.shadow-word-token.is-pending-word {
+  border-bottom: 2px dotted var(--ochre);
+}
+.shadow-word-token:disabled {
+  cursor: default;
+  opacity: 1;
+}
+.shadow-vocabulary-tip {
+  color: var(--ink-3);
+  font: 400 12px/1.6 var(--sans);
+  margin: 14px 0 0;
+}
+.shadow-word-sheet {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+.shadow-word-sheet h2 {
+  overflow-wrap: anywhere;
+  margin: 0;
+}
+.shadow-word-search {
+  display: grid;
+  gap: 8px;
+}
+.shadow-word-search input {
+  min-width: 0;
+  width: 100%;
+  font: 400 16px var(--sans);
+  padding: 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  background: var(--paper);
+  color: var(--ink);
+}
+.shadow-word-candidates {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.shadow-word-candidates .btn {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  height: auto;
+  min-height: 44px;
+}
+.shadow-word-details {
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+  display: grid;
+  gap: 14px;
+}
+.shadow-word-title {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.shadow-word-title b {
+  font: 600 30px var(--serif);
+  overflow-wrap: anywhere;
+}
+.shadow-word-title .speak {
+  height: 44px;
+}
+.shadow-word-details ul {
+  padding-left: 18px;
+  margin: 0;
+}
+.shadow-word-details li {
+  margin: 8px 0;
+}
+.shadow-word-details > .btn {
+  justify-self: start;
+  max-width: 100%;
+  white-space: normal;
+  height: auto;
+  min-height: 44px;
+  padding: 10px 18px;
+}
+.priority-saved {
+  color: var(--sage-ink);
+  margin: 0;
+}
+.priority-learning {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin: 20px 0;
+  text-align: left;
+}
+.priority-learning-body {
+  flex: 1;
+  min-width: 170px;
+}
+.priority-learning-body h3 {
+  font-size: 19px;
+  margin: 0 0 6px;
+}
+.priority-learning-body p {
+  margin: 4px 0;
+}
+.priority-preview {
+  font: 400 15px/1.6 var(--serif);
+  overflow-wrap: anywhere;
+  color: var(--ink-2);
+}

@@ -1,6 +1,7 @@
 import { review, Rating, recallAt, meanRecall, type CardState } from "../store/srs";
 import type { Progress, Settings, Track } from "../store/store";
 import type { IeltsTags } from "./tags";
+import { priorityId, priorityWords } from "./priority";
 
 /**
  * The exam engine: works backwards from the exam date to a daily plan, forecasts how many target
@@ -272,7 +273,7 @@ export function nextNew(atlas: AtlasLite, p: Progress, startLevel: number, count
   const take = (id: string) => {
     if (out.length < count && !p.cards[id] && !out.includes(id) && atlas.byId.has(id)) out.push(id);
   };
-  for (const id of p.queue) take(id);
+  for (const key of p.queue) take(priorityId(key));
   const pass = (from: number, onlyTarget: boolean) => {
     for (const w of atlas.words) {
       if (out.length >= count) return;
@@ -292,11 +293,14 @@ export function todayPlan(atlas: AtlasLite, p: Progress, s: Settings, tags: Pick
   const budget = s.dailyMinutes * 60;
   const cost = (key: string) => (key[1] === ":" ? plan.pace.review * 1.3 : plan.pace.review);
 
-  const dueAll = allCards(p)
+  const urgent = priorityWords(atlas, p).filter((id) => !!p.cards[id]);
+  const urgentSet = new Set(urgent);
+  const scheduled = allCards(p)
     .filter(([key, c]) => c.due <= now && atlas.byId.has(parseKey(key).id))
     .map(([key, c]) => [key, priority(key, c, now, target)] as const)
     .sort((a, b) => b[1] - a[1])
     .map(([key]) => key);
+  const dueAll = [...urgent, ...scheduled.filter((key) => !urgentSet.has(key))];
   let used = 0;
   const due: string[] = [];
   for (const key of dueAll) {
