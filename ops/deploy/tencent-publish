@@ -65,7 +65,7 @@ with tempfile.NamedTemporaryFile(dir=p.parent,delete=False,mode='w') as temporar
     temporary.write('\n'.join(lines)+'\n'); partial=Path(temporary.name)
 os.chmod(partial,0o600); partial.replace(p)
 PY
-# The original proxy remains loaded for the common receiver's public health check.
+# The original proxy remains loaded while the common receiver switches code.
 # All production backup/compatibility operations still run as the DB service user.
 export BAND_DEPLOY_ROOT=/opt/yasi BAND_DEPLOY_WEB_ROOT=/var/www/yasi
 export BAND_DEPLOY_HOST=www.i2023.com BAND_DEPLOY_HTTPS_PORT=443 BAND_DEPLOY_ALLOW_STANDARD_HTTPS=1
@@ -73,7 +73,12 @@ export BAND_DEPLOY_API_PORT=5189 BAND_DEPLOY_API_SERVICE=band-galaxy.service
 export BAND_DEPLOY_ENV_FILE=/etc/band-galaxy.env BAND_DEPLOY_DB=/var/lib/band-galaxy/progress.sqlite3
 export BAND_DEPLOY_BACKUP_DIR=/var/lib/band-galaxy/backups BAND_DEPLOY_BACKUP_SCRIPT="$tools/tencent-backup"
 export BAND_DEPLOY_ATLAS_ROOT=/opt/yasi/atlas BAND_DEPLOY_MIN_FREE_MB=4096
-export BAND_DEPLOY_SINGLE_USER=0
+export BAND_DEPLOY_API_USER=band-galaxy
+if grep -Eq '^[[:space:]]*auth_request[[:space:]]+/_band_auth;' /etc/nginx/conf.d/yasi.conf; then
+    export BAND_DEPLOY_SINGLE_USER=1
+else
+    export BAND_DEPLOY_SINGLE_USER=0
+fi
 "$tools/yasi-deploy" --prebuilt "$archive" "$sha" "$commit" "$release_id"
 install -m 644 "$tools/nginx-tencent.conf" /etc/nginx/conf.d/yasi.conf
 nginx -t
