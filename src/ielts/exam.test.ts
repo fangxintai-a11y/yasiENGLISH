@@ -43,24 +43,29 @@ test("each new word per day costs a few reviews per day", () => {
   assert.equal(loadPerNew(0, 0.9), 0);
 });
 
-test("the plan spreads the remaining target words over the days before the sprint", () => {
+test("the forecast uses the chosen daily quota and does not turn its estimate into a quota", () => {
   const p = emptyProgress("t");
   const s = { ...defaultSettings, examDate: date(60), targetBand: 6.5, dailyMinutes: 300 };
   const plan = examPlan(atlas, p, s, tags, now);
   // Band 6.5 → up to B2 (levels 0–3) = 2000 words, plus the listening / AWL tags inside them.
   assert.equal(plan.target, 2000);
-  assert.equal(plan.need, Math.ceil(2000 / (60 - sprintLength(60))));
-  assert.equal(plan.newPerDay, plan.need);
-  assert.ok(plan.forecast > 1700 && plan.forecast <= 2000, `${plan.forecast}`);
+  assert.equal(plan.need, Math.ceil(2000 / 60));
+  assert.equal(plan.newPerDay, s.dailyNew);
+  assert.ok(plan.forecast > 0 && plan.forecast < 600, `${plan.forecast}`);
   assert.equal(plan.ifStop, 0);
 });
 
-test("a small time budget caps new words and says how many minutes the full plan needs", () => {
+test("dates, phases and a small time budget never reduce the learner's daily quota", () => {
   const s = { ...defaultSettings, examDate: date(60), dailyMinutes: 15 };
   const plan = examPlan(atlas, emptyProgress("t"), s, tags, now);
   assert.ok(plan.newPerDay < plan.need);
   assert.ok(plan.minutesNeeded > 15);
   assert.ok(plan.forecast < plan.target);
+  for (const examDate of ["", date(60), date(3), date(0), date(-3)]) {
+    const settings = { ...defaultSettings, examDate, dailyMinutes: 1, dailyNew: 37 };
+    assert.equal(examPlan(atlas, emptyProgress("t"), settings, tags, now).newPerDay, 37);
+    assert.equal(todayPlan(atlas, emptyProgress("t"), settings, tags, now, 0).fresh.length, 37);
+  }
 });
 
 function withCards(n: number, dueOffsetDays: number): Progress {
@@ -73,15 +78,28 @@ function withCards(n: number, dueOffsetDays: number): Progress {
   return p;
 }
 
-test("a backlog never grows the day: reviews are capped by minutes and new words pause", () => {
+test("a review backlog keeps its priority and time limit but does not override the new-word quota", () => {
   const p = withCards(800, -2);
   const s = { ...defaultSettings, dailyMinutes: 20 };
   const t = todayPlan(atlas, p, s, tags, now, 0);
   assert.ok(t.backlog);
-  assert.equal(t.fresh.length, 0);
+  assert.equal(t.fresh.length, s.dailyNew);
   assert.ok(t.due.length < 800 && t.due.length > 50, `${t.due.length}`);
   assert.equal(t.deferred, 800 - t.due.length);
-  assert.ok(t.minutes <= 21, `${t.minutes}`);
+  const reviewOnly = todayPlan(atlas, p, { ...s, dailyNew: 0 }, tags, now, 0);
+  assert.deepEqual(t.due, reviewOnly.due);
+  assert.ok(reviewOnly.minutes <= 21, `${reviewOnly.minutes}`);
+  assert.ok(t.minutes > reviewOnly.minutes);
+});
+
+test("daily progress and quota changes only schedule the remaining unseen words", () => {
+  const p = withCards(12, 5);
+  const settings = { ...defaultSettings, dailyNew: 30 };
+  assert.equal(todayPlan(atlas, p, settings, tags, now, 12).fresh.length, 18);
+  assert.equal(todayPlan(atlas, p, { ...settings, dailyNew: 10 }, tags, now, 12).fresh.length, 0);
+  assert.equal(todayPlan(atlas, p, { ...settings, dailyNew: 0 }, tags, now, 0).fresh.length, 0);
+  const nearlyDone = withCards(2997, 5);
+  assert.equal(todayPlan(atlas, nearlyDone, settings, tags, now, 0).fresh.length, 3);
 });
 
 test("most urgent and most important cards come first", () => {

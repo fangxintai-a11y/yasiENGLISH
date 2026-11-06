@@ -137,9 +137,10 @@ export function buildSession(atlas: Atlas, p: Progress, s: Settings, opts?: Sess
     const ids = opts.ids.filter((id) => atlas.byId.has(id));
     reviewKeys = ids.filter((id) => p.cards[id]);
     newIds = ids.filter((id) => !p.cards[id]);
-  } else if (opts?.extraNew) {
+  } else if (opts?.extraNew !== undefined) {
     reviewKeys = [];
-    newIds = nextNew(atlas, p, s.startLevel, opts.extraNew, targetIds(atlas, s.targetBand, getTags()));
+    const count = Number.isInteger(opts.extraNew) && opts.extraNew >= 1 && opts.extraNew <= 100 ? opts.extraNew : 0;
+    newIds = nextNew(atlas, p, s.startLevel, count, targetIds(atlas, s.targetBand, getTags()));
   } else {
     const plan = todayPlan(atlas, p, s);
     reviewKeys = plan.due.slice(0, 150);

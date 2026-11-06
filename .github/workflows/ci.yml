@@ -27,4 +27,5 @@ jobs:
       - name: Select isolated browser executable
         run: node --input-type=module -e "import {chromium} from 'playwright'; console.log('CHROME_PATH='+chromium.executablePath())" >> "$GITHUB_ENV"
       - run: node scripts/test-spelling-e2e.mjs
+      - run: node scripts/test-daily-quantity-e2e.mjs
       - run: npm run test:sync

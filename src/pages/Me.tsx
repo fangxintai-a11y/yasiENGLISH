@@ -9,6 +9,7 @@ import { ExamFields } from "../ui/ExamSetup";
 import { OfflinePanel } from "../ui/OfflinePanel";
 import { SyncPanel } from "../ui/SyncPanel";
 import { toast } from "../ui/Toast";
+import { DailyNewWordSettings } from "../ui/NewWordCount";
 import { streakOf } from "./Today";
 
 export function Me({ privateAvailable }: { privateAvailable: boolean }) {
@@ -132,15 +133,7 @@ export function Me({ privateAvailable }: { privateAvailable: boolean }) {
 
         <section className="panel settings">
           <h3 className="eyebrow">学习设置</h3>
-          <Field label="每日新词" hint="只在没设考试日期时生效；设定后由计划自动倒推。">
-            <div className="segmented">
-              {[5, 10, 15, 20, 30].map((n) => (
-                <button key={n} className={settings.dailyNew === n ? "is-on" : ""} onClick={() => set({ dailyNew: n })}>
-                  {n}
-                </button>
-              ))}
-            </div>
-          </Field>
+          <DailyNewWordSettings />
           <Field label="从哪个难度开始" hint="跳过已经熟悉的低级别词。">
             <div className="segmented">
               {atlas.cefr.map((l, i) => (

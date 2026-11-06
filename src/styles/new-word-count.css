@@ -1,0 +1,58 @@
+.daily-word-goal {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.daily-word-goal p {
+  margin: 4px 0;
+}
+.daily-word-goal-number {
+  font-size: 20px;
+}
+.daily-word-goal-number b {
+  font: 600 36px var(--serif);
+}
+.daily-new-word-settings {
+  padding: 12px 0;
+}
+.new-word-count-form {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+.new-word-count-input {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.new-word-count-input span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.new-word-count-input input {
+  width: 110px;
+  max-width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--paper);
+  color: var(--ink);
+  font: 500 22px var(--mono);
+}
+.new-word-count-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.new-word-count-options .btn {
+  padding: 8px 14px;
+}
+.new-word-count-form > .btn {
+  justify-self: start;
+}

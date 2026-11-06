@@ -2,9 +2,24 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { Atlas, WordRef } from "../atlas/types";
 import { setConfusables } from "../ielts/confusables";
-import { distractors, quizStep, relearnGap } from "./session";
+import { buildSession, distractors, quizStep, relearnGap } from "./session";
 import { review, Rating } from "./srs";
-import { emptyProgress } from "./store";
+import { defaultSettings, emptyProgress } from "./store";
+
+test("extra rounds honour the selected count without overwriting the daily quota or existing review", () => {
+  const p = emptyProgress("t");
+  p.cards.w0 = review(undefined, Rating.Good, Date.now());
+  const settings = { ...defaultSettings, dailyNew: 30, examDate: "2020-01-01" };
+  const before = structuredClone({ p, settings });
+  const round = buildSession(atlas, p, settings, { extraNew: 17 });
+  assert.equal(round.newIds.length, 17);
+  assert.ok(!round.newIds.includes("w0"));
+  assert.equal(round.steps.filter((step) => step.kind === "intro").length, 17);
+  assert.deepEqual(round.reviewIds, []);
+  assert.equal(buildSession(atlas, p, settings, { extraNew: 100 }).newIds.length, 59);
+  for (const extraNew of [0, -1, 1.5, 101, NaN]) assert.equal(buildSession(atlas, p, settings, { extraNew }).steps.length, 0);
+  assert.deepEqual({ p, settings }, before);
+});
 
 const words: WordRef[] = Array.from({ length: 60 }, (_, i) => ({
   id: `w${i}`,

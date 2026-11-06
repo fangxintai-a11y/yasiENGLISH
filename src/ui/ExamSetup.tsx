@@ -3,7 +3,7 @@ import { store, useStore } from "../store/store";
 export const BANDS = [5.5, 6, 6.5, 7, 7.5, 8];
 export const MINUTES = [15, 20, 30, 45, 60, 90];
 
-/** Exam date, target band and daily minutes: everything the plan is built from. */
+/** Forecast and review preferences; the daily new-word quota is set separately. */
 export function ExamFields({ compact = false }: { compact?: boolean }) {
   const s = useStore((x) => x.settings);
   const today = new Date();
@@ -40,7 +40,7 @@ export function ExamFields({ compact = false }: { compact?: boolean }) {
       <div className="field">
         <div>
           <b>每天能学多久</b>
-          <small>计划按这个时间倒推：每天的量永远不会超出它。</small>
+          <small>用于安排到期复习和估算时长；不会压低你设定的新词数量。</small>
         </div>
         <div className="segmented">
           {MINUTES.map((m) => (

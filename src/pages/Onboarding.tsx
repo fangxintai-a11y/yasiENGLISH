@@ -28,7 +28,7 @@ export function Onboarding() {
               <h1 className="display">
                 {atlas.count.toLocaleString()} 颗星，
                 <br />
-                从考试那天倒推着点亮。
+                按自己的节奏，逐颗点亮。
               </h1>
               <ExamFields compact />
               <button className="btn btn-primary btn-xl" onClick={() => setStage("test")}>

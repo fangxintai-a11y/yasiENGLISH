@@ -114,8 +114,8 @@ function PlanTab() {
           </div>
           <div>
             <dt>每天新词</dt>
-            <dd>{plan.phase === "learn" || plan.phase === "free" ? plan.newPerDay : 0}</dd>
-            <small>{plan.days === null ? "自由节奏（设定考试日期后自动倒推）" : `全部学完需每天 ${plan.need} 个，约 ${plan.minutesNeeded} 分钟`}</small>
+            <dd>{plan.newPerDay}</dd>
+            <small>由你设定，可在首页或“我的”修改；不随考试日期变化</small>
           </div>
           <div>
             <dt>你的速度</dt>

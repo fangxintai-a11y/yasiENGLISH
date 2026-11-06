@@ -168,7 +168,7 @@ export interface ExamPlan {
   /** Target words already met. */
   met: number;
   remaining: number;
-  /** New words per day the plan asks for. */
+  /** Daily new-word quota chosen by the learner. */
   newPerDay: number;
   /** New words per day needed to cover every remaining target word. */
   need: number;
@@ -192,7 +192,7 @@ export function examPlan(atlas: AtlasLite, p: Progress, s: Settings, tags: Pick<
   for (const id of target) if (p.cards[id]) met++;
   const remaining = target.size - met;
 
-  const learnDays = days === null ? 60 : phase === "learn" ? days - sprintLength(days) : 0;
+  const learnDays = days === null ? 60 : Math.max(0, days);
   const listeningShare = s.trackL ? Object.keys(tags.listening).length / Math.max(1, target.size) : 0;
   const awlShare = s.trackP ? Object.keys(tags.awl).length / Math.max(1, target.size) : 0;
   const cardsPerWord = 1 + listeningShare + awlShare;
@@ -201,10 +201,9 @@ export function examPlan(atlas: AtlasLite, p: Progress, s: Settings, tags: Pick<
     allCards(p).map(([, c]) => c),
     now,
   );
-  const budget = s.dailyMinutes * 60;
-  const fit = Math.max(0, Math.floor((budget - existing * pace.review) / perNewSec));
   const need = learnDays > 0 ? Math.ceil(remaining / learnDays) : 0;
-  const newPerDay = days === null ? s.dailyNew : Math.min(need, fit, 80);
+  // The learner owns this quota. Dates and workload estimates never replace it.
+  const newPerDay = s.dailyNew;
   const minutesNeeded = Math.ceil((existing * pace.review + need * perNewSec) / 60);
 
   const at = days === null ? now + 60 * DAY : examTime(s.examDate)!;
@@ -308,14 +307,9 @@ export function todayPlan(atlas: AtlasLite, p: Progress, s: Settings, tags: Pick
   const deferred = dueAll.length - due.length;
   const backlog = deferred > 0;
 
-  let fresh: string[] = [];
-  if (!backlog && plan.phase !== "sprint" && plan.phase !== "after") {
-    const want = Math.max(0, plan.newPerDay - newToday);
-    const room = Math.floor((budget - used) / plan.pace.fresh);
-    const n = s.examDate ? Math.min(want, room) : Math.min(want, Math.max(3, room));
-    fresh = nextNew(atlas, p, s.startLevel, Math.max(0, n), target);
-    used += fresh.length * plan.pace.fresh;
-  }
+  const want = Math.max(0, plan.newPerDay - newToday);
+  const fresh = nextNew(atlas, p, s.startLevel, want, target);
+  used += fresh.length * plan.pace.fresh;
 
   // Unlock listening / production cards for words whose recognition is already steady.
   const unlock: string[] = [];
