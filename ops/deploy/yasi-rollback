@@ -7,6 +7,8 @@ root=${BAND_DEPLOY_ROOT:?Set BAND_DEPLOY_ROOT}
 web_root=${BAND_DEPLOY_WEB_ROOT:?Set BAND_DEPLOY_WEB_ROOT}
 host=${BAND_DEPLOY_HOST:?Set BAND_DEPLOY_HOST}
 https_port=${BAND_DEPLOY_HTTPS_PORT:-8443}
+allow_standard_https=${BAND_DEPLOY_ALLOW_STANDARD_HTTPS:-0}
+[[ $allow_standard_https == 0 || $allow_standard_https == 1 ]] || exit 2
 api_port=${BAND_DEPLOY_API_PORT:-5189}
 api_service=${BAND_DEPLOY_API_SERVICE:-band-galaxy.service}
 lock=${BAND_DEPLOY_LOCK:-$root/deploy.lock}
@@ -40,7 +42,7 @@ resolve_api_user() {
 }
 root=${root%/}; web_root=${web_root%/}
 [[ $host =~ ^[A-Za-z0-9][A-Za-z0-9.-]*$ && $https_port =~ ^[0-9]+$ && $api_port =~ ^[0-9]+$ ]] || { echo 'Invalid health-check configuration.' >&2; exit 2; }
-(( https_port >= 1024 && https_port <= 65535 && api_port >= 1024 && api_port <= 65535 )) || { echo 'Only dedicated ports >=1024 are allowed.' >&2; exit 2; }
+(( (https_port >= 1024 || (https_port == 443 && allow_standard_https == 1)) && https_port <= 65535 && api_port >= 1024 && api_port <= 65535 )) || { echo 'Use a dedicated port >=1024; existing HTTPS 443 requires BAND_DEPLOY_ALLOW_STANDARD_HTTPS=1.' >&2; exit 2; }
 [[ $api_service =~ ^[A-Za-z0-9_.@:-]+\.service$ && $api_service != *nginx* ]] || { echo 'Pass the dedicated API service name.' >&2; exit 2; }
 [[ $# -eq 1 ]] || { echo 'Usage: yasi-rollback RELEASE_DIRECTORY' >&2; exit 2; }
 target=$1

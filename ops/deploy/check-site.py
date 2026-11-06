@@ -13,7 +13,7 @@ import time
 
 
 def check_site(database, host, port, audio):
-    if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9.-]*', host) or not 1024 <= port <= 65535:
+    if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9.-]*', host) or not (1024 <= port <= 65535 or port == 443 and os.environ.get('BAND_DEPLOY_ALLOW_STANDARD_HTTPS') == '1'):
         raise ValueError('Use the dedicated HTTPS host and port')
     if not re.fullmatch(r'atlas/[A-Za-z0-9_./-]+', audio) or '..' in audio.split('/'):
         raise ValueError('Use a checked atlas audio path')

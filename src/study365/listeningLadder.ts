@@ -1,3 +1,4 @@
+import { SECTION_TARGETS } from "./protocol";
 import type { LocalMaterial } from "./localBankSchema";
 
 export type ListeningSection = 1 | 2 | 3 | 4;
@@ -150,6 +151,6 @@ export function methodCardFor(
   return LISTENING_METHOD_CARDS[key];
 }
 
-/** 8.0 needs 35/40, i.e. at most five mistakes across four Sections. */
+/** Keep the skill goal aligned with the project; raw-score cutoffs vary by paper. */
 export const LISTENING_TARGET_NOTE =
-  "目标 8.0 约需 40 题答对 35 题，全卷最多错 5 题。Section 1–2 力争零失误，把容错留给 Section 3–4。";
+  `听力训练目标 ${SECTION_TARGETS.listening.toFixed(1)}。Section 1–2 力争零失误，把容错留给 Section 3–4；原始正确数与分数的对应以具体试卷换算为准。`;

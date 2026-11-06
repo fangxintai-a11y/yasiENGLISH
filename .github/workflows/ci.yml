@@ -21,6 +21,8 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - name: Select isolated browser executable
         run: node --input-type=module -e "import {chromium} from 'playwright'; console.log('CHROME_PATH='+chromium.executablePath())" >> "$GITHUB_ENV"
+      - name: Prepare verified self-authored listening fixture outside Git
+        run: python3 scripts/curriculum/restore-r0-audio.py
       - run: npm test
       - run: npx tsc -b
       - run: npm run test:server

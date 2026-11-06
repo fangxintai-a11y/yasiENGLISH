@@ -1,0 +1,92 @@
+#!/usr/bin/env bash
+# Existing Tencent/Nginx adapter. Uses the common checked receiver; never restores a database.
+set -Eeuo pipefail
+umask 077
+[[ $EUID -eq 0 && $# -eq 4 ]] || { echo 'Run as root: tencent-publish ARCHIVE SHA256 COMMIT RELEASE_ID' >&2; exit 2; }
+tools=$(cd -- "$(dirname -- "$0")" && pwd)
+archive=$1; sha=$2; commit=$3; release_id=$4
+[[ $commit =~ ^[a-f0-9]{40}$ && $sha =~ ^[a-f0-9]{64}$ && $release_id =~ ^[0-9]{8}T[0-9]{6}Z-[a-f0-9]{8}$ && $release_id == *-${commit:0:8} ]] || exit 2
+[[ $archive == "/opt/yasi/incoming/$release_id.tar.gz" && -f $archive ]] || exit 2
+[[ $(systemctl show --property=User --value band-galaxy.service) == band-galaxy ]] || exit 1
+[[ -f /var/lib/band-galaxy/progress.sqlite3 && -f /etc/band-galaxy.env && -f /etc/nginx/conf.d/yasi.conf ]] || exit 1
+exec 8>/run/lock/band-tencent-publish.lock
+flock -n 8 || { echo 'Another Tencent publication is running.' >&2; exit 1; }
+old_web=$(readlink -f /var/www/yasi/current)
+old_api=$(readlink -f /opt/yasi/api-current)
+[[ $old_web == /opt/yasi/releases/* && $old_api == /opt/yasi/api-releases/* ]] || exit 1
+nginx -t
+runuser -u band-galaxy -- python3 - <<'PY'
+import pathlib, sqlite3
+# Configuration is root-readable only; DB identity and ownership are independently checked here.
+p=pathlib.Path('/var/lib/band-galaxy/progress.sqlite3')
+with sqlite3.connect(p.as_uri()+'?mode=ro',uri=True) as db:
+    assert db.execute('PRAGMA integrity_check').fetchone()[0]=='ok'
+    assert db.execute('SELECT count(*) FROM users').fetchone()[0]==1, 'Reuse exactly one existing owner; do not initialize users.'
+PY
+backup="/opt/yasi/deploy-config-backups/$release_id"
+[[ ! -e $backup ]] || { echo 'Configuration backup already exists; keep the previous attempt.' >&2; exit 1; }
+install -d -m 700 "$backup"
+cp -p /etc/band-galaxy.env "$backup/server.env"
+cp -p /etc/nginx/conf.d/yasi.conf "$backup/yasi.conf"
+printf '%s\n%s\n' "$old_web" "$old_api" > "$backup/previous-links.txt"
+recover() {
+    status=$?
+    trap - ERR INT TERM
+    echo 'Publication failed; restoring code and configuration. SQLite and backups are retained.' >&2
+    cp -p "$backup/server.env" /etc/band-galaxy.env
+    cp -p "$backup/yasi.conf" /etc/nginx/conf.d/yasi.conf
+    ln -s "$old_web" /var/www/yasi/.tencent-recover-web
+    mv -Tf /var/www/yasi/.tencent-recover-web /var/www/yasi/current
+    ln -s "$old_api" /opt/yasi/.tencent-recover-api
+    mv -Tf /opt/yasi/.tencent-recover-api /opt/yasi/api-current
+    if runuser -u band-galaxy -- python3 "$tools/backup-sync.py" --db /var/lib/band-galaxy/progress.sqlite3 --verify-api "$old_api"; then
+        systemctl restart band-galaxy.service
+    else
+        systemctl stop band-galaxy.service
+        echo 'Previous API is incompatible; its writes remain stopped. No database was restored.' >&2
+    fi
+    nginx -t && systemctl reload nginx
+    exit "${status:-1}"
+}
+trap recover ERR
+trap 'false' INT TERM
+python3 - <<'PY'
+from pathlib import Path
+import os, tempfile
+p=Path('/etc/band-galaxy.env')
+lines=p.read_text().splitlines()
+values=dict(line.split('=',1) for line in lines if '=' in line and not line.startswith('#'))
+assert values.get('BAND_DB_PATH')=='/var/lib/band-galaxy/progress.sqlite3', 'Unexpected database path; refuse to replace configuration.'
+assert values.get('BAND_PUBLIC_ORIGIN')=='https://www.i2023.com', 'Unexpected site origin.'
+updates={'BAND_SINGLE_USER':'1','BAND_COOKIE_SECURE':'1','BAND_LEARNING_WRITES_ENABLED':'1','BAND_SITE_ROOT':'/var/www/yasi/current','BAND_PRIVATE_ROOT':'/opt/yasi/private','BAND_ATLAS_ROOT':'/opt/yasi/atlas'}
+lines=[line for line in lines if line.split('=',1)[0] not in updates]
+lines.extend(key+'='+value for key,value in updates.items())
+with tempfile.NamedTemporaryFile(dir=p.parent,delete=False,mode='w') as temporary:
+    temporary.write('\n'.join(lines)+'\n'); partial=Path(temporary.name)
+os.chmod(partial,0o600); partial.replace(p)
+PY
+# The original proxy remains loaded for the common receiver's public health check.
+# All production backup/compatibility operations still run as the DB service user.
+export BAND_DEPLOY_ROOT=/opt/yasi BAND_DEPLOY_WEB_ROOT=/var/www/yasi
+export BAND_DEPLOY_HOST=www.i2023.com BAND_DEPLOY_HTTPS_PORT=443 BAND_DEPLOY_ALLOW_STANDARD_HTTPS=1
+export BAND_DEPLOY_API_PORT=5189 BAND_DEPLOY_API_SERVICE=band-galaxy.service
+export BAND_DEPLOY_ENV_FILE=/etc/band-galaxy.env BAND_DEPLOY_DB=/var/lib/band-galaxy/progress.sqlite3
+export BAND_DEPLOY_BACKUP_DIR=/var/lib/band-galaxy/backups BAND_DEPLOY_BACKUP_SCRIPT="$tools/tencent-backup"
+export BAND_DEPLOY_ATLAS_ROOT=/opt/yasi/atlas BAND_DEPLOY_MIN_FREE_MB=4096
+export BAND_DEPLOY_SINGLE_USER=0
+"$tools/yasi-deploy" --prebuilt "$archive" "$sha" "$commit" "$release_id"
+install -m 644 "$tools/nginx-tencent.conf" /etc/nginx/conf.d/yasi.conf
+nginx -t
+systemctl reload nginx
+runuser -u band-galaxy -- env BAND_DEPLOY_ALLOW_STANDARD_HTTPS=1 python3 "$tools/check-site.py" \
+    --db /var/lib/band-galaxy/progress.sqlite3 --host www.i2023.com --port 443 \
+    --audio "$(python3 - "$release_id" <<'PY'
+import json, sys
+from pathlib import Path
+r=json.loads((Path('/opt/yasi/deployments')/(sys.argv[1]+'.json')).read_text())
+print(r['audio'])
+PY
+)"
+systemctl is-active band-galaxy.service nginx band-galaxy-backup.timer
+trap - ERR INT TERM
+echo "Tencent publication passed; configuration backup: $backup"

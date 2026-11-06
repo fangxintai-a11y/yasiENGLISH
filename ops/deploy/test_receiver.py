@@ -324,6 +324,17 @@ class PrebuiltTests(unittest.TestCase):
         self.assertNotIn(':443:', calls)
         self.assertNotIn('reload nginx', (fixture.root / 'controls.log').read_text())
 
+    def test_existing_https_443_requires_explicit_opt_in(self):
+        fixture, rejected = self.run_prebuilt(configuration={'BAND_DEPLOY_HTTPS_PORT': '443'})
+        self.assertEqual(rejected.returncode, 2, rejected.stdout + rejected.stderr)
+        self.assertEqual(fixture.current.resolve(), fixture.previous)
+        fixture.assert_database_unchanged()
+        allowed, result = self.run_prebuilt(configuration={'BAND_DEPLOY_HTTPS_PORT': '443', 'BAND_DEPLOY_ALLOW_STANDARD_HTTPS': '1'})
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn('--resolve ibaz.cn:443:127.0.0.1', (allowed.root / 'curl.log').read_text())
+        self.assertNotIn('reload nginx', (allowed.root / 'controls.log').read_text())
+        allowed.assert_database_unchanged()
+
     def test_missing_learning_py_aborts_and_rolls_back(self):
         fixture, result = self.run_prebuilt(missing_helper=True)
         self.assertEqual(result.returncode, 1, result.stdout + result.stderr)

@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+set -euo pipefail
+tools=$(cd -- "$(dirname -- "$0")" && pwd)
+exec runuser -u band-galaxy -- python3 "$tools/backup-sync.py" "$@"

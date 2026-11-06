@@ -18,6 +18,8 @@ root=${BAND_DEPLOY_ROOT:?Set BAND_DEPLOY_ROOT}
 web_root=${BAND_DEPLOY_WEB_ROOT:?Set BAND_DEPLOY_WEB_ROOT}
 host=${BAND_DEPLOY_HOST:?Set BAND_DEPLOY_HOST}
 https_port=${BAND_DEPLOY_HTTPS_PORT:-8443}
+allow_standard_https=${BAND_DEPLOY_ALLOW_STANDARD_HTTPS:-0}
+[[ $allow_standard_https == 0 || $allow_standard_https == 1 ]] || exit 2
 api_port=${BAND_DEPLOY_API_PORT:-5189}
 api_service=${BAND_DEPLOY_API_SERVICE:-band-galaxy.service}
 minimum_mb=${BAND_DEPLOY_MIN_FREE_MB:-1024}
@@ -50,7 +52,7 @@ resolve_api_user() {
 }
 root=${root%/}; web_root=${web_root%/}
 [[ $host =~ ^[A-Za-z0-9][A-Za-z0-9.-]*$ && $https_port =~ ^[0-9]+$ && $api_port =~ ^[0-9]+$ && $minimum_mb =~ ^[0-9]+$ ]] || { echo 'Invalid deployment configuration.' >&2; exit 2; }
-(( https_port >= 1024 && https_port <= 65535 && api_port >= 1024 && api_port <= 65535 && minimum_mb > 0 )) || { echo 'Only dedicated ports >=1024 are allowed.' >&2; exit 2; }
+(( (https_port >= 1024 || (https_port == 443 && allow_standard_https == 1)) && https_port <= 65535 && api_port >= 1024 && api_port <= 65535 && minimum_mb > 0 )) || { echo 'Use a dedicated port >=1024; existing HTTPS 443 requires BAND_DEPLOY_ALLOW_STANDARD_HTTPS=1.' >&2; exit 2; }
 [[ $api_service =~ ^[A-Za-z0-9_.@:-]+\.service$ && $api_service != *nginx* ]] || { echo 'Pass the dedicated API service name.' >&2; exit 2; }
 [[ $digest =~ ^[0-9a-f]{64}$ && $revision =~ ^[0-9a-f]{40}$ ]] || { echo 'Invalid archive digest or revision.' >&2; exit 2; }
 [[ $release_id =~ ^[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8}$ && $release_id == *-${revision:0:8} ]] || { echo 'Invalid release ID.' >&2; exit 2; }

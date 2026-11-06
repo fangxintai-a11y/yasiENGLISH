@@ -22,6 +22,3 @@ public/local-bank/
 *.mp3
 *.m4a
 *.pdf
-# Exception: the self-authored synthetic R0 listening sample (see audio/provenance.json).
-# Unit tests and the built-in sample need it in a fresh clone; it is not a released IELTS paper.
-!public/curriculum365/v1/audio/listening-sample-01.mp3
