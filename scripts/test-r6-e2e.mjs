@@ -1958,7 +1958,10 @@ export async function runR6ReleaseE2E({ historyOnly = false } = {}) {
       ),
       note: "Only benchmark setup writes via real API; all current-subject submissions above used UI.",
     };
-    await page.reload({ waitUntil: "networkidle" });
+    // Seeding starts a real, paginated 15k-record sync. It can legitimately
+    // keep the network busy beyond a navigation timeout. Wait for the DOM,
+    // then the exact durable history below, rather than global network silence.
+    await page.reload({ waitUntil: "domcontentloaded" });
     await eventually(
       async () => (await scope(page, true)).historyCount === 15000,
       "all15000 history records reach account IDB",
