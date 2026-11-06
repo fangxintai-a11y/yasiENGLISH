@@ -36,6 +36,8 @@ export interface ActiveSession {
   relearn?: Record<string, number>;
   /** Answer shown but not yet continued; survives reload without double counting. */
   pending?: { correct: boolean; value: string };
+  /** Self-rating given on each first meeting in this session (see rateIntro). */
+  intro?: Record<string, "known" | "unsure" | "unknown">;
   finished?: number;
 }
 
