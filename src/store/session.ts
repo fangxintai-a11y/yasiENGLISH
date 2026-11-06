@@ -215,7 +215,10 @@ export function answer(atlas: Atlas, step: Step & { kind: QuizKind }, correct: b
     const sess = p.session;
     if (!sess) return p;
     let next: Progress = { ...p, session: { ...sess, pending: { correct, value } } };
-    const first = !(key in sess.graded) && !step.retry;
+    // A self-rated "unsure"/"unknown" word already set its memory; a quiz seconds after reading
+    // the meaning must not overwrite that with an easy "Good". It still counts as relearning.
+    const rated = track === "r" && (sess.intro?.[step.id] === "unsure" || sess.intro?.[step.id] === "unknown");
+    const first = !(key in sess.graded) && !step.retry && !rated;
     if (first) {
       const practice = isPractice(sess);
       if (!practice) {
@@ -269,6 +272,57 @@ export function markKnown(id: string) {
       ...p,
       cards: p.cards[id] ? p.cards : { ...p.cards, [id]: seedKnown(now, due, 25) },
       session: { ...s, steps, index, newIds: s.newIds.filter((x) => x !== id), pending: undefined, finished: index >= steps.length ? now : undefined },
+    };
+  });
+}
+
+/** Self-rating after the meaning is shown on a first meeting. Only "known" keeps the normal path. */
+export type IntroRating = "known" | "unsure" | "unknown";
+export const INTRO_GRADE: Record<IntroRating, Grade> = { known: Rating.Good, unsure: Rating.Hard, unknown: Rating.Again };
+
+/**
+ * Apply the self-rating of an intro step and move on.
+ * - known: unchanged behaviour; this round's recognition quiz sets the memory.
+ * - unsure / unknown: the word is a learning word. Recognition memory starts from Hard / Again,
+ *   so it returns within minutes and again on the next days; this round's recognition quiz no
+ *   longer overwrites that rating. A listen-and-spell card is created whatever the word list,
+ *   and a dictation follows the group's quizzes in this session: hear it, spell it, and repeat
+ *   until it is right three times in a row (the existing relearning rule).
+ */
+export function rateIntro(id: string, rating: IntroRating, seconds: number) {
+  const now = Date.now();
+  const { settings } = store.get();
+  store.progress((p) => {
+    const s = p.session;
+    if (!s) return p;
+    const at = s.index;
+    const index = at + 1;
+    const intro = { ...(s.intro ?? {}), [id]: rating };
+    if (isPractice(s)) return { ...p, session: { ...s, index, intro, pending: undefined, finished: index >= s.steps.length ? now : undefined } };
+    let next = bumpDay(p, { t: Math.max(0, Math.min(90, Math.round(seconds))) });
+    if (rating === "known") return { ...next, session: { ...s, index, intro, pending: undefined, finished: index >= s.steps.length ? now : undefined } };
+    const retention = effectiveRetention(settings, now);
+    const grade = INTRO_GRADE[rating];
+    const cards = { ...next.cards, [id]: review(next.cards[id], grade, now, retention) };
+    next = bumpDay({ ...next, cards }, { r: 1, c: 0, n: s.newIds.includes(id) ? 1 : 0 });
+    const steps = [...s.steps];
+    let skills = next.skills;
+    let skillKeys = s.skillKeys ?? [];
+    if (settings.trackL) {
+      const listenKey = cardKey("l", id);
+      if (!skills[listenKey]) skills = { ...skills, [listenKey]: review(undefined, Rating.Again, now, retention) };
+      skillKeys = [...new Set([...skillKeys, listenKey])];
+      // After the group's own recognition quizzes, before the next group.
+      let end = at + 1;
+      while (end < steps.length && steps[end].kind === "intro") end++;
+      while (end < steps.length && steps[end].kind !== "intro" && s.newIds.includes(steps[end].id)) end++;
+      steps.splice(end, 0, { id, kind: "dictation", track: "l" });
+    }
+    return {
+      ...next,
+      skills,
+      mistakes: [id, ...next.mistakes.filter((x) => x !== id)].slice(0, 300),
+      session: { ...s, steps, index, intro, skillKeys, graded: { ...s.graded, [id]: grade }, pending: undefined, finished: index >= steps.length ? now : undefined },
     };
   });
 }
