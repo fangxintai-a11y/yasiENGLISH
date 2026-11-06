@@ -1,4 +1,15 @@
-#!/usr/bin/env bash
-set -euo pipefail
-tools=$(cd -- "$(dirname -- "$0")" && pwd)
-exec runuser -u band-galaxy -- python3 "$tools/backup-sync.py" "$@"
+#!/usr/bin/env python3
+"""Python-compatible receiver helper; write SQLite only as the API owner."""
+import os
+from pathlib import Path
+import pwd
+import sys
+
+
+if __name__ == '__main__':
+    command = ['python3', str(Path(__file__).resolve().with_name('backup-sync.py')), *sys.argv[1:]]
+    if os.geteuid() == 0:
+        command = ['runuser', '-u', 'band-galaxy', '--', *command]
+    elif pwd.getpwuid(os.geteuid()).pw_name != 'band-galaxy':
+        raise SystemExit('Only root or band-galaxy may invoke the production backup helper.')
+    os.execvp(command[0], command)
