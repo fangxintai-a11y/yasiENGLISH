@@ -23,3 +23,9 @@ test('civil day arithmetic survives daylight saving without shifting the date', 
 test('invalid dates are rejected', () => { assert.throws(() => dayDate('2026-02-30', 'Asia/Shanghai', 1), /日期/); });
 test('invalid timezone is rejected', () => { assert.throws(() => dayDate('2026-11-09', 'wrong-zone', 1), /时区/); });
 for (const day of [0, 366, 1.5]) test(`invalid day ${day} is rejected`, () => { assert.throws(() => dayDate('2026-11-09', 'Asia/Shanghai', day), /365/); });
+test('an invalid zone keeps failing after a valid zone has been cached', () => {
+  assert.equal(dayDate('2026-11-09', 'Asia/Shanghai', 2), '2026-11-10');
+  for (let i = 0; i < 2; i++) assert.throws(() => dayDate('2026-11-09', 'Not/AZone', 1), /计划时区无效/);
+  assert.throws(() => weekdayOf('2026-11-09', 'Not/AZone', 1), /计划时区无效/);
+  assert.equal(dayDate('2026-11-09', 'Asia/Shanghai', 365), '2027-11-08');
+});

@@ -2,8 +2,14 @@ const weekdays = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'frida
 function checkDay(day: number) {
   if (!Number.isInteger(day) || day < 1 || day > 365) throw new Error('计划日必须为1至365的整数。');
 }
+// Constructing Intl.DateTimeFormat is costly; the year-long planner validates
+// the same zone hundreds of times per render. Cache only successful checks.
+const validZones = new Set<string>();
 function startCivilDate(startDate: string, timeZone: string) {
-  try { new Intl.DateTimeFormat('en', { timeZone }); } catch { throw new Error('计划时区无效。'); }
+  if (!validZones.has(timeZone)) {
+    try { new Intl.DateTimeFormat('en', { timeZone }); } catch { throw new Error('计划时区无效。'); }
+    validZones.add(timeZone);
+  }
   if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate)) throw new Error('计划开始日期无效。');
   const date = new Date(`${startDate}T00:00:00Z`);
   if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== startDate) throw new Error('计划开始日期无效。');

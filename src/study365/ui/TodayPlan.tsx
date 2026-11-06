@@ -33,12 +33,19 @@ function ActiveTasks({ plan, today, learning }: { plan: Revision; today: DayPlan
   const streak = missionStreak(learning.records, plan.id, today.date);
   const pendingReviews = pendingWritingHandoffs(learning.records, plan.id).length;
   const library = useDailyMaterialLibrary(learning.userId, plan.id);
+  // The year-long material plan costs ~0.3 s with a real bank and 15k records.
+  // During a first sync the repository publishes once per 100-record page, so
+  // recomputing on every page starved the sync loop (R6 history phase). Feed it
+  // the records as of the last idle sync state; it catches up when sync ends.
+  const syncing = learning.syncStatus === "syncing";
+  const [planRecords, setPlanRecords] = useState(learning.records);
+  useEffect(() => { if (!syncing) setPlanRecords(learning.records); }, [syncing, learning.records]);
   const automatic = useMemo(() => {
     if (!library.ready) return { value: null, error: "" };
-    try { return { value: buildDailyMaterialPlan({ plan, records: learning.records, bank: library.bank, prompts: library.prompts,
+    try { return { value: buildDailyMaterialPlan({ plan, records: planRecords, bank: library.bank, prompts: library.prompts,
       localWorks: library.localWorks, localMaterials: library.localMaterials, throughDay: dayPlan.day }), error: "" }; }
     catch (cause) { return { value: null, error: cause instanceof Error ? cause.message : "材料未能自动安排，请重新打开本页。" }; }
-  }, [plan, learning.records, library.ready, library.bank, library.prompts, library.localWorks, library.localMaterials, dayPlan.day]);
+  }, [plan, planRecords, library.ready, library.bank, library.prompts, library.localWorks, library.localMaterials, dayPlan.day]);
   const assignments = automatic.value?.days.at(-1)?.blocks ?? [];
   const firstPending = dayPlan.blocks.find(block => !["completed", "skipped"].includes(String(selectMission(learning.records, plan.id, date, missionTaskId(dayPlan.day, block.id))?.payload.status ?? "not_started")));
   const next = assignments.find(item => item.taskId === (firstPending ? missionTaskId(dayPlan.day, firstPending.id) : ""));
