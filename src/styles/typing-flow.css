@@ -1,0 +1,165 @@
+.recall-typing {
+  width: 100%;
+  margin: 18px 0;
+  min-width: 0;
+}
+.learn-stage:has(.recall-typing) {
+  animation-name: recall-stage-in;
+  min-width: 0;
+}
+@keyframes recall-stage-in {
+  from {
+    opacity: 0;
+  }
+}
+.quiz:has(.recall-typing),
+.typing-stage,
+.prompt-spell > div {
+  min-width: 0;
+  width: 100%;
+}
+.quiz:has(.recall-typing) .prompt-spell {
+  grid-template-columns: minmax(0, 1fr);
+}
+.quiz:has(.recall-typing) .spell-zh {
+  overflow-wrap: anywhere;
+}
+.recall-input-wrap {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+}
+.recall-input {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  padding: 18px 8px;
+  border: 0;
+  border-bottom: 2px solid var(--line-strong);
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink);
+  font:
+    500 clamp(26px, 4.7vw, 44px)/1.5 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Consolas,
+    monospace;
+  letter-spacing: 0.04em;
+  caret-color: var(--terra);
+  outline: none;
+}
+.recall-input::placeholder {
+  font: 400 18px/1.5 var(--sans);
+  letter-spacing: 0;
+  color: var(--ink-3);
+  opacity: 0.8;
+}
+.recall-input:focus {
+  border-bottom-color: var(--terra);
+}
+.recall-typing.is-correct .recall-input {
+  color: var(--sage);
+  border-bottom-color: var(--sage);
+}
+.recall-typing.is-incorrect .recall-input {
+  border-bottom-color: var(--terra);
+}
+.recall-input-help {
+  margin: 10px 0;
+  min-height: 20px;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+.recall-confirm {
+  font-size: 13px;
+}
+.app:has(.spelling-round),
+.app:has(.typing-stage) {
+  --tab: 0px;
+  padding-bottom: 0;
+}
+.app:has(.spelling-round) > .topbar,
+.app:has(.spelling-round) > .footer,
+.app:has(.spelling-round) > .tabbar,
+.app:has(.typing-stage) > .topbar,
+.app:has(.typing-stage) > .footer,
+.app:has(.typing-stage) > .tabbar {
+  display: none;
+}
+.spelling-page:has(.spelling-round) {
+  max-width: 1040px;
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+}
+.spelling-page:has(.spelling-round) .spelling-head h1 {
+  font-size: 24px;
+}
+.spelling-round.learn {
+  align-self: center;
+  max-width: 820px;
+  margin: auto 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.spelling-round .spelling-prompt {
+  margin-bottom: 12px;
+}
+.spelling-round .spelling-prompt .spell-zh {
+  font-size: clamp(22px, 3vw, 30px);
+}
+.spelling-flow-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 0;
+}
+.spelling-flow-option input {
+  width: 18px;
+  height: 18px;
+  margin-top: 3px;
+}
+.spelling-flow-option span {
+  display: grid;
+  gap: 3px;
+}
+.spelling-flow-option small {
+  color: var(--ink-3);
+}
+.typing-stage .recall-typing {
+  max-width: 850px;
+  margin: 24px auto;
+}
+.typing-recall-feedback {
+  max-width: 820px;
+  margin: 18px auto;
+  padding: 18px;
+  border-top: 1px solid var(--line);
+  overflow-wrap: anywhere;
+}
+.typing-recall-feedback b {
+  font: 600 24px/1.6 var(--serif);
+}
+@media (max-width: 639px) {
+  .learn-stage:has(.recall-input:focus) {
+    padding-bottom: calc(40px + var(--typing-keyboard-inset, 0px));
+  }
+  .typing-stage {
+    padding-bottom: var(--typing-keyboard-inset, 0px);
+  }
+  .spelling-page:has(.spelling-round) {
+    min-height: 100svh;
+    padding-top: 12px;
+  }
+  .spelling-round.learn {
+    padding: 12px 0 calc(24px + var(--typing-keyboard-inset, 0px));
+  }
+  .spelling-page:has(.spelling-round) .spelling-head {
+    margin-bottom: 12px;
+  }
+  .recall-input {
+    padding: 12px 2px;
+  }
+}

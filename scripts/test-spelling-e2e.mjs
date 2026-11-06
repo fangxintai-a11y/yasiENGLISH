@@ -2,7 +2,7 @@
 // Built frontend, actual vocabulary API, disposable accounts/SQLite/browser contexts only.
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { randomBytes, randomUUID } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -217,6 +217,7 @@ try {
   await page.getByRole("link", { name: "开始拼写" }).click();
   await page.getByRole("heading", { name: "想得起，也拼得出。" }).waitFor();
   await page.getByRole("button", { name: "收藏", exact: true }).click();
+  await page.getByRole("checkbox", { name: /连续默写/ }).uncheck();
   await page.getByLabel("本轮数量").fill("0");
   assert.equal(
     await page.getByRole("button", { name: /开始拼写 \d+ 词/ }).isEnabled(),
@@ -230,7 +231,10 @@ try {
     "unfinished review must load intact",
   );
   await page.getByRole("button", { name: "开始拼写 1 词" }).click();
-  const input = page.getByRole("textbox", { name: /^拼写，/ });
+  const input = page.getByRole("textbox", {
+    name: "输入英文单词",
+    exact: true,
+  });
   await input.waitFor();
   assert.doesNotMatch(
     await page.locator(".spelling-round").innerText(),
@@ -299,15 +303,19 @@ try {
     "second device receives miss",
   );
   await phone.getByRole("button", { name: "错词本", exact: true }).click();
+  await phone.getByRole("checkbox", { name: /连续默写/ }).uncheck();
   await phone.getByLabel("本轮数量").fill("1");
   await phone.getByRole("button", { name: "开始拼写 1 词" }).click();
-  const phoneInput = phone.getByRole("textbox", { name: /^拼写，/ });
+  const phoneInput = phone.getByRole("textbox", {
+    name: "输入英文单词",
+    exact: true,
+  });
   await phoneInput.waitFor();
   await width(phone, 390);
   await phone.setViewportSize({ width: 390, height: 420 });
   await phoneInput.fill("accom");
   await eventually(async () => {
-    const bounds = await phone.locator(".slots").boundingBox();
+    const bounds = await phoneInput.boundingBox();
     return bounds && bounds.y >= 0 && bounds.y + bounds.height <= 360;
   }, "visible answer with simulated small keyboard viewport");
   await width(phone, 390);
@@ -331,6 +339,371 @@ try {
   await input.fill("accommodation");
   await page.getByRole("button", { name: "确认" }).click();
   await page.getByRole("heading", { name: "拼写正确", exact: true }).waitFor();
+  // Real multi-item flow: native input stays mounted, no target glyphs/length clues,
+  // committed IME text and rapid Enter events can never grade the same item twice.
+  const rows = ["accommodation", "environment", "colour"].map((word) => {
+    const row = index.words.find((item) => item[1] === word);
+    assert.ok(row, word);
+    return row;
+  });
+  const entries = await Promise.all(
+    rows.map(async (row) => {
+      const order = index.words.findIndex((item) => item[0] === row[0]);
+      const chunk = JSON.parse(
+        await fs.readFile(
+          path.join(
+            root,
+            `public/atlas/entries/${Math.floor(order / index.chunk)}.json`,
+          ),
+          "utf8",
+        ),
+      );
+      return chunk.find((entry) => entry.id === row[0]);
+    }),
+  );
+  assert.ok(entries.every(Boolean));
+  const flowContext = await browser.newContext({
+    viewport: { width: 1280, height: 900 },
+  });
+  await seed(flowContext, { ...fixture, bookmarks: rows.map((row) => row[0]) });
+  const flow = await flowContext.newPage();
+  observe(flow);
+  // Observe only; the preload path must never call play() for a future answer.
+  await flow.addInitScript(() => {
+    window.audioPlays = [];
+    const play = HTMLMediaElement.prototype.play;
+    HTMLMediaElement.prototype.play = function () {
+      window.audioPlays.push(this.src);
+      return play.call(this);
+    };
+  });
+  await flow.goto(origin + "/#/spelling");
+  await flow.getByRole("button", { name: "收藏", exact: true }).click();
+  await flow.getByLabel("本轮数量").fill("3");
+  assert.equal(
+    await flow.getByRole("checkbox", { name: /连续默写/ }).isChecked(),
+    true,
+  );
+  const mediaRequests = [];
+  flow.on("request", (request) => {
+    if (/audio\/word-uk\//.test(request.url()))
+      mediaRequests.push(request.url());
+  });
+  await flow.getByRole("button", { name: "开始拼写 3 词" }).click();
+  const flowInput = flow.getByRole("textbox", {
+    name: "输入英文单词",
+    exact: true,
+  });
+  await flowInput.waitFor();
+  const nativeInput = await flowInput.elementHandle();
+  const firstFlowProgress = await localProgress(flow);
+  const currentEntry = async (selector = ".spelling-round .spell-zh") => {
+    const clue = await flow.locator(selector).innerText();
+    const entry = entries.find((candidate) =>
+      clue.includes(
+        selector === ".typing-zh" ? candidate.ex[0].zh : candidate.senses[0].zh,
+      ),
+    );
+    assert.ok(entry, `fixture clue: ${clue}`);
+    return entry;
+  };
+  const hidden = async (page, area) => {
+    const text = await page.locator(area).textContent();
+    for (const entry of entries)
+      assert.ok(
+        !text.toLowerCase().includes(entry.w.toLowerCase()),
+        `hidden target ${entry.w}`,
+      );
+    assert.equal(
+      await page
+        .locator(
+          `${area} .slots, ${area} .slot, ${area} .typing-text, ${area} [lang="en"]:not(input)`,
+        )
+        .count(),
+      0,
+    );
+    const field = page.locator(`${area} .recall-input`);
+    assert.equal(await field.getAttribute("maxlength"), null);
+    assert.doesNotMatch(await field.getAttribute("aria-label"), /\d/);
+    assert.equal(await field.inputValue(), "");
+  };
+  const first = await currentEntry();
+  await hidden(flow, ".spelling-round");
+  await eventually(
+    () => Promise.resolve(mediaRequests.length >= 2),
+    "next two audio requests",
+  );
+  assert.deepEqual(
+    await flow.evaluate(() => window.audioPlays),
+    [],
+    "preload must not play",
+  );
+  await flowInput.press("Control+j");
+  await eventually(
+    async () => (await flow.evaluate(() => window.audioPlays)).length === 1,
+    "scoped replay shortcut",
+  );
+  await flowInput.press("Escape");
+  assert.equal(
+    await flowInput.evaluate((input) => document.activeElement === input),
+    false,
+  );
+  await flowInput.click();
+  const paste = await flowInput.evaluate((input) => {
+    const event = new ClipboardEvent("paste", {
+      cancelable: true,
+      bubbles: true,
+    });
+    input.dispatchEvent(event);
+    return event.defaultPrevented;
+  });
+  assert.equal(paste, true);
+  assert.match(await flow.locator(".recall-input-help").innerText(), /不粘贴/);
+  // Composition updates may contain the entire correct answer. They must not submit it.
+  await flowInput.dispatchEvent("compositionstart");
+  await flowInput.fill(first.w);
+  assert.match(
+    await flow.locator(".spelling-round .eyebrow").innerText(),
+    /第 1 \/ 3/,
+  );
+  await flowInput.dispatchEvent("keydown", {
+    key: "Enter",
+    isComposing: true,
+    bubbles: true,
+  });
+  assert.equal(await flow.locator(".spelling-feedback").count(), 0);
+  await flowInput.dispatchEvent("compositionend");
+  await eventually(
+    async () =>
+      /第 2 \/ 3/.test(
+        await flow.locator(".spelling-round .eyebrow").innerText(),
+      ),
+    "committed answer advances once",
+  );
+  assert.equal(
+    await nativeInput.evaluate(
+      (input) =>
+        input === document.querySelector(".recall-input") &&
+        input === document.activeElement,
+    ),
+    true,
+  );
+  await hidden(flow, ".spelling-round");
+  const second = await currentEntry();
+  // Wrong prefixes remain neutral and editable, with no answer feedback or live accuracy oracle.
+  await flowInput.pressSequentially("xx");
+  assert.equal(await flowInput.inputValue(), "xx");
+  assert.equal(
+    await flow.locator(".spelling-feedback, .is-bad, .is-ok").count(),
+    0,
+  );
+  await flowInput.press("Backspace");
+  await flowInput.press("Backspace");
+  // Choose an unambiguously wrong whole answer, independent of target length.
+  await flowInput.pressSequentially("wrongword");
+  await flowInput.press("Enter");
+  assert.equal(await flow.locator(".spelling-answer").innerText(), second.w);
+  assert.equal(
+    await flowInput.evaluate((input) => document.activeElement === input),
+    true,
+  );
+  await flowInput.dispatchEvent("keydown", {
+    key: "Enter",
+    repeat: true,
+    bubbles: true,
+  });
+  assert.match(
+    await flow.locator(".spelling-round .eyebrow").innerText(),
+    /第 2 \/ 3/,
+  );
+  await flowInput.press("Enter");
+  await eventually(
+    async () =>
+      /第 3 \/ 3/.test(
+        await flow.locator(".spelling-round .eyebrow").innerText(),
+      ),
+    "wrong answer continues with Enter",
+  );
+  assert.equal(
+    await nativeInput.evaluate(
+      (input) =>
+        input === document.querySelector(".recall-input") &&
+        input === document.activeElement,
+    ),
+    true,
+  );
+  await hidden(flow, ".spelling-round");
+  await flow.getByRole("button", { name: "暂时想不起，查看答案" }).click();
+  await flow.getByRole("button", { name: "查看本轮结果" }).click();
+  await flow.getByRole("heading", { name: "首答正确 1 / 3" }).waitFor();
+  await eventually(
+    async () => (await localProgress(flow)).spellLog.length === 2,
+    "first misses persisted",
+  );
+  const afterFlow = await localProgress(flow);
+  assert.equal(
+    afterFlow.spellLog.length,
+    2,
+    "one wrong record per submitted miss, including reveal",
+  );
+  assert.equal(
+    afterFlow.spellLog.filter(
+      (miss) => miss.id === second.id && miss.typed === "wrongword",
+    ).length,
+    1,
+  );
+  for (const key of [
+    "cards",
+    "skills",
+    "session",
+    "days",
+    "typing",
+    "bookmarks",
+  ])
+    assert.deepEqual(afterFlow[key], firstFlowProgress[key], key);
+  checks.push(
+    "连续默写同一输入框与焦点；无英文/字母槽/长度提示；错误前缀不泄题；IME确认后才判分；退格/粘贴/重听/Esc/长按Enter；首错与主动揭晓各只保存一次；两词音频预载不播放",
+  );
+
+  // Practice has no copying mode or live character feedback, including sentence dictation.
+  await flow.goto(origin + "/#/practice");
+  await flow.getByRole("button", { name: "收藏", exact: true }).click();
+  await flow.getByRole("button", { name: "开始一轮", exact: true }).click();
+  const practiceInput = flow.getByRole("textbox", {
+    name: "输入英文单词",
+    exact: true,
+  });
+  await practiceInput.waitFor();
+  const stablePracticeInput = await practiceInput.elementHandle();
+  for (let item = 0; item < 3; item++) {
+    await hidden(flow, ".typing-stage");
+    const entry = await currentEntry(".typing-cue");
+    if (item === 1) {
+      await practiceInput.pressSequentially("xx");
+      assert.doesNotMatch(await flow.locator(".typing-top").innerText(), /%/);
+      await practiceInput.press("Enter");
+      await flow.getByRole("button", { name: "下一项" }).waitFor();
+      assert.equal(
+        await flow.locator(".typing-recall-feedback b").innerText(),
+        entry.w,
+      );
+      await practiceInput.press("Enter");
+    } else {
+      const answer = entry.w === "colour" ? "color" : entry.w;
+      await practiceInput.pressSequentially(answer);
+    }
+    if (item < 2)
+      assert.equal(
+        await stablePracticeInput.evaluate(
+          (input) =>
+            input === document.querySelector(".recall-input") &&
+            input === document.activeElement,
+        ),
+        true,
+      );
+  }
+  await flow.getByText("首答正确 2 / 3", { exact: false }).waitFor();
+  await eventually(
+    async () => (await localProgress(flow)).typing.length === 1,
+    "completed round persisted",
+  );
+  const afterPractice = await localProgress(flow);
+  assert.equal(
+    afterPractice.typing.length,
+    1,
+    "one completed round, without duplicate completion",
+  );
+  assert.equal(afterPractice.typing[0].items, 3);
+  for (const key of ["cards", "skills", "session", "days", "spellLog"])
+    assert.deepEqual(afterPractice[key], afterFlow[key], key);
+  await flow.getByRole("button", { name: "返回", exact: true }).click();
+  await flow.getByRole("button", { name: "句子默写", exact: false }).click();
+  await flow.getByRole("button", { name: "开始一轮", exact: true }).click();
+  await hidden(flow, ".typing-stage");
+  const sentenceEntry = await currentEntry(".typing-zh");
+  const sentenceInput = flow.getByRole("textbox", {
+    name: "输入英文句子",
+    exact: true,
+  });
+  await sentenceInput.pressSequentially(sentenceEntry.ex[0].en);
+  await eventually(
+    async () =>
+      /第 2 \/ 3/.test(await flow.locator(".typing-meter").innerText()),
+    "sentence recall auto advance",
+  );
+  await flow.getByRole("button", { name: "结束", exact: true }).click();
+  await flow.getByRole("button", { name: "句子听写", exact: false }).click();
+  await flow.getByRole("button", { name: "开始一轮", exact: true }).click();
+  await hidden(flow, ".typing-stage");
+  assert.equal(
+    await flow.locator(".typing-zh").count(),
+    0,
+    "audio only before submitting a sentence",
+  );
+  await flow.getByRole("button", { name: "再听一遍", exact: true }).waitFor();
+  checks.push(
+    "打字单词/整句/听写全部默写；英美拼写接受；无逐字对错或实时准确率泄题；即时切题只写一条轮次记录；FSRS与未完成复习不变",
+  );
+
+  // Formal review: no automatic first letter, and revealing an answer cannot earn Good.
+  for (const kind of ["produce", "spell", "dictation"]) {
+    const track = kind === "dictation" ? "l" : "p";
+    const reviewContext = await browser.newContext({
+      viewport: { width: 390, height: 844 },
+      isMobile: true,
+      hasTouch: true,
+    });
+    await seed(reviewContext, {
+      ...fixture,
+      session: {
+        ...fixture.session,
+        id: `typing-review-${kind}`,
+        steps: [{ id, kind }],
+        reviewIds: [`${track}:${id}`],
+      },
+    });
+    const review = await reviewContext.newPage();
+    observe(review);
+    await review.goto(origin + "/#/learn");
+    const reviewInput = review.getByRole("textbox", {
+      name: "输入英文单词",
+      exact: true,
+    });
+    await reviewInput.waitFor();
+    await hidden(review, ".quiz");
+    await width(review, 390);
+    await review.setViewportSize({ width: 390, height: 420 });
+    await reviewInput.pressSequentially("accom");
+    await eventually(async () => {
+      const bounds = await reviewInput.boundingBox();
+      return bounds && bounds.y >= 0 && bounds.y + bounds.height <= 360;
+    }, "review input above simulated keyboard");
+    if (kind === "produce") {
+      await review
+        .getByRole("button", { name: "暂时想不起，查看答案", exact: true })
+        .click();
+      await eventually(
+        async () =>
+          (await localProgress(review)).session?.graded?.[`p:${id}`] === 1,
+        "answer reveal grades Again",
+      );
+    } else {
+      await reviewInput.pressSequentially("modation");
+      await eventually(
+        async () =>
+          (await localProgress(review)).session?.pending?.correct === true,
+        `${kind} correct recall`,
+      );
+      const graded = (await localProgress(review)).session.graded;
+      assert.deepEqual(Object.keys(graded), [`${track}:${id}`]);
+      assert.equal(graded[`${track}:${id}`], 3);
+    }
+    await reviewContext.close();
+  }
+  checks.push(
+    "正式拼写/产出/听写无首字母和词长提示；390px与缩小视口输入可见；主动看答案记重来，正确首答只更新对应记忆轨一次",
+  );
+
   assert.equal(
     (
       await desktop.request.get(origin + "/api/learning/v2/changes?after=0")

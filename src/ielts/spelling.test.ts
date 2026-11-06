@@ -1,6 +1,19 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { diagnose, diffMarks, hasPattern, spelledRight, variants } from "./spelling";
+import { canAutoSubmitSpelling, diagnose, diffMarks, hasPattern, spelledRight, variants } from "./spelling";
+
+test("continuous recall never cuts off a longer valid spelling", () => {
+  for (const [short, long] of [["program", "programme"], ["catalog", "catalogue"], ["analog", "analogue"]]) {
+    for (const target of [short, long]) {
+      assert.ok(spelledRight(short, target), "Enter still accepts the shorter form");
+      assert.equal(canAutoSubmitSpelling(short, target), false);
+      assert.equal(canAutoSubmitSpelling(long, target), true);
+    }
+  }
+  assert.equal(canAutoSubmitSpelling("color", "colour"), true);
+  assert.equal(canAutoSubmitSpelling("colour", "colour"), true);
+  assert.equal(canAutoSubmitSpelling("accomodation", "accommodation"), false);
+});
 
 test("British and American spellings are both accepted", () => {
   assert.ok(spelledRight("color", "colour"));

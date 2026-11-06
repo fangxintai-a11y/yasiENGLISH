@@ -1,17 +1,16 @@
-import { ArrowRight, Check, Lightbulb, Mic, RotateCcw, Share2, Timer, Volume2, X } from "lucide-react";
+import { ArrowRight, Check, Mic, RotateCcw, Share2, Timer, Volume2, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { prefetch, useAtlas, useEntry } from "../atlas/context";
 import type { Entry, WordRef } from "../atlas/types";
 import { parseKey } from "../ielts/exam";
-import { diagnose, diffMarks, SPELL_LABEL, spelledRight } from "../ielts/spelling";
+import { canAutoSubmitSpelling, diagnose, diffMarks, SPELL_LABEL, spelledRight } from "../ielts/spelling";
 import { shadowNext } from "../ielts/shadow";
-import { nextSyllableEnd, parseSyllables, pieceStarts, useSyllables } from "../ielts/syllables";
+import { parseSyllables, pieceStarts, useSyllables } from "../ielts/syllables";
 import { play, stopAudio } from "../lib/audio";
 import { burst } from "../lib/burst";
 import { cue } from "../lib/sound";
 import { go } from "../lib/router";
-import { gap, normalize } from "../lib/text";
-import { useTypingVisibility } from "../lib/useTypingVisibility";
+import { gap } from "../lib/text";
 import { answer, advance, atlasSynonyms, buildSession, gradeFor, isPractice, markKnown, RELEARN_RUN, sessionStats, SPEED_LIMIT, stepKey, trackOf } from "../store/session";
 import { Rating, type Grade } from "../store/srs";
 import { store, useStore, type ActiveSession, type QuizKind, type Step, type Track } from "../store/store";
@@ -24,6 +23,7 @@ import { Ring } from "../ui/Ring";
 import { Speak } from "../ui/Speak";
 import { shareSession } from "../ui/shareSession";
 import { toast } from "../ui/Toast";
+import { TypingField } from "../ui/TypingField";
 
 export function Learn() {
   const atlas = useAtlas();
@@ -192,9 +192,7 @@ function Quiz({ step, session }: { step: Step & { kind: QuizKind }; session: Act
   const settings = useStore((s) => s.settings);
   const pending = session.pending;
   const elapsed = useStepTimer();
-  const [hints, setHints] = useState(step.kind === "produce" ? 1 : 0);
-  const syl = useSyllables(step.id);
-  const pieces = useMemo(() => (syl ? parseSyllables(syl) : null), [syl]);
+  const [hints, setHints] = useState(0);
   const options = useMemo(() => (step.options ?? []).map((id) => atlas.byId.get(id)!).filter(Boolean), [atlas, step.options]);
   const track = trackOf(step);
   const correctId = step.kind === "paraphrase" ? step.answer : ref.id;
@@ -205,12 +203,12 @@ function Quiz({ step, session }: { step: Step & { kind: QuizKind }; session: Act
       if (pending) return;
       const ms = elapsed() * 1000;
       if (correct) {
-        const el = document.querySelector<HTMLElement>(typed ? ".slots, .dictation-field" : `[data-option="${value}"]`);
+        const el = document.querySelector<HTMLElement>(typed ? ".recall-input" : `[data-option="${value}"]`);
         const r = el?.getBoundingClientRect();
         if (r) burst(r.left + r.width / 2, r.top + r.height / 2);
       }
       if (settings.sfx) void cue(correct ? "correct" : "wrong");
-      const hinted = step.kind === "produce" ? hints > 1 : hints > 0;
+      const hinted = hints > 0;
       answer(atlas, step, correct, gradeFor(step.kind, correct, ms, hinted), value, ms);
       if (entry) void play(atlas.audio(entry, settings.accent), entry.w, settings.accent);
     },
@@ -291,22 +289,18 @@ function Quiz({ step, session }: { step: Step & { kind: QuizKind }; session: Act
             {step.kind === "dictation" && !pending && <p className="muted small">考场只放一遍：重播会记为「困难」</p>}
           </div>
         )}
-        {step.kind === "spell" && <SpellPrompt entry={entry} refw={ref} withAudio />}
-        {step.kind === "produce" && <SpellPrompt entry={entry} refw={ref} withAudio={false} />}
+        {step.kind === "spell" && <SpellPrompt entry={entry} withAudio />}
+        {step.kind === "produce" && <SpellPrompt entry={entry} withAudio={false} />}
       </section>
 
-      {step.kind === "dictation" ? (
-        <DictationInput pending={pending} onSubmit={(v) => submit(v, spelledRight(v, entry.w))} />
-      ) : step.kind === "spell" || step.kind === "produce" ? (
-        <SpellInput
-          entry={entry}
-          pending={pending}
-          hints={hints}
-          bySyllable={!!pieces}
-          // 邪修: a hint gives a whole syllable, so the word is learned in the chunks it is spoken in.
-          onHint={() => setHints((h) => Math.min(entry.w.length - 1, pieces ? nextSyllableEnd(pieces, h) : h + 1))}
-          onSubmit={(v) => submit(v, spelledRight(v, entry.w) || (!!sentence && normalize(v) === normalize(sentence.hidden)))}
-        />
+      {typed ? (
+        <>
+          <TypingField itemId={stepKey(step)} target={entry.w} pending={pending}
+            accepts={(value) => canAutoSubmitSpelling(value, entry.w)} autoComplete
+            sounds={settings.sfx} onReplay={step.kind === "produce" ? undefined : () => replay()}
+            onSubmit={(value) => submit(value, spelledRight(value, entry.w))} />
+          {!pending && <button className="link" onClick={() => submit("", false)}>暂时想不起，查看答案</button>}
+        </>
       ) : (
         <ul className={`options ${step.kind === "meaning" ? "options-zh" : "options-en"}`}>
           {options.map((o, i) => {
@@ -347,138 +341,18 @@ function ParaphrasePrompt({ entry, pending }: { entry: Entry; pending: boolean }
   );
 }
 
-function SpellPrompt({ entry, refw, withAudio }: { entry: Entry; refw: WordRef; withAudio: boolean }) {
+function SpellPrompt({ entry, withAudio }: { entry: Entry; withAudio: boolean }) {
   const atlas = useAtlas();
   const accent = useStore((s) => s.settings.accent);
-  const sentence = entry.ex[0] ? gap(entry.ex[0].en, entry.w) : null;
   return (
     <div className="prompt-spell">
-      <Illustration src={atlas.img(entry)} word={entry.w} topic={refw.topic} eager className="spell-art" />
       <div>
         <p className="spell-zh">
           <span className="pos">{entry.senses[0].pos}</span> {entry.senses[0].zh}
         </p>
-        {sentence && (
-          <>
-            <p className="cloze cloze-sm" lang="en">
-              {sentence.before}
-              <span className="blank">　　　</span>
-              {sentence.after}
-            </p>
-            {!withAudio && <p className="cloze-zh">{entry.ex[0].zh}</p>}
-          </>
-        )}
         {withAudio && <Speak url={atlas.audio(entry, accent)} text={entry.w} accent={accent} size="sm" label="听发音" />}
       </div>
     </div>
-  );
-}
-
-function DictationInput({ pending, onSubmit }: { pending?: { correct: boolean; value: string }; onSubmit: (v: string) => void }) {
-  const [value, setValue] = useState("");
-  return (
-    <form
-      className="dictation"
-      onSubmit={(e) => {
-        e.preventDefault();
-        if (!pending && value.trim()) onSubmit(value);
-      }}
-    >
-      <input
-        className={`dictation-field ${pending ? (pending.correct ? "is-ok" : "is-bad") : ""}`}
-        value={pending ? pending.value : value}
-        onChange={(e) => !pending && setValue(e.target.value.slice(0, 40))}
-        autoFocus
-        autoCapitalize="off"
-        autoCorrect="off"
-        autoComplete="off"
-        spellCheck={false}
-        enterKeyHint="done"
-        placeholder="听到什么，写什么"
-        aria-label="听写"
-        readOnly={!!pending}
-        lang="en"
-      />
-      {!pending && (
-        <div className="spell-actions">
-          <button type="submit" className="btn btn-primary" disabled={!value.trim()}>
-            确认 <kbd>Enter</kbd>
-          </button>
-        </div>
-      )}
-    </form>
-  );
-}
-
-export function SpellInput({
-  entry,
-  pending,
-  hints,
-  bySyllable,
-  onHint,
-  onSubmit,
-}: {
-  entry: Entry;
-  pending?: { correct: boolean; value: string };
-  hints: number;
-  bySyllable: boolean;
-  onHint: () => void;
-  onSubmit: (v: string) => void;
-}) {
-  const [value, setValue] = useState("");
-  const input = useRef<HTMLInputElement>(null);
-  useTypingVisibility(input, !pending);
-  const target = entry.w;
-  const prefix = target.slice(0, hints);
-  useEffect(() => {
-    if (hints && !normalize(value).startsWith(normalize(prefix))) setValue(prefix);
-    input.current?.focus();
-  }, [hints]); // eslint-disable-line react-hooks/exhaustive-deps
-  const shown = pending ? pending.value : value;
-  return (
-    <form
-      className="spell"
-      onSubmit={(e) => {
-        e.preventDefault();
-        if (!pending && value.trim()) onSubmit(value);
-      }}
-    >
-      <div className="slots" aria-hidden="true" onClick={() => input.current?.focus()}>
-        {Array.from(target).map((ch, i) => {
-          const typed = shown[i];
-          const ok = typed !== undefined && typed.toLowerCase() === ch.toLowerCase();
-          return (
-            <span key={i} className={`slot ${ch === " " ? "slot-space" : ""} ${typed !== undefined ? (pending ? (ok ? "is-ok" : "is-bad") : "is-filled") : ""} ${!pending && i === shown.length ? "is-caret" : ""}`}>
-              {pending && !pending.correct ? ch : typed ?? ""}
-            </span>
-          );
-        })}
-      </div>
-      <input
-        ref={input}
-        className="spell-input"
-        value={shown}
-        onChange={(e) => !pending && setValue(e.target.value.slice(0, target.length + 6))}
-        autoFocus
-        autoCapitalize="off"
-        autoCorrect="off"
-        autoComplete="off"
-        spellCheck={false}
-        enterKeyHint="done"
-        aria-label={`拼写，${target.length} 个字符`}
-        readOnly={!!pending}
-      />
-      {!pending && (
-        <div className="spell-actions">
-          <button type="button" className="btn btn-ghost" onClick={onHint} disabled={hints >= target.length - 1}>
-            <Lightbulb size={17} /> {bySyllable ? "提示一个音节" : "提示字母"}
-          </button>
-          <button type="submit" className="btn btn-primary" disabled={!value.trim()}>
-            确认 <kbd>Enter</kbd>
-          </button>
-        </div>
-      )}
-    </form>
   );
 }
 

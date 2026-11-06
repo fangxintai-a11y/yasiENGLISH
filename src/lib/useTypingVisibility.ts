@@ -4,7 +4,7 @@ import { useEffect, type RefObject } from "react";
 export function useTypingVisibility(inputRef: RefObject<HTMLInputElement | null>, enabled: boolean) {
   useEffect(() => {
     const input = inputRef.current;
-    const learn = input?.closest<HTMLElement>(".learn");
+    const learn = input?.closest<HTMLElement>(".learn, .typing-stage");
     if (!input || !learn || !enabled) return;
     const viewport = window.visualViewport;
     let frame = 0;
@@ -20,9 +20,7 @@ export function useTypingVisibility(inputRef: RefObject<HTMLInputElement | null>
         const height = viewport?.height ?? window.innerHeight;
         const inset = Math.max(0, window.innerHeight - height - top);
         learn.style.setProperty("--typing-keyboard-inset", `${inset}px`);
-        // Spelling uses a transparent native input over visible letter slots.
-        const answer = input.closest(".spell")?.querySelector(".slots") ?? input;
-        const rect = answer.getBoundingClientRect();
+        const rect = input.getBoundingClientRect();
         const bottom = top + height - 72;
         if (rect.bottom > bottom || rect.top < top + 56) {
           const targetTop = Math.max(top + 56, bottom - rect.height);

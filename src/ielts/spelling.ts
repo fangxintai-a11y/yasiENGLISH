@@ -72,6 +72,13 @@ export function variants(word: string) {
 
 export const spelledRight = (typed: string, word: string) => variants(word).has(normalize(typed));
 
+/** Don't move away halfway through programme/catalogue when the shorter US form also matches. */
+export function canAutoSubmitSpelling(typed: string, word: string) {
+  const value = normalize(typed);
+  const accepted = variants(word);
+  return accepted.has(value) && ![...accepted].some((form) => form.length > value.length && form.startsWith(value));
+}
+
 /* ---------- alignment ---------- */
 
 type Op = { t: "sub" | "del" | "ins" | "swap"; i: number; a: string; b: string };

@@ -6,6 +6,7 @@ import App from "./App";
 import "./styles/app.css";
 import "./styles/ielts.css";
 import "./styles/spelling.css";
+import "./styles/typing-flow.css";
 import { startCloudSync } from "./store/cloudSync";
 
 startCloudSync();

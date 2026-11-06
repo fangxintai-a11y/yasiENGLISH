@@ -2,6 +2,25 @@ import { duck } from "./sound";
 
 let current: HTMLAudioElement | null = null;
 let token = 0;
+const prepared = new Map<string, HTMLAudioElement>();
+
+/** Prepare only the next few recordings; fetching never starts playback. */
+export function prepareAudio(urls: (string | null | undefined)[]) {
+  for (const url of urls) {
+    if (!url || prepared.has(url)) continue;
+    const element = new Audio(url);
+    element.preload = "auto";
+    element.load();
+    prepared.set(url, element);
+    while (prepared.size > 4) {
+      const oldest = prepared.keys().next().value!;
+      const discarded = prepared.get(oldest)!;
+      prepared.delete(oldest);
+      discarded.removeAttribute("src");
+      discarded.load();
+    }
+  }
+}
 
 export function stopAudio() {
   token++;
@@ -27,7 +46,8 @@ async function speak(url: string | null | undefined, text: string, accent: "uk" 
   stopAudio();
   const mine = ++token;
   if (url) {
-    const a = new Audio(url);
+    const a = prepared.get(url) ?? new Audio(url);
+    prepared.delete(url);
     a.playbackRate = rate;
     // Keeps the pitch when slowed down, so a slow word still sounds like the same voice.
     a.preservesPitch = true;
