@@ -10,6 +10,8 @@ import { store, useStore } from "../../store/store";
 import { toast } from "../../ui/Toast";
 import { useKeys } from "../Learn";
 
+import { inLearningScope } from "../../ielts/vocabulary";
+
 const ROUND_MS = 60_000;
 /** Same bar as a recognition card: recognised within three seconds, or it does not count. */
 const ITEM_MS = 3000;
@@ -27,6 +29,7 @@ interface Item {
  */
 export function FlashTab() {
   const atlas = useAtlas();
+  const progress = useStore((s) => s.progress);
   const cards = useStore((s) => s.progress.cards);
   const mistakes = useStore((s) => s.progress.mistakes);
   const best = useStore((s) => s.progress.flashBest);
@@ -37,8 +40,8 @@ export function FlashTab() {
     const ids = Object.entries(cards)
       .sort((a, b) => recallAt(a[1], now) - recallAt(b[1], now))
       .map(([id]) => id);
-    return [...new Set([...mistakes, ...ids])].filter((id) => atlas.byId.has(id));
-  }, [cards, mistakes, atlas]);
+    return [...new Set([...mistakes, ...ids])].filter((id) => atlas.byId.has(id) && inLearningScope(progress, id));
+  }, [cards, mistakes, atlas, progress.assessment]);
 
   const start = () => {
     const seed = Date.now();

@@ -1,5 +1,7 @@
 # 第三方原始数据
 
+新增`qwerty-ielts-supplement.json`：原图鉴未覆盖的2,562条雅思词条，来自qwerty-learner提交`1182426f2bd0a28c95302c33f9e19136b1262a70`的词表，保留其GPL-3.0归属，文件内记录原文件SHA256和释义补全来源。`scripts/atlas/build_supplement.py`生成独立补充词库，不改原图鉴ID或重新排列原分块；直接引用的DictionaryByGPT4双语例句继续按CC BY-SA 4.0标注，许可副本在`public/atlas/`。
+
 `scripts/ielts/build_ielts.py` 读取这里的文件，生成 `public/ielts/`。本项目仅作个人学习测试；如权利人认为不妥，请提 Issue，相应文件和由它生成的数据会被移除。
 
 | 文件 | 内容 | 来源 | 许可 / 版权 | 用途 |

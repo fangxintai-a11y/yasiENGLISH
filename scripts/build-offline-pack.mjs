@@ -24,7 +24,7 @@ const GROUPS = [
   { key: "ex", label: "例句与短语朗读" },
 ];
 
-const BASE_FILES = new Set(["atlas/index.json", "ielts/tags.json", "ielts/syl.json", "ielts/confusables.json", "favicon.svg", "icon-512.png", "manifest.webmanifest"]);
+const BASE_FILES = new Set(["atlas/index.json", "atlas/supplement.json", "atlas/supplement-GPL-3.0.txt", "atlas/supplement-examples-CC-BY-SA-4.0.txt", "ielts/tags.json", "ielts/syl.json", "ielts/confusables.json", "favicon.svg", "icon-512.png", "manifest.webmanifest"]);
 const BASE_DIRS = ["atlas/entries/", "ielts/mnemo/", "atlas/thumb/", "brand/", "sfx/"];
 
 function groupOf(rel) {

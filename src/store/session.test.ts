@@ -51,13 +51,11 @@ test("a word without an illustration is never asked as a picture question", () =
   assert.equal(quizStep(atlas, p, "w3", 0, true).kind, "meaning");
 });
 
-test("a missed word comes back, later each time, until it is right three times in a row", () => {
-  assert.equal(relearnGap(0, 0), 3);
-  assert.equal(relearnGap(1, 1), 6);
-  assert.equal(relearnGap(2, 2), 10);
-  assert.equal(relearnGap(3, 3), null);
-  // A miss on a retry starts the run again; the cap keeps a hopeless word from taking over.
-  assert.equal(relearnGap(0, 4), 3);
+test("one successful spaced revisit ends same-round spelling retries, capped at two misses", () => {
+  assert.equal(relearnGap(0, 0), 4);
+  assert.equal(relearnGap(1, 1), null);
+  assert.equal(relearnGap(0, 1), 4);
+  assert.equal(relearnGap(0, 2), null);
   assert.equal(relearnGap(0, 6), null);
 });
 

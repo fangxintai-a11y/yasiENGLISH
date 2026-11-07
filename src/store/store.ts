@@ -11,8 +11,8 @@ export type QuizKind = "meaning" | "picture" | "listen" | "spell" | "paraphrase"
  */
 export type Track = "r" | "l" | "p";
 export type Step =
-  | { id: string; kind: "intro" }
-  | { id: string; kind: QuizKind; retry?: boolean; options?: string[]; track?: Track; answer?: string };
+  | { id: string; kind: "intro"; check?: boolean }
+  | { id: string; kind: QuizKind; retry?: boolean; options?: string[]; track?: Track; answer?: string; check?: boolean };
 
 export interface ActiveSession {
   id: string;
@@ -42,7 +42,12 @@ export interface DayStat {
   r: number; // graded reviews (first attempts)
   c: number; // correct first attempts
   t: number; // active seconds
+  sp?: number; // first spelling attempts, including independent focused practice
+  sc?: number; // correct, unhinted first spelling attempts
+  sh?: number; // spelling attempts that needed the answer
 }
+
+export interface WordAssessment { state: "known" | "unknown"; at: number }
 
 export interface TypingRound {
   at: number;
@@ -111,6 +116,8 @@ export interface Progress {
   hacks: Record<string, SavedHack>;
   /** 一分钟闪测: best score so far. */
   flashBest: number;
+  /** Per-word self-assessment, separate from FSRS and preserved in account snapshots. */
+  assessment?: { marks: Record<string, WordAssessment> };
 }
 
 export interface SavedHack {
@@ -264,6 +271,13 @@ function validReading(v: unknown): v is Reading {
 export function sanitizeProgress(v: unknown, datasetId: string): Progress {
   const out = emptyProgress(datasetId);
   if (!isObj(v) || v.version !== 2) return out;
+  if (isObj(v.assessment) && isObj(v.assessment.marks)) {
+    const marks: Record<string, WordAssessment> = {};
+    for (const [id, mark] of Object.entries(v.assessment.marks).slice(0, 20000))
+      if (/^[a-z0-9][a-z0-9-]{0,79}$/.test(id) && isObj(mark) && (mark.state === "known" || mark.state === "unknown") && num(mark.at, 0))
+        marks[id] = { state: mark.state, at: mark.at as number };
+    out.assessment = { marks };
+  }
   if (isObj(v.cards)) for (const [k, c] of Object.entries(v.cards)) if (validCard(c)) out.cards[k] = c;
   if (isObj(v.skills)) for (const [k, c] of Object.entries(v.skills)) if (/^[lp]:/.test(k) && validCard(c)) out.skills[k] = c;
   if (isObj(v.spell)) for (const [k, n] of Object.entries(v.spell)) if (k.length < 40 && num(n, 0, 1e6)) out.spell[k] = n as number;
@@ -295,7 +309,8 @@ export function sanitizeProgress(v: unknown, datasetId: string): Progress {
   if (isObj(v.days))
     for (const [k, d] of Object.entries(v.days))
       if (/^\d{4}-\d{2}-\d{2}$/.test(k) && isObj(d) && num(d.n, 0) && num(d.r, 0) && num(d.c, 0) && num(d.t, 0))
-        out.days[k] = { n: d.n as number, r: d.r as number, c: d.c as number, t: d.t as number };
+        out.days[k] = { n: d.n as number, r: d.r as number, c: d.c as number, t: d.t as number,
+          ...(num(d.sp, 0) ? { sp: d.sp as number } : {}), ...(num(d.sc, 0) ? { sc: d.sc as number } : {}), ...(num(d.sh, 0) ? { sh: d.sh as number } : {}) };
   if (Array.isArray(v.typing))
     out.typing = v.typing
       .filter(
@@ -483,7 +498,8 @@ export function bumpDay(p: Progress, patch: Partial<DayStat>, now = Date.now()):
     ...p,
     days: {
       ...p.days,
-      [k]: { n: d.n + (patch.n ?? 0), r: d.r + (patch.r ?? 0), c: d.c + (patch.c ?? 0), t: d.t + (patch.t ?? 0) },
+      [k]: { ...d, n: d.n + (patch.n ?? 0), r: d.r + (patch.r ?? 0), c: d.c + (patch.c ?? 0), t: d.t + (patch.t ?? 0),
+        ...(patch.sp !== undefined ? { sp: (d.sp ?? 0) + patch.sp } : {}), ...(patch.sc !== undefined ? { sc: (d.sc ?? 0) + patch.sc } : {}), ...(patch.sh !== undefined ? { sh: (d.sh ?? 0) + patch.sh } : {}) },
     },
   };
 }

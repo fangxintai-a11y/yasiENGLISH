@@ -2,6 +2,7 @@ import { review, Rating, recallAt, meanRecall, type CardState } from "../store/s
 import type { Progress, Settings, Track } from "../store/store";
 import type { IeltsTags } from "./tags";
 import { priorityId, priorityWords } from "./priority";
+import { assessmentMarks, assessmentReviews, hasAssessment, inLearningScope, isWeakWord } from "./vocabulary";
 
 /**
  * The exam engine: works backwards from the exam date to a daily plan, forecasts how many target
@@ -271,9 +272,13 @@ export function priority(key: string, c: CardState, now: number, target: Set<str
 export function nextNew(atlas: AtlasLite, p: Progress, startLevel: number, count: number, target: Set<string>) {
   const out: string[] = [];
   const take = (id: string) => {
-    if (out.length < count && !p.cards[id] && !out.includes(id) && atlas.byId.has(id)) out.push(id);
+    if (out.length < count && !p.cards[id] && inLearningScope(p, id) && !out.includes(id) && atlas.byId.has(id)) out.push(id);
   };
   for (const key of p.queue) take(priorityId(key));
+  if (hasAssessment(p)) {
+    for (const w of atlas.words) take(w.id);
+    return out;
+  }
   const pass = (from: number, onlyTarget: boolean) => {
     for (const w of atlas.words) {
       if (out.length >= count) return;
@@ -293,18 +298,30 @@ export function todayPlan(atlas: AtlasLite, p: Progress, s: Settings, tags: Pick
   const budget = s.dailyMinutes * 60;
   const cost = (key: string) => (key[1] === ":" ? plan.pace.review * 1.3 : plan.pace.review);
 
-  const urgent = priorityWords(atlas, p).filter((id) => !!p.cards[id]);
+  const focused = hasAssessment(p);
+  const urgent = [...new Set([...priorityWords(atlas, p), ...assessmentReviews(p)])].filter((id) => !!p.cards[id] && atlas.byId.has(id) && inLearningScope(p, id));
   const urgentSet = new Set(urgent);
   const scheduled = allCards(p)
     .filter(([key, c]) => c.due <= now && atlas.byId.has(parseKey(key).id))
     .map(([key, c]) => [key, priority(key, c, now, target)] as const)
     .sort((a, b) => b[1] - a[1])
     .map(([key]) => key);
-  const dueAll = [...urgent, ...scheduled.filter((key) => !urgentSet.has(key))];
+  const focusedDue = scheduled.filter((key) => !focused || isWeakWord(p, parseKey(key).id));
+  const marks = assessmentMarks(p);
+  const checkCandidates = focused ? [...scheduled.filter((key) => marks[parseKey(key).id]?.state === "known" && !getCard(p, key)?.src), ...Object.keys(marks).filter((id) => marks[id].state === "known" && !p.cards[id] && marks[id].at < now - DAY && atlas.byId.has(id))] : [];
+  const checkedIds = new Set<string>();
+  const checks = checkCandidates.filter((key) => {
+    const id = parseKey(key).id;
+    if (checkedIds.has(id) || [p.cards[id], p.skills[`l:${id}`], p.skills[`p:${id}`]].some((card) => (card?.last ?? 0) >= startOfDay(now))) return false;
+    checkedIds.add(id);
+    return true;
+  }).slice(0, Math.min(3, Math.max(1, Math.floor(focusedDue.length / 9))));
+  const dueAll = [...urgent, ...focusedDue.filter((key) => !urgentSet.has(key)), ...checks];
+  const reviewBudget = focused && (s.trackL || s.trackP) ? budget * 0.75 : budget;
   let used = 0;
   const due: string[] = [];
   for (const key of dueAll) {
-    if (used + cost(key) > budget && due.length) break;
+    if (used + cost(key) > reviewBudget && due.length) break;
     due.push(key);
     used += cost(key);
   }
@@ -315,20 +332,20 @@ export function todayPlan(atlas: AtlasLite, p: Progress, s: Settings, tags: Pick
   const fresh = nextNew(atlas, p, s.startLevel, want, target);
   used += fresh.length * plan.pace.fresh;
 
-  // Unlock listening / production cards for words whose recognition is already steady.
+  // A per-round allowance replaces the daily 12-card gate. Repeated rounds can
+  // cover more words; a large manually chosen new-word quota cannot starve spelling.
   const unlock: string[] = [];
-  if (!backlog) {
-    const dayStart = startOfDay(now);
-    const unlockedToday = Object.values(p.skills).filter((c) => c.seen >= dayStart).length;
-    let quota = Math.min(12 - unlockedToday, Math.floor((budget - used) / (plan.pace.review * 1.5)));
+  if (!backlog || focused) {
+    let quota = Math.max(1, Math.min(30, Math.floor(budget * 0.25 / (plan.pace.review * 1.5))));
     const ready = (id: string, minS: number) => {
       const c = p.cards[id];
-      return !!c && c.st === 2 && c.s >= minS && !c.src;
+      return !!c && !c.src && (focused ? isWeakWord(p, id) : c.st === 2 && c.s >= minS);
     };
     const candidates: string[] = [];
-    for (const w of atlas.words) {
-      if (s.trackL && w.id in tags.listening && !p.skills[`l:${w.id}`] && ready(w.id, 3)) candidates.push(`l:${w.id}`);
-      if (s.trackP && w.id in tags.awl && !p.skills[`p:${w.id}`] && ready(w.id, 7)) candidates.push(`p:${w.id}`);
+    const ordered = [...atlas.words].sort((a, b) => (p.cards[a.id]?.seen ?? 0) - (p.cards[b.id]?.seen ?? 0));
+    for (const w of ordered) {
+      if (s.trackL && !p.skills[`l:${w.id}`] && ready(w.id, 3)) candidates.push(`l:${w.id}`);
+      if (s.trackP && !p.skills[`p:${w.id}`] && ready(w.id, 7)) candidates.push(`p:${w.id}`);
     }
     for (const key of candidates) {
       if (quota <= 0) break;
@@ -348,27 +365,28 @@ export function todayPlan(atlas: AtlasLite, p: Progress, s: Settings, tags: Pick
 export function fadingTonight(p: Progress, now: number) {
   const midnight = startOfDay(now) + DAY;
   return Object.entries(p.cards)
-    .filter(([, c]) => c.due <= midnight)
+    .filter(([id, c]) => inLearningScope(p, id) && c.due <= midnight)
     .map(([id]) => id);
 }
 
 /** Share of each skill set currently recalled (sum of recall probabilities / set size). */
 export function skillLevels(atlas: AtlasLite, p: Progress, s: Settings, tags: Pick<IeltsTags, "listening" | "awl">, now: number) {
-  const target = targetIds(atlas, s.targetBand, tags);
+  const focus = hasAssessment(p) ? atlas.words.filter((word) => isWeakWord(p, word.id)).map((word) => word.id) : null;
+  const target = focus ?? targetIds(atlas, s.targetBand, tags);
   const sum = (ids: Iterable<string>, prefix: string, cards: Record<string, CardState>) => {
     let t = 0;
     let n = 0;
     for (const id of ids) {
       n++;
       const c = cards[prefix + id];
-      if (c) t += recallAt(c, now);
+      if (c && !c.src) t += recallAt(c, now);
     }
     return { value: n ? t / n : 0, total: n };
   };
   return {
     reading: sum(target, "", p.cards),
-    listening: sum(Object.keys(tags.listening), "l:", p.skills),
-    writing: sum(Object.keys(tags.awl), "p:", p.skills),
+    listening: sum(focus ?? Object.keys(tags.listening), "l:", p.skills),
+    writing: sum(focus ?? Object.keys(tags.awl), "p:", p.skills),
   };
 }
 
@@ -378,6 +396,6 @@ export function lastNightWords(p: Progress, now: number) {
   const from = today - 6 * 3600000;
   const to = today + 4 * 3600000;
   return Object.entries(p.cards)
-    .filter(([, c]) => c.seen >= from && c.seen < to && (c.last ?? 0) < to && !c.src)
+    .filter(([id, c]) => inLearningScope(p, id) && c.seen >= from && c.seen < to && (c.last ?? 0) < to && !c.src)
     .map(([id]) => id);
 }

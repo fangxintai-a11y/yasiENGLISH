@@ -10,10 +10,15 @@ import { useStore } from "../store/store";
 import { Illustration } from "../ui/Illustration";
 import { searchAtlas } from "../ui/Palette";
 import { Speak } from "../ui/Speak";
+import { VocabularyOverview } from "../ui/VocabularyOverview";
+import { assessmentMarks } from "../ielts/vocabulary";
 
-type Status = "all" | "new" | "learning" | "mastered" | "saved";
+type Status = "all" | "new" | "learning" | "mastered" | "saved" | "unknown" | "known" | "unchecked";
 const STATUS: [Status, string][] = [
   ["all", "全部"],
+  ["unchecked", "未摸底"],
+  ["unknown", "不认识"],
+  ["known", "认识"],
   ["new", "未学"],
   ["learning", "学习中"],
   ["mastered", "已掌握"],
@@ -38,6 +43,7 @@ export function AtlasPage({
   const atlas = useAtlas();
   const cards = useStore((s) => s.progress.cards);
   const bookmarks = useStore((s) => s.progress.bookmarks);
+  const marks = useStore((s) => assessmentMarks(s.progress));
   const [q, setQ] = useState(route.q ?? "");
   const [status, setStatus] = useState<Status>("all");
   const [view, setViewState] = useState<View>(() =>
@@ -77,18 +83,21 @@ export function AtlasPage({
     const saved = new Set(bookmarks);
     const ti = topic ? atlas.topics.findIndex((t) => t[0] === topic) : -1;
     const li = level ? atlas.cefr.indexOf(level) : -1;
-    const base = q.trim() ? searchAtlas(atlas, q, 5000) : atlas.words;
+    const base = q.trim() ? searchAtlas(atlas, q, atlas.words.length) : atlas.words;
     return base.filter((w) => {
       if (ti >= 0 && w.topic !== ti) return false;
       if (li >= 0 && w.cefr !== li) return false;
       const c = cards[w.id];
-      if (status === "new") return !c;
-      if (status === "learning") return !!c && !isMastered(c);
+      if (status === "unchecked") return !Object.hasOwn(marks, w.id);
+      if (status === "unknown") return marks[w.id]?.state === "unknown";
+      if (status === "known") return marks[w.id]?.state === "known";
+      if (status === "new") return !c || !!c.src;
+      if (status === "learning") return !!c && !c.src && !isMastered(c);
       if (status === "mastered") return isMastered(c);
       if (status === "saved") return saved.has(w.id);
       return true;
     });
-  }, [atlas, q, topic, level, status, cards, bookmarks]);
+  }, [atlas, q, topic, level, status, cards, bookmarks, marks]);
 
   const setFilter = (patch: Partial<Extract<Route, { page: "atlas" }>>) =>
     go({ page: "atlas", topic, level, view: route.view, ...patch }, null, true);
@@ -101,10 +110,10 @@ export function AtlasPage({
           <h1 className="display">
             每个词，
             <br className="br-sm" />
-            都有一幅画。
+            都值得记住。
           </h1>
           <p className="lede">
-            {atlas.examples.toLocaleString()} 条原创例句 · 英美发音 · 按难度和 {atlas.topics.length} 个雅思话题整理
+            {atlas.examples.toLocaleString()} 条语境例句 · 英美发音 · 按难度与主题整理
           </p>
         </div>
         <label className="search">
@@ -127,6 +136,7 @@ export function AtlasPage({
           )}
         </label>
       </header>
+      <VocabularyOverview />
 
       <div className="filters">
         {view !== "galaxy" && (
@@ -173,7 +183,7 @@ export function AtlasPage({
         )}
         <div className="filters-row">
           {view !== "galaxy" && (
-            <div className="segmented" role="group" aria-label="学习状态">
+            <div className="segmented vocabulary-status" role="group" aria-label="学习状态">
               {STATUS.map(([k, label]) => (
                 <button
                   key={k}

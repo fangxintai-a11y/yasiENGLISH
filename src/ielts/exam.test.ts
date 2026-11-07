@@ -121,7 +121,7 @@ test("steady recognition unlocks listening and production cards", () => {
   p.cards.w10 = steady;
   p.cards.w30 = steady;
   const t = todayPlan(atlas, p, defaultSettings, tags, now, 0);
-  assert.deepEqual(t.unlock.sort(), ["l:w10", "p:w30"]);
+  assert.deepEqual(t.unlock.sort(), ["l:w10", "l:w30", "p:w10", "p:w30"]);
   const off = todayPlan(atlas, p, { ...defaultSettings, trackL: false, trackP: false }, tags, now, 0);
   assert.deepEqual(off.unlock, []);
 });

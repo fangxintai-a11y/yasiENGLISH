@@ -121,7 +121,7 @@ export function seedKnown(now: number, due: number, stability: number): CardStat
 
 /** Long-term memory: the card would still be recalled with 90% odds three weeks after review. */
 export const MASTERED_STABILITY = 21;
-export const isMastered = (c?: CardState) => !!c && c.st === 2 && c.s >= MASTERED_STABILITY;
+export const isMastered = (c?: CardState) => !!c && !c.src && c.st === 2 && c.s >= MASTERED_STABILITY;
 export const isLearning = (c?: CardState) => !!c && !isMastered(c);
 
 export function formatInterval(ms: number) {

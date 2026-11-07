@@ -24,6 +24,11 @@ export async function loadOpenAtlas(): Promise<Atlas> {
   const res = await fetch(url("index.json"));
   if (!res.ok) throw new Error(`词库索引加载失败（${res.status}）`);
   const idx = (await res.json()) as IndexFile;
+  const extraResponse = await fetch(url("supplement.json"));
+  if (!extraResponse.ok && extraResponse.status !== 404) throw new Error("补充词库加载失败，请重试。");
+  const extra: Entry[] = extraResponse.ok ? ((await extraResponse.json()) as { entries: Entry[] }).entries : [];
+  const levels = [...idx.cefr, "未分级"];
+  const topics: [string, string][] = [...idx.topics, ["unclassified", "未分类"]];
   const words: WordRef[] = idx.words.map((r, order) => ({
     id: r[0],
     word: r[1],
@@ -34,8 +39,15 @@ export async function loadOpenAtlas(): Promise<Atlas> {
     media: r[6],
     order,
   }));
+  const originalIds = new Set(words.map((word) => word.id));
+  for (const e of extra) {
+    if (originalIds.has(e.id)) continue;
+    originalIds.add(e.id);
+    words.push({ id: e.id, word: e.w, zh: e.senses.map((sense) => `${sense.pos} ${sense.zh}`.trim()).join("；"), ipa: e.uk || e.us, cefr: levels.length - 1, topic: topics.length - 1, media: e.m, order: words.length });
+  }
   const byId = new Map(words.map((w) => [w.id, w]));
   const cache = new Map<string, Entry>();
+  extra.forEach((entry) => { if (!idx.words.some((row) => row[0] === entry.id)) cache.set(entry.id, entry); });
   const pending = new Map<number, Promise<void>>();
 
   const loadChunk = (n: number) => {
@@ -60,11 +72,11 @@ export async function loadOpenAtlas(): Promise<Atlas> {
     id: idx.id,
     name: idx.name,
     kind: "open",
-    count: idx.count,
-    examples: idx.examples,
+    count: words.length,
+    examples: idx.examples + extra.reduce((n, entry) => n + entry.ex.length, 0),
     illustrated: idx.illustrated,
-    topics: idx.topics,
-    cefr: idx.cefr,
+    topics,
+    cefr: levels,
     words,
     byId,
     peek: (id) => cache.get(id),

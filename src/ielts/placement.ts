@@ -61,7 +61,7 @@ export function levelShares(st: PlacementState) {
 
 export function estimateKnown(atlas: AtlasLite, shares: number[]) {
   const counts = new Array(LEVELS).fill(0);
-  for (const w of atlas.words) counts[w.cefr]++;
+  for (const w of atlas.words) if (w.cefr >= 0 && w.cefr < counts.length) counts[w.cefr]++;
   return Math.round(counts.reduce((s, n, l) => s + n * shares[l], 0));
 }
 

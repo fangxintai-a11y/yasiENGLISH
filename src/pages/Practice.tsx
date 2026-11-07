@@ -10,6 +10,7 @@ import { store, useStore } from "../store/store";
 import { AmbiencePicker } from "../ui/Ambience";
 import { TypingField, type TypingChange } from "../ui/TypingField";
 import { canAutoSubmitSpelling, spelledRight } from "../ielts/spelling";
+import { hasAssessment, startedWeakWords } from "../ielts/vocabulary";
 
 type Mode = "word" | "sentence" | "dictation";
 type Source = "recent" | "mistakes" | "saved" | "path";
@@ -53,12 +54,14 @@ export function Practice() {
                 .filter((w) => w.cefr >= startLevel)
                 .slice(0, 400)
                 .map((w) => w.id);
-    return ids.filter((id) => atlas.byId.has(id));
+    const targets = hasAssessment(progress) ? new Set(startedWeakWords(progress)) : null;
+    return ids.filter((id) => atlas.byId.has(id) && (!targets || targets.has(id)));
   }, [
     atlas,
     progress.cards,
     progress.mistakes,
     progress.bookmarks,
+    progress.assessment,
     source,
     startLevel,
   ]);

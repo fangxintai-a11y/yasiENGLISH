@@ -131,6 +131,7 @@ export function mergeSnapshots(base: SyncSnapshot | null, local: SyncSnapshot, r
       version: 2, datasetId: id, cards: lp.cards, skills: lp.skills, bookmarks: lp.bookmarks, days: lp.days,
       typing: lp.typing, session: null, mistakes: lp.mistakes, spell: lp.spell, spellLog: lp.spellLog,
       placement: lp.placement, queue: lp.queue, readings: lp.readings, shadow: lp.shadow, hacks: lp.hacks, flashBest: lp.flashBest,
+      ...(lp.assessment ? { assessment: lp.assessment } : {}),
     },
     settings: Object.fromEntries(SETTINGS_FIELDS.map((key) => [key, local.settings[key]])) as unknown as Settings,
   };
@@ -140,6 +141,9 @@ export function mergeSnapshots(base: SyncSnapshot | null, local: SyncSnapshot, r
   const count = (b: number | undefined, l: number, r: number) => counter(bp ? (b ?? 0) : undefined, l, r);
   const day = (b: DayStat | undefined, l: DayStat, r: DayStat): DayStat => ({
     n: count(b?.n, l.n, r.n), r: count(b?.r, l.r, r.r), c: count(b?.c, l.c, r.c), t: count(b?.t, l.t, r.t),
+    ...(l.sp !== undefined || r.sp !== undefined ? { sp: count(b?.sp, l.sp ?? 0, r.sp ?? 0) } : {}),
+    ...(l.sc !== undefined || r.sc !== undefined ? { sc: count(b?.sc, l.sc ?? 0, r.sc ?? 0) } : {}),
+    ...(l.sh !== undefined || r.sh !== undefined ? { sh: count(b?.sh, l.sh ?? 0, r.sh ?? 0) } : {}),
   });
   const done = (b: ShadowDone | undefined, l: ShadowDone, r: ShadowDone): ShadowDone => ({
     n: count(b?.n, l.n, r.n), good: count(b?.good, l.good, r.good), at: Math.max(l.at, r.at),
@@ -149,6 +153,7 @@ export function mergeSnapshots(base: SyncSnapshot | null, local: SyncSnapshot, r
     progress: {
       version: 2,
       datasetId: id,
+      ...(lp.assessment || rp.assessment ? { assessment: { marks: mapMerge(bp?.assessment?.marks, lp.assessment?.marks ?? {}, rp.assessment?.marks ?? {}, (_b, l, r) => latest(l, r, (m) => m.at)) } } : {}),
       cards: cards(bp?.cards, lp.cards, rp.cards),
       skills: cards(bp?.skills, lp.skills, rp.skills),
       bookmarks: orderedSet(bp?.bookmarks, lp.bookmarks, rp.bookmarks),

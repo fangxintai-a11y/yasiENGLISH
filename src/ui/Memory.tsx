@@ -36,6 +36,7 @@ export function MnemonicBlock({ refw, open = false }: { refw: WordRef; open?: bo
   useEffect(() => {
     let live = true;
     setM(undefined);
+    if (refw.cefr > 5) { setM(null); return; }
     loadMnemonic(refw.order, refw.id).then((x) => live && setM(x));
     return () => {
       live = false;

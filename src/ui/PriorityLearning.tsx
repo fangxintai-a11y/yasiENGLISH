@@ -72,6 +72,7 @@ export function PriorityLearning({ ids }: { ids?: string[] }) {
             <NewWordCountForm
               initialValue={Math.min(words.length, dailyNew || 20, 100)}
               label="本轮待学数量"
+              noun="待学词"
               submitLabel="开始学习待学词"
               available={words.length}
               onSubmit={start}

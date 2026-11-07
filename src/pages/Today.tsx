@@ -18,6 +18,8 @@ import { Ring } from "../ui/Ring";
 import { ExamFields } from "../ui/ExamSetup";
 import { Sheet } from "../ui/Sheet";
 import { PriorityLearning } from "../ui/PriorityLearning";
+import { hasAssessment, inLearningScope } from "../ielts/vocabulary";
+import { VocabularyOverview } from "../ui/VocabularyOverview";
 import { DailyNewWordSettings, NewWordCountForm } from "../ui/NewWordCount";
 
 const BRAND = `${import.meta.env.BASE_URL}brand`;
@@ -68,7 +70,7 @@ export function Today() {
   const now = new Date(clock);
   const today = progress.days[dayKey()];
   const learnedToday = today?.n ?? 0;
-  const unseen = atlas.words.filter((word) => !progress.cards[word.id]).length;
+  const unseen = atlas.words.filter((word) => !progress.cards[word.id] && inLearningScope(progress, word.id)).length;
   const streak = streakOf(progress.days);
   const active = progress.session && !progress.session.finished && !progress.session.practice ? progress.session : null;
   const total = plan.due.length + plan.fresh.length + plan.unlock.length;
@@ -99,7 +101,7 @@ export function Today() {
     return { k, label: "日一二三四五六"[d.getDay()], v: progress.days[k]?.r ?? 0, today: i === 6 };
   });
 
-  const learned = Object.keys(progress.cards).length;
+  const learned = Object.values(progress.cards).filter((card) => !card.src).length;
   const mastered = masteredCount(progress);
   const teaser = (active ? active.newIds : plan.fresh).slice(0, 5).map((id) => atlas.byId.get(id)!).filter(Boolean);
   const evening = now.getHours() >= 19;
@@ -124,9 +126,10 @@ export function Today() {
         <button className="btn btn-ghost" onClick={() => setQuantity("daily")}>调整每日数量</button>
       </section>
 
+      <VocabularyOverview />
       <PriorityLearning />
 
-      <ExamHero plan={plan.plan} onSetup={() => setSetup(true)} />
+      {!hasAssessment(progress) && <ExamHero plan={plan.plan} onSetup={() => setSetup(true)} />}
 
       <OfflineNudge />
 
@@ -137,6 +140,7 @@ export function Today() {
             <>
               <p className="eyebrow eyebrow-light">旅程进行中</p>
               <h2>
+                {!plan.due.length && !plan.fresh.length && plan.unlock.length > 0 && <>拼写巩固 <b>{plan.unlock.length}</b></>}
                 还剩 <b>{active.steps.length - active.index}</b> 步
               </h2>
               <p className="journey-lede">进度已保存，随时接着走。</p>
@@ -191,8 +195,8 @@ export function Today() {
                 {active ? "继续旅程" : "开始今天的旅程"} <ArrowRight size={20} />
               </button>
             ) : (
-              <button className="btn btn-primary btn-xl" onClick={() => setQuantity("extra")} disabled={!unseen}>
-                {unseen ? "继续学新词 · 自选数量" : "当前词库新词已学完"} <Sparkles size={18} />
+              <button className="btn btn-primary btn-xl" onClick={() => !unseen && hasAssessment(progress) ? go({ page: "assessment" }) : setQuantity("extra")} disabled={!unseen && !hasAssessment(progress)}>
+                {unseen ? "继续学新词 · 自选数量" : hasAssessment(progress) ? "继续摸底，补充不会的词" : "当前词库新词已学完"} <Sparkles size={18} />
               </button>
             )}
             {!active && plan.due.length > 0 && plan.fresh.length > 0 && (
@@ -419,8 +423,8 @@ function SkillPanel() {
   const lv = useMemo(() => skillLevels(atlas, progress, settings, tags, Date.now()), [atlas, progress, settings, tags]);
   const rows = [
     ["阅读识别", "3 秒内认出目标词", lv.reading, "r"],
-    ["听力拼写", "王陆语料库词，听到能拼对", lv.listening, "l"],
-    ["写作产出", "学术词表 AWL，想到能写出", lv.writing, "p"],
+    ["听力拼写", hasAssessment(progress) ? "重点词，听到能拼对" : "已学词，听到能拼对", lv.listening, "l"],
+    ["写作产出", hasAssessment(progress) ? "重点词，看中文能写出" : "目标词，想到能写出", lv.writing, "p"],
   ] as const;
   return (
     <section className="panel skill-panel">

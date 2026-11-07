@@ -14,6 +14,8 @@ import { Practice } from "./pages/Practice";
 import { Shadow } from "./pages/Shadow";
 import { Ielts } from "./pages/Ielts";
 import { Spelling } from "./pages/Spelling";
+import { Assessment } from "./pages/Assessment";
+import { WordAssessmentButtons } from "./ui/VocabularyOverview";
 import { loadTags } from "./ielts/tags";
 import { loadConfusables } from "./ielts/confusables";
 import { Today } from "./pages/Today";
@@ -155,7 +157,7 @@ function Shell({ privateAvailable }: { privateAvailable: boolean }) {
           </a>
           <nav className="topnav" aria-label="主导航">
             {NAV.map(({ page, label }) => (
-              <a key={page} href={page === "today" ? "#/" : `#/${page}`} className={route.page === page ? "is-on" : ""} aria-current={route.page === page ? "page" : undefined}>
+              <a key={page} href={page === "today" ? "#/" : `#/${page}`} className={(route.page === page || (page === "atlas" && route.page === "assessment")) ? "is-on" : ""} aria-current={(route.page === page || (page === "atlas" && route.page === "assessment")) ? "page" : undefined}>
                 {label}
               </a>
             ))}
@@ -183,6 +185,7 @@ function Shell({ privateAvailable }: { privateAvailable: boolean }) {
         {route.page === "learn" && <Learn />}
         {route.page === "practice" && <Practice />}
         {route.page === "spelling" && <Spelling />}
+        {route.page === "assessment" && <Assessment />}
         {route.page === "shadow" && <Shadow run={!!route.run} />}
         {route.page === "ielts" && <Ielts route={route} />}
         {route.page === "me" && <Me privateAvailable={privateAvailable} />}
@@ -205,8 +208,8 @@ function Shell({ privateAvailable }: { privateAvailable: boolean }) {
       {!focus && (
         <nav className="tabbar" aria-label="主导航">
           {NAV.map(({ page, label, icon: Icon }) => (
-            <a key={page} href={page === "today" ? "#/" : `#/${page}`} className={route.page === page ? "is-on" : ""} aria-current={route.page === page ? "page" : undefined}>
-              <Icon size={22} strokeWidth={route.page === page ? 2.1 : 1.7} />
+            <a key={page} href={page === "today" ? "#/" : `#/${page}`} className={(route.page === page || (page === "atlas" && route.page === "assessment")) ? "is-on" : ""} aria-current={(route.page === page || (page === "atlas" && route.page === "assessment")) ? "page" : undefined}>
+              <Icon size={22} strokeWidth={(route.page === page || (page === "atlas" && route.page === "assessment")) ? 2.1 : 1.7} />
               <span>{label}</span>
             </a>
           ))}
@@ -252,7 +255,7 @@ function WordSheet({ id }: { id: string | null }) {
   return (
     <Sheet open={!!id} onClose={closeWord} label={ref ? `${ref.word} 词条` : "词条"} wide>
       {entry ? (
-        <EntryView key={entry.id} entry={entry} />
+        <><EntryView key={entry.id} entry={entry} /><WordAssessmentButtons id={entry.id} /></>
       ) : error ? (
         <p className="sheet-error">{error}</p>
       ) : (

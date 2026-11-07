@@ -9,6 +9,8 @@ export function NewWordCountForm({
   onSubmit,
   available,
   disabled = false,
+  activity = "学习",
+  noun = "新词",
 }: {
   initialValue: number;
   minimum?: 0 | 1;
@@ -17,6 +19,8 @@ export function NewWordCountForm({
   onSubmit: (count: number) => void;
   available?: number;
   disabled?: boolean;
+  activity?: string;
+  noun?: string;
 }) {
   const [draft, setDraft] = useState(String(initialValue));
   const count = Number(draft);
@@ -73,10 +77,10 @@ export function NewWordCountForm({
       {available !== undefined && (
         <p className="muted" role="status">
           {available === 0
-            ? "当前词库的新词已学完，可继续复习或默写。"
+            ? `当前范围没有待${activity}的${noun}。`
             : valid
-              ? `本轮将学习 ${Math.min(count, available)} 个新词${count > available ? `（当前仅剩 ${available} 个）` : ""}。`
-              : `当前还有 ${available} 个新词可学。`}
+              ? `本轮将${activity} ${Math.min(count, available)} 个${noun}${count > available ? `（当前仅剩 ${available} 个）` : ""}。`
+              : `当前还有 ${available} 个${noun}。`}
         </p>
       )}
       <button

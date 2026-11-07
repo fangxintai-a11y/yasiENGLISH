@@ -7,6 +7,7 @@ export type Route =
   | { page: "learn" }
   | { page: "practice" }
   | { page: "spelling" }
+  | { page: "assessment" }
   /** 跟读; run is the immersive round itself. */
   | { page: "shadow"; run?: boolean }
   | { page: "ielts"; tab?: string }
@@ -30,6 +31,7 @@ function parse(hash: string): Location {
   else if (seg[0] === "learn") route = { page: "learn" };
   else if (seg[0] === "practice") route = { page: "practice" };
   else if (seg[0] === "spelling") route = { page: "spelling" };
+  else if (seg[0] === "assessment") route = { page: "assessment" };
   else if (seg[0] === "shadow") route = { page: "shadow", run: params.get("go") === "1" };
   else if (seg[0] === "ielts") route = { page: "ielts", tab: params.get("tab") || undefined };
   else if (seg[0] === "me") route = { page: "me" };

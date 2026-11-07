@@ -11,11 +11,12 @@ import { burst } from "../lib/burst";
 import { cue } from "../lib/sound";
 import { go } from "../lib/router";
 import { gap } from "../lib/text";
-import { answer, advance, atlasSynonyms, buildSession, gradeFor, isPractice, rateRecall, RELEARN_RUN, sessionStats, SPEED_LIMIT, stepKey, trackOf } from "../store/session";
+import { answer, advance, atlasSynonyms, buildSession, gradeFor, isPractice, rateRecall, sessionStats, SPEED_LIMIT, stepKey, trackOf } from "../store/session";
 import { formatInterval, preview, Rating, type Grade } from "../store/srs";
 import { store, useStore, type ActiveSession, type QuizKind, type Step, type Track } from "../store/store";
 import type { RecallGrade } from "../store/session";
 import { effectiveRetention } from "../ielts/exam";
+import { spellingContext } from "../ielts/spellingPractice";
 import { EntryView, Highlight } from "../ui/EntryView";
 import { Illustration } from "../ui/Illustration";
 import { HackBlock, MnemonicBlock, WhyTags } from "../ui/Memory";
@@ -253,7 +254,7 @@ function Quiz({ step, session }: { step: Step & { kind: QuizKind }; session: Act
       <p className="stage-label">
         <span className={`dot ${step.retry ? "dot-retry" : track === "r" ? "dot-review" : `dot-${track}`}`} />
         <span className={`track-chip track-${track}`}>{TRACK_LABEL[track]}</span>
-        {step.retry ? `当场三连击 · 已连对 ${Math.min(RELEARN_RUN, session.relearn?.[stepKey(step)] ?? 0)}/${RELEARN_RUN} · ` : ""}
+            {step.retry ? "本轮错词回访 · " : ""}
         {KIND_LABEL[step.kind]}
       </p>
 
@@ -355,7 +356,7 @@ function SpellPrompt({ entry, withAudio }: { entry: Entry; withAudio: boolean })
     <div className="prompt-spell">
       <div>
         <p className="spell-zh">
-          <span className="pos">{entry.senses[0].pos}</span> {entry.senses[0].zh}
+          <span className="pos">{entry.senses[0].pos}</span> {spellingContext(entry.senses[0].zh, entry.w) ?? entry.senses[0].zh}
         </p>
         {withAudio && <Speak url={atlas.audio(entry, accent)} text={entry.w} accent={accent} size="sm" label="听发音" />}
       </div>
@@ -370,7 +371,7 @@ function GradeNote({ step, session }: { step: Step & { kind: QuizKind }; session
   const ms = session.ms?.[key];
   if (step.retry || grade === undefined || ms === undefined) return null;
   const limit = SPEED_LIMIT[step.kind];
-  const slow = grade === Rating.Hard && ms > limit;
+  const slow = grade === Rating.Hard && ms > limit && !["dictation", "produce", "spell"].includes(step.kind);
   return (
     <p className={`grade-note g-${grade}`}>
       <Timer size={14} /> {(ms / 1000).toFixed(1)} 秒 · 记为「{GRADE_LABEL[grade]}」

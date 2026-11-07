@@ -15,6 +15,7 @@ import { priorityLookup, priorityWords, sentenceWordCandidates } from "../ielts/
 import { useCloudSync } from "../store/cloudSync";
 import { PriorityLearning } from "../ui/PriorityLearning";
 import { ShadowWordSheet } from "../ui/ShadowWordSheet";
+import { hasAssessment, startedWeakWords } from "../ielts/vocabulary";
 import { toast } from "../ui/Toast";
 import { useKeys } from "./Learn";
 
@@ -148,13 +149,19 @@ function useRound() {
     let live = true;
     const { progress, settings } = store.get();
     const start = Math.max(0, atlas.words.findIndex((w) => w.cefr >= settings.startLevel));
+    const targets = hasAssessment(progress) ? new Set(startedWeakWords(progress)) : null;
     const refs = pickSentences(
-      atlas.words.map((w) => ({ id: w.id, media: w.media })),
+      atlas.words.filter((w) => !targets || targets.has(w.id)).map((w) => {
+        // Text-only supplement entries are already cached. A source sentence can
+        // use device speech without claiming a nonexistent MP3 in the atlas.
+        const entry = atlas.peek(w.id);
+        return { id: w.id, media: w.media | (entry?.ex[0]?.en ? 8 : 0) | (entry?.ex[1]?.en ? 16 : 0) };
+      }),
       progress.cards,
       progress.shadow,
       Date.now(),
       ROUND,
-      start,
+      targets ? 0 : start,
       shadowFocus(),
     );
     void prefetch(
@@ -341,13 +348,13 @@ function Sentence({
   const speak = useCallback(
     async (rateMul = 1) => {
       setPlaying(true);
-      const res = await play(url, "", "us", rateMul, (f) => setWord(times.findIndex(([a, b]) => f >= a && f < b)));
+      const res = await play(url, item.en, "us", rateMul, (f) => setWord(times.findIndex(([a, b]) => f >= a && f < b)));
       setPlaying(false);
       setWord(-1);
       if (res === "unsupported") toast("这句的录音没播放出来：检查网络，或点「重听」再试", "info");
       return res;
     },
-    [url, times],
+    [url, times, item.en],
   );
 
   // Every sentence after the first opens by playing itself; the first waits for a tap (autoplay rules).
@@ -423,6 +430,7 @@ function Sentence({
         ))}
       </ol>
       <p className="shadow-tip">{STEPS.find((s) => s[0] === phase)![2]}</p>
+      {!url && <p className="muted small">本句没有专用录音，使用设备语音朗读。</p>}
 
       <div className="shadow-text">
         {hidden ? (
@@ -462,7 +470,7 @@ function Sentence({
         )}
         <p className="shadow-word">
           <span lang="en">{item.entry.w}</span> {item.entry.senses[0]?.zh}
-          <i>{item.ref.i ? "雅思语境" : "日常"}</i>
+          <i>{item.entry.cefr === "未分级" ? "来源例句" : item.ref.i ? "雅思语境" : "日常"}</i>
         </p>
       </div>
 

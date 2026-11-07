@@ -100,6 +100,9 @@ export function About() {
               <b>DictionaryByGPT4</b>：词根词缀、记忆辅助和小故事（CC BY-SA 4.0）。由 GPT-4 生成，仅供参考。
             </li>
             <li>
+              <b>补充雅思词条</b>：来自 qwerty-learner 的雅思词表（GPL-3.0），保留原释义；可解析的例句来自 DictionaryByGPT4（CC BY-SA 4.0）。补充内容单独标注来源，缺图、缺例句和未分级状态如实显示。许可与来源保存在词库补充文件中。
+            </li>
+            <li>
               <b>雅思王听力语料库（王陆）</b>：用于标注听力高频词和短语听写。版权归原作者，本项目仅个人测试使用，如涉侵权会移除。
             </li>
             <li>

@@ -387,6 +387,7 @@ try {
     days: {},
     session: null,
   };
+  await tinyContext.route("**/atlas/supplement.json", (route) => route.fulfill({ json: { entries: [] } }));
   await tinyContext.route("**/atlas/index.json", (route) =>
     route.fulfill({
       json: { ...index, words: index.words.slice(0, 3), count: 3 },
@@ -415,6 +416,7 @@ try {
     viewport: { width: 390, height: 844 },
     timezoneId: "Asia/Shanghai",
   });
+  await exhaustedContext.route("**/atlas/supplement.json", (route) => route.fulfill({ json: { entries: [] } }));
   await exhaustedContext.route("**/atlas/index.json", (route) =>
     route.fulfill({
       json: { ...index, words: index.words.slice(0, 3), count: 3 },

@@ -9,9 +9,10 @@ import { recallAt } from "../../store/srs";
 import { useStore, type Step } from "../../store/store";
 import { startPractice } from "../Ielts";
 
+import { hasAssessment, startedWeakWords } from "../../ielts/vocabulary";
+
 export function SpellTab() {
   const atlas = useAtlas();
-  const tags = useTags();
   const progress = useStore((s) => s.progress);
   const accent = useStore((s) => s.settings.accent);
   const stats = (Object.entries(progress.spell) as [SpellTag, number][]).filter(([t]) => t in SPELL_LABEL).sort((a, b) => b[1] - a[1]);
@@ -26,11 +27,12 @@ export function SpellTab() {
   /** Words that exercise a pattern: your misses first, then listening words you already know. */
   const drill = (tag: SpellTag | null) => {
     const missed = progress.spellLog.filter((m) => !tag || m.tags.includes(tag)).map((m) => m.id);
+    const targets = hasAssessment(progress) ? new Set(startedWeakWords(progress)) : null;
     const pool = Object.keys(progress.cards).filter((id) => {
       const w = atlas.byId.get(id);
-      return !!w && (id in tags.listening || !Object.keys(tags.listening).length) && (!tag || hasPattern(tag, w.word));
+      return !!w && (!targets || targets.has(id)) && (!tag || hasPattern(tag, w.word));
     });
-    const ids = [...new Set([...missed, ...shuffle(pool, now)])].filter((id) => atlas.byId.has(id)).slice(0, 12);
+    const ids = [...new Set([...missed, ...shuffle(pool, now)])].filter((id) => atlas.byId.has(id) && (!targets || targets.has(id))).slice(0, 12);
     const steps: Step[] = ids.map((id) => ({ id, kind: "dictation", track: "l" }));
     startPractice(steps, tag ? `拼写专项 · ${SPELL_LABEL[tag].name}` : "拼写专项 · 听写");
   };
@@ -67,7 +69,7 @@ export function SpellTab() {
             ))}
           </ul>
         ) : (
-          <p className="muted">还没有拼写错误记录。听写卡会在识别稳定后自动解锁（王陆语料库里的 1,600+ 个词），拼错时这里会告诉你错在哪一类。</p>
+          <p className="muted">还没有拼写错误记录。摸底后，不认识且已经学习的词会进入重点听写，不再局限于指定词表，拼错时这里会告诉你错在哪一类。</p>
         )}
       </section>
 
@@ -117,6 +119,11 @@ export function SpellTab() {
 /** Corpus items that are not atlas headwords: phrases, names, plurals. Recorded in the sentence voice. */
 function PhraseDictation() {
   const tags = useTags();
+  const atlas = useAtlas();
+  const progress = useStore((s) => s.progress);
+  const focusIds = hasAssessment(progress) ? new Set(startedWeakWords(progress)) : null;
+  const focusTerms = focusIds ? new Set(atlas.words.filter((word) => focusIds.has(word.id)).map((word) => normalize(word.word))) : null;
+  const relevant = tags.phrases.filter(([text]) => !focusTerms || text.split(/[^a-zA-Z]+/).some((word) => focusTerms.has(normalize(word))));
   const chapters = useMemo(() => [...new Set(tags.phrases.map(([, c]) => c))], [tags]);
   const [chapter, setChapter] = useState<string>("");
   const [round, setRound] = useState<{ items: string[]; i: number; answers: { typed: string; ok: boolean }[] } | null>(null);
@@ -125,7 +132,8 @@ function PhraseDictation() {
   if (!tags.phrases.length) return null;
 
   const begin = () => {
-    const pool = tags.phrases.filter(([, c]) => !chapter || c === chapter).map(([t]) => t);
+    const pool = relevant.filter(([, c]) => !chapter || c === chapter).map(([t]) => t);
+    if (!pool.length) return;
     const items = shuffle(pool, hashSeed(String(Date.now()))).slice(0, 10);
     setRound({ items, i: 0, answers: [] });
     setValue("");
@@ -153,7 +161,7 @@ function PhraseDictation() {
     <section className="panel span-2 phrase-panel">
       <div className="panel-head">
         <h3 className="eyebrow">王陆语料库 · 短语与专名听写</h3>
-        <small className="muted">{tags.phrases.length.toLocaleString()} 条 · 设备语音朗读</small>
+        <small className="muted">{relevant.length.toLocaleString()} 条{focusTerms ? " · 含重点词" : ""} · 设备语音朗读</small>
       </div>
       {!round || round.i >= round.items.length ? (
         <>
@@ -177,7 +185,7 @@ function PhraseDictation() {
                 </option>
               ))}
             </select>
-            <button className="btn btn-primary" onClick={begin}>
+            <button className="btn btn-primary" onClick={begin} disabled={!relevant.some(([, c]) => !chapter || c === chapter)}>
               <Play size={16} /> {round ? "再来 10 条" : "开始 10 条"}
             </button>
           </div>

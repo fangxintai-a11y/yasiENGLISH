@@ -10,6 +10,7 @@ import { distractors } from "../store/session";
 import { store, useStore } from "../store/store";
 import { ExamFields } from "../ui/ExamSetup";
 import { SyncPanel } from "../ui/SyncPanel";
+import { go } from "../lib/router";
 
 type Stage = "plan" | "test" | "result" | "account";
 
@@ -31,11 +32,11 @@ export function Onboarding() {
                 按自己的节奏，逐颗点亮。
               </h1>
               <ExamFields compact />
-              <button className="btn btn-primary btn-xl" onClick={() => setStage("test")}>
-                3 分钟摸底：已经会的词不再从头学 <ArrowRight size={20} />
+              <button className="btn btn-primary btn-xl" onClick={() => { store.settings({ onboarded: true }); go({ page: "assessment" }); }}>
+                逐词摸底，找出不会的词 <ArrowRight size={20} />
               </button>
               <button className="btn btn-ghost" onClick={() => finish(atlas, null)}>
-                跳过摸底，从 B1 开始
+                先进入首页，稍后摸底
               </button>
               <button className="btn btn-ghost" onClick={() => setStage("account")}>已有账号，登录恢复进度</button>
               <p className="muted">可以直接在本机学习；登录同一个账号后，手机和电脑自动同步。</p>

@@ -45,7 +45,7 @@ USERNAME = re.compile(r"[a-z0-9][a-z0-9_.-]{2,39}\Z")
 PROGRESS_FIELDS = frozenset((
     "version", "datasetId", "cards", "skills", "bookmarks", "days", "typing",
     "session", "mistakes", "spell", "spellLog", "placement", "queue", "readings",
-    "shadow", "hacks", "flashBest",
+    "shadow", "hacks", "flashBest", "assessment",
 ))
 SETTINGS_FIELDS = frozenset((
     "accent", "autoplay", "dailyNew", "retention", "theme", "sfx", "spell",
@@ -141,12 +141,20 @@ def validate_snapshot(snapshot, dataset_id: str):
             raise ApiError(400, "进度字段格式不正确。")
     if "cards" not in progress:
         raise ApiError(400, "缺少单词学习记录。")
+    assessment = progress.get("assessment")
+    if "assessment" in progress:
+        if not isinstance(assessment, dict) or set(assessment) != {"marks"} or not isinstance(assessment["marks"], dict) or len(assessment["marks"]) > 20000:
+            raise ApiError(400, "逐词摸底格式不正确。")
+        for word_id, mark in assessment["marks"].items():
+            if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,79}", word_id) or not isinstance(mark, dict) or set(mark) != {"state", "at"} or mark["state"] not in ("known", "unknown") or type(mark["at"]) not in (int, float) or not math.isfinite(mark["at"]) or mark["at"] < 0:
+                raise ApiError(400, "逐词摸底记录不正确。")
     count = 0
 
     id_maps = {
         ("progress", "cards"), ("progress", "skills"), ("progress", "days"),
         ("progress", "spell"), ("progress", "hacks"),
         ("progress", "shadow", "days"), ("progress", "shadow", "done"),
+        ("progress", "assessment", "marks"),
     }
 
     def visit(value, depth=0, path=()):
@@ -323,7 +331,6 @@ class Database:
         return {"revision": row["revision"], "snapshot": json.loads(row["payload"])} if row else {"revision": 0, "snapshot": None}
 
     def put_snapshot(self, user_id, dataset_id, revision, snapshot, commit_id):
-        payload = encode(snapshot)
         with self.connect() as db:
             db.execute("BEGIN IMMEDIATE")
             current = self._snapshot(db, user_id, dataset_id)
@@ -335,6 +342,21 @@ class Database:
                 return True, {**current, "applied": True}
             if current["revision"] != revision:
                 return False, {**current, "applied": False}
+            # Older browser tabs do not know this additive field. Never let their
+            # otherwise valid snapshot silently erase a newer per-word survey.
+            previous_progress = (current["snapshot"] or {}).get("progress", {})
+            if "assessment" not in snapshot["progress"] and "assessment" in previous_progress:
+                old_days = previous_progress.get("days", {})
+                days = {}
+                for key, value in snapshot["progress"].get("days", {}).items():
+                    previous_day = old_days.get(key, {})
+                    if isinstance(value, dict) and isinstance(previous_day, dict):
+                        extras = {field: previous_day[field] for field in ("sp", "sc", "sh") if field not in value and field in previous_day}
+                        days[key] = {**value, **extras}
+                    else:
+                        days[key] = value
+                snapshot = {**snapshot, "progress": {**snapshot["progress"], "assessment": previous_progress["assessment"], **({"days": days} if days else {})}}
+            payload = encode(snapshot)
             next_revision, now = revision + 1, int(time.time())
             if current["snapshot"] is not None:
                 db.execute("INSERT INTO snapshot_history VALUES (?,?,?,?,?)",

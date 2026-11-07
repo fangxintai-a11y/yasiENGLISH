@@ -10,6 +10,8 @@ import { splitPair } from "../../lib/text";
 import { recallAt, review, Rating, type Grade } from "../../store/srs";
 import { store, useStore } from "../../store/store";
 
+import { inLearningScope } from "../../ielts/vocabulary";
+
 const GRADE_OF: Grade[] = [Rating.Again, Rating.Again, Rating.Hard, Rating.Good];
 
 /**
@@ -23,7 +25,7 @@ export function WritingTab() {
   const settings = useStore((s) => s.settings);
   const now = Date.now();
   const candidates = useMemo(() => {
-    const learned = Object.keys(progress.cards).filter((id) => atlas.byId.has(id) && !progress.cards[id].src);
+    const learned = Object.keys(progress.cards).filter((id) => atlas.byId.has(id) && inLearningScope(progress, id) && !progress.cards[id].src);
     const awl = learned.filter((id) => id in tags.awl);
     const pool = awl.length >= 5 ? awl : learned;
     return pool.sort((a, b) => {
@@ -34,7 +36,7 @@ export function WritingTab() {
   }, [progress, tags, atlas]); // eslint-disable-line react-hooks/exhaustive-deps
   // The word stays fixed while it is on screen; grading re-sorts the candidates underneath.
   const [current, setCurrent] = useState<string | null>(null);
-  const id = current && atlas.byId.has(current) ? current : candidates[0];
+  const id = current && candidates.includes(current) ? current : candidates[0];
   useEffect(() => {
     if (!current && candidates[0]) setCurrent(candidates[0]);
   }, [current, candidates]);

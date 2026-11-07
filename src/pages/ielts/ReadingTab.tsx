@@ -9,16 +9,18 @@ import { recallAt } from "../../store/srs";
 import { store, useStore, type Reading } from "../../store/store";
 import { toast } from "../../ui/Toast";
 
+import { inLearningScope } from "../../ielts/vocabulary";
+
 const LABELS = ["TRUE", "FALSE", "NOT GIVEN"] as const;
 
 /** The words a passage should be built around: recent mistakes first, then the most forgotten. */
 function pickWords(p: ReturnType<typeof store.get>["progress"], has: (id: string) => boolean) {
   const now = Date.now();
   const out: string[] = [];
-  for (const id of p.mistakes) if (has(id) && !out.includes(id) && out.length < 12) out.push(id);
+  for (const id of p.mistakes) if (has(id) && inLearningScope(p, id) && !out.includes(id) && out.length < 12) out.push(id);
   if (out.length < 12) {
     const weak = Object.entries(p.cards)
-      .filter(([id, c]) => has(id) && !c.src && !out.includes(id))
+      .filter(([id, c]) => has(id) && inLearningScope(p, id) && !c.src && !out.includes(id))
       .sort((a, b) => recallAt(a[1], now) - recallAt(b[1], now))
       .map(([id]) => id);
     out.push(...weak.slice(0, 12 - out.length));

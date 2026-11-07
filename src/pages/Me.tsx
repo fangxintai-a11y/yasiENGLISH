@@ -35,7 +35,7 @@ export function Me({ privateAvailable }: { privateAvailable: boolean }) {
       return cards.filter((x) => (i === 0 ? x.due <= end.getTime() : x.due >= start.getTime() && x.due <= end.getTime())).length;
     });
     void now;
-    const words = Object.values(progress.cards);
+    const words = Object.values(progress.cards).filter((card) => !card.src);
     return { learned: words.length, mastered: words.filter(isMastered).length, reviews: r, accuracy: r ? Math.round((c / r) * 100) : 0, minutes: Math.round(t / 60), forecast };
   }, [progress]);
 

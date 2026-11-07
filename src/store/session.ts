@@ -5,6 +5,7 @@ import { confusablesOf } from "../ielts/confusables";
 import { diagnose } from "../ielts/spelling";
 import { getTags } from "../ielts/tags";
 import { priorityWords, removePriorityWord } from "../ielts/priority";
+import { assessmentMarks, flagUnknown, hasAssessment, inLearningScope, isWeakWord } from "../ielts/vocabulary";
 import { hashSeed, normalize, shuffle } from "../lib/text";
 import { isMastered, review, Rating, type CardState, type Grade } from "./srs";
 import { bumpDay, dayKey, store, type ActiveSession, type Progress, type QuizKind, type Settings, type Step, type Track } from "./store";
@@ -146,11 +147,27 @@ export function buildSession(atlas: Atlas, p: Progress, s: Settings, opts?: Sess
     const plan = todayPlan(atlas, p, s);
     reviewKeys = plan.due.slice(0, 150);
     newIds = opts?.reviewOnly ? [] : plan.fresh;
-    unlock = opts?.reviewOnly ? [] : plan.unlock;
+    unlock = plan.unlock;
   }
   // Reviews first, then new skills and new words. Objective drills retain their five-word groups.
-  reviewKeys.forEach((k, i) => steps.push(quizStep(atlas, p, k, seed + i)));
+  reviewKeys.forEach((k, i) => steps.push({ ...quizStep(atlas, p, k, seed + i), ...(assessmentMarks(p)[parseKey(k).id]?.state === "known" ? { check: true } : {}) }));
   unlock.forEach((k, i) => steps.push(quizStep(atlas, p, k, seed + 500 + i)));
+  if (!opts?.practice && !opts?.keys && !opts?.ids && opts?.extraNew === undefined) {
+    const recognition = steps.filter((step) => trackOf(step) === "r");
+    const freshKeys = new Set(unlock);
+    const dueSpelling = steps.filter((step) => trackOf(step) !== "r" && !freshKeys.has(stepKey(step)));
+    const newSpelling = steps.filter((step) => freshKeys.has(stepKey(step)));
+    const spelling: Step[] = [];
+    for (let i = 0; i < Math.max(dueSpelling.length, newSpelling.length); i++) {
+      if (dueSpelling[i]) spelling.push(dueSpelling[i]);
+      if (newSpelling[i]) spelling.push(newSpelling[i]);
+    }
+    const mixed: Step[] = [];
+    while (recognition.length || spelling.length) {
+      mixed.push(...recognition.splice(0, 3), ...spelling.splice(0, 1));
+    }
+    steps.splice(0, steps.length, ...mixed);
+  }
   for (let g = 0; g < newIds.length; g += 5) {
     const group = newIds.slice(g, g + 5);
     group.forEach((id) => steps.push({ id, kind: "intro" }));
@@ -207,6 +224,8 @@ export const SPEED_LIMIT: Record<QuizKind, number> = {
 export function gradeFor(kind: QuizKind, correct: boolean, ms: number, hinted: boolean): Grade {
   if (!correct) return Rating.Again;
   if (hinted) return Rating.Hard;
+  // Typing speed includes motor and playback time, not just memory retrieval.
+  if (kind === "dictation" || kind === "produce" || kind === "spell") return Rating.Good;
   if (ms > SPEED_LIMIT[kind]) return Rating.Hard;
   return Rating.Good;
 }
@@ -215,11 +234,11 @@ export const isPractice = (s: ActiveSession | null | undefined) => !!s?.practice
 
 /** Apply an answer. Only the first attempt for a card in a session updates memory and stats. */
 /** Right this many times in a row after a miss, before a word leaves the session. */
-export const RELEARN_RUN = 3;
+export const RELEARN_RUN = 1;
 /** Steps until the next retry, by how many retries in a row have been right. */
-const RELEARN_GAPS = [3, 6, 10];
+const RELEARN_GAPS = [4];
 /** Retries per word and track in one session, so a hopeless word cannot take the session over. */
-const RELEARN_MAX = 6;
+const RELEARN_MAX = 2;
 
 /** Steps until a missed word comes back, or null once it has been right RELEARN_RUN times in a row (or retried enough). */
 export function relearnGap(run: number, retries: number): number | null {
@@ -241,7 +260,8 @@ export function answer(atlas: Atlas, step: Step & { kind: QuizKind }, correct: b
       if (!practice) {
         const card = review(getCard(p, key), grade, now, effectiveRetention(settings, now));
         next = track === "r" ? { ...next, cards: { ...next.cards, [step.id]: card } } : { ...next, skills: { ...next.skills, [key]: card } };
-        next = bumpDay(next, { r: 1, c: correct ? 1 : 0, n: track === "r" && sess.newIds.includes(step.id) ? 1 : 0 });
+        next = bumpDay(next, { r: 1, c: correct ? 1 : 0, n: track === "r" && sess.newIds.includes(step.id) ? 1 : 0,
+          ...(hasAssessment(p) && track !== "r" ? { sp: 1, sc: correct && grade === Rating.Good ? 1 : 0, sh: grade === Rating.Again && correct ? 1 : 0 } : {}) });
       }
       next = {
         ...next,
@@ -249,6 +269,7 @@ export function answer(atlas: Atlas, step: Step & { kind: QuizKind }, correct: b
         mistakes: correct ? next.mistakes : [step.id, ...next.mistakes.filter((x) => x !== step.id)].slice(0, 300),
       };
     }
+    if (!correct) next = flagUnknown(next, step.id, now);
     // Only the first attempt counts towards the spelling diagnosis; retries would double count.
     if (first && !correct && (step.kind === "dictation" || step.kind === "produce") && value.trim()) {
       const ref = atlas.byId.get(step.id);
@@ -259,8 +280,8 @@ export function answer(atlas: Atlas, step: Step & { kind: QuizKind }, correct: b
         next = { ...next, spell, spellLog: [{ id: step.id, typed: value.slice(0, 60), at: now, tags }, ...next.spellLog].slice(0, 200) };
       }
     }
-    // 当场三连击: a missed word comes back until it is right three times in a row, each time a
-    // little later (successive relearning). Retries are never graded.
+    // One successful revisit is enough in this round. At most two retries prevent
+    // a hard word monopolizing the session; later review still follows its FSRS card.
     if (!correct || step.retry) {
       const run = correct ? (sess.relearn?.[key] ?? 0) + 1 : 0;
       const steps = [...next.session!.steps];
@@ -278,7 +299,7 @@ export function withDueRecall(atlas: Atlas, p: Progress, now: number): Progress 
   const s = p.session;
   if (!s || isPractice(s) || s.pending) return p;
   const id = Object.keys(s.graded)
-    .filter((key) => parseKey(key).track === "r" && atlas.byId.has(key) && p.cards[key]?.due <= now)
+    .filter((key) => parseKey(key).track === "r" && atlas.byId.has(key) && inLearningScope(p, key) && p.cards[key]?.due <= now)
     .sort((a, b) => p.cards[a].due - p.cards[b].due)[0];
   if (!id) return p;
   const current = s.steps[s.index];
@@ -304,8 +325,18 @@ export function applyRecallRating(atlas: Atlas, p: Progress, settings: Settings,
   const spent = Number.isFinite(seconds) ? Math.max(0, Math.min(90, Math.round(seconds))) : 0;
   let next = p;
   if (!practice) {
+    const original = p.cards[id];
+    const mark = assessmentMarks(p)[id];
+    const pendingUnknown = mark?.state === "unknown" && original && (original.src || (original.last ?? 0) < mark.at);
+    const retention = effectiveRetention(settings, now);
+    // A former seed is not learning evidence. A newly declared lapse is applied
+    // only when actual study resumes, preserving the original first-seen date.
+    let previous = pendingUnknown && original.src ? undefined : original;
+    if (pendingUnknown && previous && grade !== Rating.Again) previous = review(previous, Rating.Again, Math.min(mark.at, now), retention);
+    const recalled = review(previous, grade, now, retention);
+    if (original) recalled.seen = original.seen;
     next = bumpDay(p, { r: 1, c: grade === Rating.Again ? 0 : 1, n: first && s.newIds.includes(id) && !p.cards[id] ? 1 : 0, t: spent }, now);
-    next = { ...removePriorityWord(next, id), cards: { ...next.cards, [id]: review(p.cards[id], grade, now, effectiveRetention(settings, now)) },
+    next = { ...removePriorityWord(grade === Rating.Again ? flagUnknown(next, id, now) : next, id), cards: { ...next.cards, [id]: recalled },
       mistakes: grade === Rating.Again ? [id, ...p.mistakes.filter((value) => value !== id)].slice(0, 300) : p.mistakes };
   }
   // Also removes the old, ungraded recognition question after an intro in saved pre-change rounds.
@@ -315,7 +346,16 @@ export function applyRecallRating(atlas: Atlas, p: Progress, settings: Settings,
     graded: !practice && first ? { ...s.graded, [id]: grade } : s.graded,
     ms: !practice && first ? { ...(s.ms ?? {}), [id]: spent * 1000 } : s.ms,
     finished: index >= steps.length ? now : undefined } };
-  return withDueRecall(atlas, next, now);
+  return withDueRecall(atlas, focusAtBoundary(next, now), now);
+}
+
+/** Keep the just-answered question and its history, then focus future questions. */
+export function focusAtBoundary(p: Progress, now: number): Progress {
+  const s = p.session;
+  if (!s || isPractice(s) || !hasAssessment(p) || s.pending) return p;
+  const steps = s.steps.filter((step, index) => index < s.index || step.check || isWeakWord(p, step.id));
+  if (steps.length === s.steps.length) return p;
+  return { ...p, session: { ...s, steps, finished: s.index >= steps.length ? now : undefined } };
 }
 
 export function rateRecall(atlas: Atlas, expected: { sessionId: string; index: number; id: string }, grade: RecallGrade, seconds: number) {
@@ -331,7 +371,7 @@ export function advance(seconds: number, atlas?: Atlas) {
     const index = s.index + 1;
     const finished = index >= s.steps.length ? Date.now() : undefined;
     const next = isPractice(s) ? p : bumpDay(p, { t: Math.max(0, Math.min(90, Math.round(seconds))) });
-    const advanced = { ...next, session: { ...s, index, pending: undefined, finished } };
+    const advanced = focusAtBoundary({ ...next, session: { ...s, index, pending: undefined, finished } }, Date.now());
     return atlas ? withDueRecall(atlas, advanced, Date.now()) : advanced;
   });
 }

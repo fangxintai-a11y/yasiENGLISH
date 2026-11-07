@@ -10,19 +10,22 @@ import { useStore, type Step } from "../../store/store";
 import { Constellation } from "../../ui/Memory";
 import { startPractice } from "../Ielts";
 
+import { inLearningScope } from "../../ielts/vocabulary";
+
 export function ParaphraseTab() {
   const atlas = useAtlas();
   const tags = useTags();
+  const progress = useStore((s) => s.progress);
   const cards = useStore((s) => s.progress.cards);
   const [focus, setFocus] = useState<string | null>(null);
   const now = Date.now();
   const learned = useMemo(
     () =>
       Object.entries(cards)
-        .filter(([id]) => (tags.syn[id] ?? []).some((x) => atlas.byId.has(x)))
+        .filter(([id]) => inLearningScope(progress, id) && (tags.syn[id] ?? []).some((x) => atlas.byId.has(x)))
         .sort((a, b) => recallAt(a[1], now) - recallAt(b[1], now))
         .map(([id]) => id),
-    [cards, tags, atlas], // eslint-disable-line react-hooks/exhaustive-deps
+    [cards, tags, atlas, progress.assessment], // eslint-disable-line react-hooks/exhaustive-deps
   );
   const total = useMemo(() => Object.keys(tags.syn).filter((id) => atlas.byId.has(id)).length, [tags, atlas]);
   // Constellations fully lit: the word and all of its in-atlas synonyms are learned.

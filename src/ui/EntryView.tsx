@@ -126,7 +126,7 @@ export function EntryView({ entry, mode = "detail", eager = true }: { entry: Ent
     const hit = atlas.words.find((x) => x.word.toLowerCase() === w);
     return { label: f, id: hit?.id };
   });
-  const status = card ? (isMastered(card) ? "已掌握" : "学习中") : null;
+  const status = card?.src ? "待复核" : card ? (isMastered(card) ? "已掌握" : "学习中") : null;
 
   return (
     <article className={`entry entry-${mode}`}>
@@ -186,7 +186,7 @@ export function EntryView({ entry, mode = "detail", eager = true }: { entry: Ent
             <ul className="examples">
               {entry.ex.map((x, i) => (
                 <li key={i}>
-                  {entry.ex.length > 1 && <span className={`ex-tag ${i ? "is-ielts" : ""}`}>{i ? "雅思语境" : "日常"}</span>}
+                  {entry.ex.length > 1 && <span className={`ex-tag ${i ? "is-ielts" : ""}`}>{entry.cefr === "未分级" ? "来源例句" : i ? "雅思语境" : "日常"}</span>}
                   <p className="ex-en" lang="en">
                     <Highlight text={x.en} word={entry.w} />
                     <Speak url={exUrls[i] ?? null} text={x.en} accent={SENTENCE_ACCENT} size="sm" className="ex-speak" />

@@ -18,16 +18,20 @@ import {
   SPELL_LABEL,
 } from "../ielts/spelling";
 import {
-  recordSpellingMiss,
+  recordSpellingAnswer,
+  spellingOrder,
+  spellingContext,
   spellingPool,
   type SpellingSource,
 } from "../ielts/spellingPractice";
 import { play, prepareAudio, stopAudio } from "../lib/audio";
 import { cue, primeCues } from "../lib/sound";
+import { go } from "../lib/router";
 import { shuffle } from "../lib/text";
 import { useCloudSync } from "../store/cloudSync";
 import { store, useStore } from "../store/store";
 import { TypingField } from "../ui/TypingField";
+import { hasAssessment } from "../ielts/vocabulary";
 
 type Mode = "meaning" | "audio";
 type Result = {
@@ -39,6 +43,7 @@ type Result = {
 };
 type Round = { entries: Entry[]; answers: Result[]; mode: Mode; continuous: boolean; id: number };
 const SOURCES: [SpellingSource, string][] = [
+  ["target", "重点词：不会且已开始学习"],
   ["learned", "已学单词"],
   ["mistakes", "错词本"],
   ["bookmarks", "收藏"],
@@ -56,7 +61,7 @@ function SpellingPage() {
   const progress = useStore((s) => s.progress);
   const startLevel = useStore((s) => s.settings.startLevel);
   const [source, setSource] = useState<SpellingSource>(
-    Object.keys(progress.cards).length ? "learned" : "path",
+    hasAssessment(progress) ? "target" : Object.keys(progress.cards).length ? "learned" : "path",
   );
   const [mode, setMode] = useState<Mode>("meaning");
   const [count, setCount] = useState("20");
@@ -86,7 +91,7 @@ function SpellingPage() {
     setLoading(true);
     setError("");
     try {
-      const ids = explicitIds ?? shuffle(pool).slice(0, quantity);
+      const ids = explicitIds ?? (source === "target" ? spellingOrder(store.get().progress, pool, mode) : shuffle(pool)).slice(0, quantity);
       const loaded = await prefetch(atlas, ids);
       if (sequence !== request.current) return;
       const entries = loaded.filter((entry): entry is Entry => !!entry);
@@ -172,10 +177,10 @@ function SpellingPage() {
             continuous={round.continuous}
             index={round.answers.length}
             total={round.entries.length}
-            onMiss={(answer) => {
+            onAnswer={(answer) => {
               if (store.get().progress.datasetId === atlas.id)
                 store.progress((p) =>
-                  recordSpellingMiss(p, answer.id, answer.typed, answer.word),
+                  recordSpellingAnswer(p, answer, round.mode, source === "target", store.get().settings.retention),
                 );
             }}
             onNext={(answer) =>
@@ -221,6 +226,7 @@ function SpellingPage() {
             ? `当前可练 ${pool.length} 个词。${source === "path" ? "按当前起点，从路线前200词中抽取。" : ""}`
             : "这里还没有词，先去学习，或换一个来源。"}
         </p>
+        {source === "target" && !pool.length && <div className="assessment-links"><button className="btn btn-ghost" onClick={() => go({ page: "assessment" })}>去标记不会的词</button><button className="btn btn-primary" onClick={() => go({ page: "today" })}>去学习这些词</button></div>}
         <h2 className="eyebrow">提示方式</h2>
         <div className="mode-cards">
           <button
@@ -283,7 +289,7 @@ function SpellingPage() {
           <ArrowRight size={18} />
         </button>
         <p className="muted small">
-          拼错会进入错词本；本页不改变单词记忆排程，也不会覆盖进行中的复习。
+          {source === "target" ? "重点拼写只选不会且已学过的词；每次首答会更新对应的听写或默写间隔，错误进入错词本。不会覆盖进行中的复习。" : "自由练习保留错词记录，不改变单词记忆排程，也不会覆盖进行中的复习。"}
         </p>
       </section>
     </div>
@@ -297,7 +303,7 @@ function SpellingQuestion({
   continuous,
   index,
   total,
-  onMiss,
+  onAnswer,
   onNext,
 }: {
   entry: Entry;
@@ -306,7 +312,7 @@ function SpellingQuestion({
   continuous: boolean;
   index: number;
   total: number;
-  onMiss: (answer: Result) => void;
+  onAnswer: (answer: Result) => void;
   onNext: (answer: Result) => void;
 }) {
   const atlas = useAtlas();
@@ -339,13 +345,13 @@ function SpellingQuestion({
       correct: !revealed && spelledRight(typed, entry.w),
       hinted: revealed || (mode === "audio" && showMeaning),
     };
+    onAnswer(answer);
     if (sounds) void cue(answer.correct ? "correct" : "wrong");
     if (answer.correct && continuous) {
       onNext(answer);
       return;
     }
     setPending(answer);
-    if (!answer.correct) onMiss(answer);
   };
   const next = () => {
     if (!pending) return;
@@ -363,7 +369,7 @@ function SpellingQuestion({
         {showMeaning && (
           <p className="spell-zh">
             <span className="pos">{entry.senses[0]?.pos}</span>{" "}
-            {entry.senses[0]?.zh || atlas.byId.get(entry.id)?.zh}
+            {spellingContext(entry.senses[0]?.zh || atlas.byId.get(entry.id)?.zh || "", entry.w) ?? entry.senses[0]?.zh ?? atlas.byId.get(entry.id)?.zh}
           </p>
         )}
         {!pending && (

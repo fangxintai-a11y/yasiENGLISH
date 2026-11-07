@@ -1,6 +1,7 @@
 import type { Atlas, WordRef } from "../atlas/types";
 import type { Progress } from "../store/store";
 import { baseForms, lookupIndex } from "./textimport";
+import { flagUnknown, inLearningScope } from "./vocabulary";
 
 // Explicit review entries distinguish a new request from old, already-consumed import IDs.
 const REVIEW = "review:";
@@ -11,14 +12,14 @@ export const priorityId = (key: string) =>
 
 export function priorityWords(
   atlas: { byId: ReadonlyMap<string, unknown> },
-  p: Pick<Progress, "queue" | "cards">,
+  p: Pick<Progress, "queue" | "cards" | "assessment">,
 ): string[] {
   return [
     ...new Set(
       p.queue
         .filter((key) => {
           const id = priorityId(key);
-          return atlas.byId.has(id) && (key.startsWith(REVIEW) || !p.cards[id]);
+          return atlas.byId.has(id) && inLearningScope(p, id) && (key.startsWith(REVIEW) || !p.cards[id]);
         })
         .map(priorityId),
     ),
@@ -38,7 +39,7 @@ export function addPriorityWord(
     return p;
   const key = priorityKey(id, !!p.cards[id]);
   return {
-    ...p,
+    ...flagUnknown(p, id),
     queue: [key, ...p.queue.filter((value) => priorityId(value) !== id)].slice(
       0,
       2000,

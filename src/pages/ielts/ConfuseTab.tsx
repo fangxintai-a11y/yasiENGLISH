@@ -8,6 +8,8 @@ import { recallAt } from "../../store/srs";
 import { useStore, type Step } from "../../store/store";
 import { startPractice } from "../Ielts";
 
+import { hasAssessment, isWeakWord } from "../../ielts/vocabulary";
+
 /**
  * 易混词对撞: look-alike pairs among the learner's words, drilled head to head: the picture and the
  * sentence of one word, and only the two spellings to choose from.
@@ -15,6 +17,7 @@ import { startPractice } from "../Ielts";
 export function ConfuseTab() {
   const atlas = useAtlas();
   const table = useConfusablesTable();
+  const progress = useStore((s) => s.progress);
   const cards = useStore((s) => s.progress.cards);
   const mistakes = useStore((s) => s.progress.mistakes);
   const now = Date.now();
@@ -26,13 +29,14 @@ export function ConfuseTab() {
       for (const b of list) {
         const key = a < b ? `${a}|${b}` : `${b}|${a}`;
         if (seen.has(key) || !atlas.byId.has(a) || !atlas.byId.has(b) || !(known(a) || known(b))) continue;
+        if (hasAssessment(progress) && !isWeakWord(progress, a) && !isWeakWord(progress, b)) continue;
         seen.add(key);
         // The weaker of the two words decides how urgent the pair is.
         const r = (id: string) => (cards[id] ? recallAt(cards[id], now) : mistakes.includes(id) ? 0 : 0.5);
         out.push({ a, b, weak: Math.min(r(a), r(b)) });
       }
     return out.sort((x, y) => x.weak - y.weak);
-  }, [table, atlas, cards, mistakes]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [table, atlas, cards, mistakes, progress.assessment]); // eslint-disable-line react-hooks/exhaustive-deps
   const total = useMemo(() => Object.values(table).reduce((n, l) => n + l.length, 0) / 2, [table]);
 
   const drill = () => {
@@ -44,7 +48,7 @@ export function ConfuseTab() {
         [a, b],
         [b, a],
       ])
-        steps.push({ id, kind: "picture", track: "r", options: shuffle([id, other], hashSeed(id) + i) });
+        if (!hasAssessment(progress) || isWeakWord(progress, id)) steps.push({ id, kind: atlas.byId.get(id)!.media & 1 ? "picture" : "meaning", track: "r", options: shuffle([id, other], hashSeed(id) + i) });
     });
     // First one word of every pair, then the other, so the two questions of a pair are far apart.
     startPractice([...steps.filter((_, i) => i % 2 === 0), ...steps.filter((_, i) => i % 2 === 1)], "易混词对撞");
