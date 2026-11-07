@@ -64,6 +64,10 @@ export function TypingField({
   useEffect(() => {
     if (sounds) primeCues();
   }, [sounds]);
+  useEffect(() => {
+    if (pending && window.matchMedia("(pointer: coarse)").matches)
+      input.current?.blur();
+  }, [pending]);
 
   const submit = (text: string) => {
     const state = current.current;
@@ -174,7 +178,7 @@ export function TypingField({
         {notice ||
           (pending
             ? "按 Enter 或点击下一步继续。"
-            : `${autoComplete ? "拼对自动继续 · " : ""}Enter 确认${onReplay ? " · Ctrl/⌘ J 重听" : ""}`)}
+            : `${autoComplete ? "拼对自动核对 · " : ""}Enter 确认${onReplay ? " · Ctrl/⌘ J 重听" : ""}`)}
       </p>
       {!pending && (
         <button

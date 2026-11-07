@@ -343,6 +343,8 @@ try {
         async () => !!(await progress(page)).skills[`p:${id}`],
         "focused spelling recorded first answer",
       );
+      assert.equal((await page.locator(".spelling-answer").innerText()).toLowerCase(), wordForId(id).toLowerCase());
+      await page.locator(".spelling-feedback .btn-primary").click();
     }
     await page.getByText(/首答正确 2/).waitFor();
     await page.getByRole("button", { name: "选下一轮", exact: true }).click();

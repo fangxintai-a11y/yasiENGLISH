@@ -138,9 +138,19 @@
   padding: 18px;
   border-top: 1px solid var(--line);
   overflow-wrap: anywhere;
+  scroll-margin-top: 24px;
 }
 .typing-recall-feedback b {
   font: 600 24px/1.6 var(--serif);
+}
+.quiz-spell .feedback-ex,
+.quiz-dictation .feedback-ex,
+.quiz-produce .feedback-ex {
+  display: block;
+}
+.feedback-ex-zh {
+  margin-top: 6px;
+  overflow-wrap: anywhere;
 }
 @media (max-width: 639px) {
   .learn-stage:has(.recall-input:focus) {

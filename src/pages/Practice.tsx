@@ -9,7 +9,9 @@ import { clean, same, typingMetrics } from "../lib/typing";
 import { store, useStore } from "../store/store";
 import { AmbiencePicker } from "../ui/Ambience";
 import { TypingField, type TypingChange } from "../ui/TypingField";
+import { SpellingWordInfo } from "../ui/SpellingWordInfo";
 import { canAutoSubmitSpelling, spelledRight } from "../ielts/spelling";
+import { spellingContext } from "../ielts/spellingPractice";
 import { hasAssessment, startedWeakWords } from "../ielts/vocabulary";
 
 type Mode = "word" | "sentence" | "dictation";
@@ -188,6 +190,7 @@ function TypingRound({
   const settings = useStore((s) => s.settings);
   const [i, setI] = useState(0);
   const [pending, setPending] = useState<{ correct: boolean; value: string }>();
+  const feedback = useRef<HTMLDivElement>(null);
   const totals = useRef({ typed: 0, correct: 0, accepted: 0, ms: 0, right: 0 });
   const [done, setDone] = useState(false);
   const started = useRef<number | null>(null);
@@ -210,6 +213,10 @@ function TypingRound({
     setPending(undefined);
     started.current = null;
   }, [i]);
+  useEffect(() => {
+    if (pending && window.matchMedia("(pointer: coarse)").matches)
+      feedback.current?.scrollIntoView({ block: "start", behavior: "instant" });
+  }, [pending]);
   useEffect(() => {
     prepareAudio(
       entries
@@ -264,8 +271,7 @@ function TypingRound({
       t.right++;
     }
     if (settings.sfx) void cue(correct ? "correct" : "wrong");
-    if (correct) advance();
-    else setPending({ correct: false, value });
+    setPending({ correct, value });
   };
   const m = typingMetrics(
     totals.current.correct,
@@ -320,7 +326,7 @@ function TypingRound({
         {mode === "word" && (
           <div className="typing-cue">
             <p>
-              <span className="pos">{e.senses[0].pos}</span> {e.senses[0].zh}
+              <span className="pos">{e.senses[0].pos}</span> {spellingContext(e.senses[0].zh, e.w) ?? e.senses[0].zh}
             </p>
           </div>
         )}
@@ -355,17 +361,15 @@ function TypingRound({
           </button>
         )}
         {pending && (
-          <div className="typing-recall-feedback" role="status">
-            <p>本题未答对，看看正确拼写：</p>
+          <div ref={feedback} className="typing-recall-feedback" role="status">
+            <p>{pending.correct ? "拼写正确，回顾一下：" : "本题未答对，看看正确拼写："}</p>
             <b lang="en">{target}</b>
-            {pending.value && (
+            {!pending.correct && pending.value && (
               <p>
                 你的输入：<s lang="en">{pending.value}</s>
               </p>
             )}
-            <p className="muted">
-              {mode === "word" ? e.ex[0]?.zh : e.ex[0].zh}
-            </p>
+            {mode === "word" ? <SpellingWordInfo entry={e} /> : <p className="muted">{e.ex[0].zh}</p>}
             <button className="btn btn-primary" onClick={advance}>
               {i + 1 === entries.length ? "查看本轮结果" : "下一项"}{" "}
               <kbd>Enter</kbd>

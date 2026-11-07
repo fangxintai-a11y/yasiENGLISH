@@ -217,7 +217,7 @@ try {
   await page.getByRole("link", { name: "开始拼写" }).click();
   await page.getByRole("heading", { name: "想得起，也拼得出。" }).waitFor();
   await page.getByRole("button", { name: "收藏", exact: true }).click();
-  await page.getByRole("checkbox", { name: /连续默写/ }).uncheck();
+  await page.getByRole("checkbox", { name: /自动核对/ }).uncheck();
   await page.getByLabel("本轮数量").fill("0");
   assert.equal(
     await page.getByRole("button", { name: /开始拼写 \d+ 词/ }).isEnabled(),
@@ -303,7 +303,7 @@ try {
     "second device receives miss",
   );
   await phone.getByRole("button", { name: "错词本", exact: true }).click();
-  await phone.getByRole("checkbox", { name: /连续默写/ }).uncheck();
+  await phone.getByRole("checkbox", { name: /自动核对/ }).uncheck();
   await phone.getByLabel("本轮数量").fill("1");
   await phone.getByRole("button", { name: "开始拼写 1 词" }).click();
   const phoneInput = phone.getByRole("textbox", {
@@ -339,6 +339,31 @@ try {
   await input.fill("accommodation");
   await page.getByRole("button", { name: "确认" }).click();
   await page.getByRole("heading", { name: "拼写正确", exact: true }).waitFor();
+  // Answer feedback stays put, including the last word; the result page requires explicit continuation.
+  assert.equal(await page.locator(".spelling-word-info .spelling-senses").count(), 1);
+  assert.ok((await page.locator(".spelling-word-info").innerText()).length > 10);
+  await delay(1100);
+  assert.match(await page.locator(".spelling-round .eyebrow").innerText(), /第 1 \/ 1/);
+  const feedbackNext = page.getByRole("button", { name: "查看本轮结果" });
+  for (const theme of ["light", "dark"]) {
+    await page.evaluate((theme) => document.documentElement.dataset.theme = theme, theme);
+    for (const pixels of [320, 390, 768, 1280]) {
+      await page.setViewportSize({ width: pixels, height: 844 });
+      await width(page, pixels);
+      await feedbackNext.scrollIntoViewIfNeeded();
+      const hit = await feedbackNext.evaluate((button) => {
+        const r = button.getBoundingClientRect();
+        return button.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2));
+      });
+      assert.equal(hit, true, `feedback continue unobstructed: ${pixels}/${theme}`);
+      if (pixels === 390) {
+        await page.evaluate(() => Promise.all(document.getAnimations().filter((a) => a.effect?.getComputedTiming().iterations !== Infinity).map((a) => a.finished.catch(() => {}))));
+        await fs.mkdir(path.join(root, "local-content"), { recursive: true });
+        await page.screenshot({ path: path.join(root, `local-content/spelling-feedback-${theme}.png`), fullPage: true });
+      }
+    }
+  }
+  checks.push("正确的最后一词也保留词条反馈；320/390/768/1280px深浅主题不溢出，继续按钮真实命中且无导航遮挡");
   // Real multi-item flow: native input stays mounted, no target glyphs/length clues,
   // committed IME text and rapid Enter events can never grade the same item twice.
   const rows = ["accommodation", "environment", "colour"].map((word) => {
@@ -381,7 +406,7 @@ try {
   await flow.getByRole("button", { name: "收藏", exact: true }).click();
   await flow.getByLabel("本轮数量").fill("3");
   assert.equal(
-    await flow.getByRole("checkbox", { name: /连续默写/ }).isChecked(),
+    await flow.getByRole("checkbox", { name: /自动核对/ }).isChecked(),
     true,
   );
   const mediaRequests = [];
@@ -473,12 +498,21 @@ try {
   });
   assert.equal(await flow.locator(".spelling-feedback").count(), 0);
   await flowInput.dispatchEvent("compositionend");
+  await flow.getByRole("heading", { name: "拼写正确", exact: true }).waitFor();
+  assert.equal(await flow.locator(".spelling-answer").innerText(), first.w);
+  assert.ok((await flow.locator(".spelling-senses").innerText()).includes(first.senses[0].zh));
+  assert.equal(await flow.locator(".spelling-example [lang=en]").innerText(), first.ex[0].en);
+  assert.ok((await flow.locator(".spelling-example").innerText()).includes(first.ex[0].zh));
+  assert.ok((await flow.locator(".spelling-phonetics").innerText()).includes(first.uk));
+  await delay(1100);
+  assert.match(await flow.locator(".spelling-round .eyebrow").innerText(), /第 1 \/ 3/);
+  await flowInput.press("Enter");
   await eventually(
     async () =>
       /第 2 \/ 3/.test(
         await flow.locator(".spelling-round .eyebrow").innerText(),
       ),
-    "committed answer advances once",
+    "committed answer shows full feedback and advances only on Enter",
   );
   assert.equal(
     await nativeInput.evaluate(
@@ -562,7 +596,7 @@ try {
   ])
     assert.deepEqual(afterFlow[key], firstFlowProgress[key], key);
   checks.push(
-    "连续默写同一输入框与焦点；无英文/字母槽/长度提示；错误前缀不泄题；IME确认后才判分；退格/粘贴/重听/Esc/长按Enter；首错与主动揭晓各只保存一次；两词音频预载不播放",
+    "自动核对后停留显示音标、词义和中英例句，手动继续；同一输入框与桌面焦点；无英文/字母槽/长度提示；错误前缀不泄题；IME确认后才判分；退格/粘贴/重听/Esc/长按Enter；首错与主动揭晓各只保存一次；两词音频预载不播放",
   );
 
   // Practice has no copying mode or live character feedback, including sentence dictation.
@@ -591,6 +625,10 @@ try {
     } else {
       const answer = entry.w === "colour" ? "color" : entry.w;
       await practiceInput.pressSequentially(answer);
+      await flow.locator(".typing-recall-feedback").waitFor();
+      assert.match(await flow.locator(".typing-recall-feedback").innerText(), /拼写正确/);
+      assert.ok((await flow.locator(".spelling-senses").innerText()).includes(entry.senses[0].zh));
+      await practiceInput.press("Enter");
     }
     if (item < 2)
       assert.equal(
@@ -626,10 +664,14 @@ try {
     exact: true,
   });
   await sentenceInput.pressSequentially(sentenceEntry.ex[0].en);
+  await flow.locator(".typing-recall-feedback").waitFor();
+  assert.equal(await flow.locator(".typing-recall-feedback > b").innerText(), sentenceEntry.ex[0].en);
+  assert.match(await flow.locator(".typing-meter").innerText(), /第 1 \/ 3/);
+  await sentenceInput.press("Enter");
   await eventually(
     async () =>
       /第 2 \/ 3/.test(await flow.locator(".typing-meter").innerText()),
-    "sentence recall auto advance",
+    "sentence recall reviews its answer before explicit continuation",
   );
   await flow.getByRole("button", { name: "结束", exact: true }).click();
   await flow.getByRole("button", { name: "句子听写", exact: false }).click();
@@ -642,7 +684,7 @@ try {
   );
   await flow.getByRole("button", { name: "再听一遍", exact: true }).waitFor();
   checks.push(
-    "打字单词/整句/听写全部默写；英美拼写接受；无逐字对错或实时准确率泄题；即时切题只写一条轮次记录；FSRS与未完成复习不变",
+    "打字单词/整句/听写全部默写；英美拼写接受；核对后停留查看信息；无逐字对错或实时准确率泄题；手动切题只写一条轮次记录；FSRS与未完成复习不变",
   );
 
   // Formal review: no automatic first letter, and revealing an answer cannot earn Good.

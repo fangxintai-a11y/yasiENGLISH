@@ -93,6 +93,7 @@
   border-top: 1px solid var(--line);
   padding-top: 20px;
   overflow-wrap: anywhere;
+  scroll-margin-top: 24px;
 }
 .spelling-feedback h2 {
   font-size: 21px;
@@ -105,6 +106,46 @@
   color: var(--terra);
   text-decoration: underline;
   text-underline-offset: 0.18em;
+}
+.spelling-word-info {
+  min-width: 0;
+  margin: 16px 0 24px;
+  overflow-wrap: anywhere;
+}
+.spelling-phonetics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  color: var(--ink-3);
+  font-size: 14px;
+}
+.spelling-senses {
+  list-style: none;
+  padding: 0;
+  margin: 16px 0;
+  display: grid;
+  gap: 8px;
+}
+.spelling-example {
+  margin: 20px 0 0;
+  padding: 16px 18px;
+  border-left: 3px solid var(--sage);
+  background: var(--paper-2);
+  border-radius: 0 12px 12px 0;
+}
+.spelling-example p {
+  margin: 0;
+  line-height: 1.7;
+}
+.spelling-example p + p {
+  margin-top: 8px;
+}
+.spelling-example [lang="en"] {
+  font-family: var(--serif);
+  font-size: 20px;
+}
+.spelling-feedback .spelling-actions {
+  margin-top: 20px;
 }
 .spelling-results {
   list-style: none;

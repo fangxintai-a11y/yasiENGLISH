@@ -31,6 +31,7 @@ import { shuffle } from "../lib/text";
 import { useCloudSync } from "../store/cloudSync";
 import { store, useStore } from "../store/store";
 import { TypingField } from "../ui/TypingField";
+import { SpellingWordInfo } from "../ui/SpellingWordInfo";
 import { hasAssessment } from "../ielts/vocabulary";
 
 type Mode = "meaning" | "audio";
@@ -41,7 +42,7 @@ type Result = {
   correct: boolean;
   hinted: boolean;
 };
-type Round = { entries: Entry[]; answers: Result[]; mode: Mode; continuous: boolean; id: number };
+type Round = { entries: Entry[]; answers: Result[]; mode: Mode; autoCheck: boolean; id: number };
 const SOURCES: [SpellingSource, string][] = [
   ["target", "重点词：不会且已开始学习"],
   ["learned", "已学单词"],
@@ -65,7 +66,7 @@ function SpellingPage() {
   );
   const [mode, setMode] = useState<Mode>("meaning");
   const [count, setCount] = useState("20");
-  const [continuous, setContinuous] = useState(true);
+  const [autoCheck, setAutoCheck] = useState(true);
   const [round, setRound] = useState<Round | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -98,7 +99,7 @@ function SpellingPage() {
       if (entries.length !== ids.length)
         throw new Error("部分词条未能加载，请检查网络后重试。");
       if (!entries.length) throw new Error("这里还没有可练的词，请换个来源。");
-      setRound({ entries, answers: [], mode, continuous, id: sequence });
+      setRound({ entries, answers: [], mode, autoCheck, id: sequence });
       window.scrollTo({ top: 0 });
     } catch (reason) {
       if (sequence === request.current)
@@ -174,7 +175,7 @@ function SpellingPage() {
             entry={round.entries[round.answers.length]}
             upcoming={round.entries.slice(round.answers.length + 1, round.answers.length + 3)}
             mode={round.mode}
-            continuous={round.continuous}
+            autoCheck={round.autoCheck}
             index={round.answers.length}
             total={round.entries.length}
             onAnswer={(answer) => {
@@ -204,7 +205,7 @@ function SpellingPage() {
         <p className="eyebrow">单词拼写 · Spelling</p>
         <h1 className="display">想得起，也拼得出。</h1>
         <p className="lede">
-          只给中文或发音，完全凭记忆默写。拼对自动继续，拼错后再看答案。
+          只给中文或发音，完全凭记忆默写。核对后看词义和例句，再进入下一词。
         </p>
       </header>
       <section className="panel spelling-setup">
@@ -249,8 +250,8 @@ function SpellingPage() {
           </button>
         </div>
         <label className="spelling-flow-option">
-          <input type="checkbox" checked={continuous} onChange={(event) => setContinuous(event.target.checked)} />
-          <span>连续默写<small>拼对自动下一词；关闭后每词手动确认。</small></span>
+          <input type="checkbox" checked={autoCheck} onChange={(event) => setAutoCheck(event.target.checked)} />
+          <span>自动核对<small>拼对后展示单词信息，由你继续下一词；关闭后按 Enter 核对。</small></span>
         </label>
         <label className="spelling-count">
           本轮数量
@@ -300,7 +301,7 @@ function SpellingQuestion({
   entry,
   upcoming,
   mode,
-  continuous,
+  autoCheck,
   index,
   total,
   onAnswer,
@@ -309,7 +310,7 @@ function SpellingQuestion({
   entry: Entry;
   upcoming: Entry[];
   mode: Mode;
-  continuous: boolean;
+  autoCheck: boolean;
   index: number;
   total: number;
   onAnswer: (answer: Result) => void;
@@ -321,11 +322,18 @@ function SpellingQuestion({
   const [pending, setPending] = useState<Result | null>(null);
   const [showMeaning, setShowMeaning] = useState(mode === "meaning");
   const submitted = useRef(false);
+  const advanced = useRef(false);
+  const feedback = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
     submitted.current = false;
+    advanced.current = false;
     setPending(null);
     setShowMeaning(mode === "meaning");
   }, [entry.id, mode]);
+  useEffect(() => {
+    if (pending && window.matchMedia("(pointer: coarse)").matches)
+      feedback.current?.scrollIntoView({ block: "start", behavior: "instant" });
+  }, [pending]);
   const say = () => void play(atlas.audio(entry, accent), entry.w, accent);
   useEffect(() => {
     prepareAudio(upcoming.map((next) => atlas.audio(next, accent)));
@@ -347,14 +355,11 @@ function SpellingQuestion({
     };
     onAnswer(answer);
     if (sounds) void cue(answer.correct ? "correct" : "wrong");
-    if (answer.correct && continuous) {
-      onNext(answer);
-      return;
-    }
     setPending(answer);
   };
   const next = () => {
-    if (!pending) return;
+    if (!pending || advanced.current) return;
+    advanced.current = true;
     stopAudio();
     onNext(pending);
   };
@@ -365,7 +370,7 @@ function SpellingQuestion({
         第 {index + 1} / {total} 词 ·{" "}
         {mode === "meaning" ? "看中文拼写" : "听音拼写"}
       </p>
-      <div className="spelling-prompt">
+      {!pending && <div className="spelling-prompt">
         {showMeaning && (
           <p className="spell-zh">
             <span className="pos">{entry.senses[0]?.pos}</span>{" "}
@@ -382,12 +387,12 @@ function SpellingQuestion({
             提示中文
           </button>
         )}
-      </div>
+      </div>}
       <TypingField
         itemId={entry.id}
         target={entry.w}
         accepts={(typed) => canAutoSubmitSpelling(typed, entry.w)}
-        autoComplete={continuous}
+        autoComplete={autoCheck}
         onReplay={say}
         onContinue={next}
         sounds={sounds}
@@ -404,7 +409,7 @@ function SpellingQuestion({
         </button>
       )}
       {pending && (
-        <div className="spelling-feedback" role="status">
+        <div ref={feedback} className="spelling-feedback" role="status">
           <h2>{pending.correct ? "拼写正确" : "再看一遍这个词"}</h2>
           <p className="spelling-answer" lang="en">
             {diffMarks(pending.correct ? entry.w : pending.typed, entry.w).map(
@@ -432,7 +437,7 @@ function SpellingQuestion({
               <Lightbulb size={14} /> 本词使用过提示。
             </p>
           )}
-          {entry.ex[0] && <p className="spelling-context" lang="en">{entry.ex[0].en}</p>}
+          <SpellingWordInfo entry={entry} />
           <div className="spelling-actions">
             <button
               className="btn btn-primary"
@@ -440,6 +445,7 @@ function SpellingQuestion({
             >
               {index + 1 === total ? "查看本轮结果" : "下一个单词"}
               <ArrowRight size={18} />
+              <kbd>Enter</kbd>
             </button>
             <button className="btn btn-ghost" onClick={say}>
               <Headphones size={18} /> 听发音

@@ -431,9 +431,12 @@ function Feedback({ entry, refw, step, session, correct, value, onNext }: { entr
           <GradeNote step={step} session={session} />
           {!correct && <HackBlock refw={refw} quiet />}
           {entry.ex[0] && (
-            <p className="feedback-ex" lang="en">
-              <Highlight text={entry.ex[0].en} word={entry.w} />
-            </p>
+            <>
+              <p className="feedback-ex" lang="en">
+                <Highlight text={entry.ex[0].en} word={entry.w} />
+              </p>
+              {entry.ex[0].zh && <p className="feedback-ex-zh muted small">{entry.ex[0].zh}</p>}
+            </>
           )}
         </div>
         <button ref={btn} className={`btn btn-xl ${correct ? "btn-sage" : "btn-terra"}`} onClick={onNext}>
