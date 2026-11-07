@@ -160,7 +160,9 @@ def validate_snapshot(snapshot, dataset_id: str):
     def visit(value, depth=0, path=()):
         nonlocal count
         count += 1
-        if count > 300_000 or depth > 16:
+        # The full catalog can carry three memory tracks and one assessment per
+        # word. The independent 8 MiB request-size limit remains in force.
+        if count > 600_000 or depth > 16:
             raise ApiError(400, "同步数据结构过大。")
         if isinstance(value, dict):
             if len(value) > 50_000:

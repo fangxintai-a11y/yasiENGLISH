@@ -21,7 +21,7 @@ VERIFIED_WORD_ONLY_SHA256 = frozenset({
 
 
 # Reviewed vocabulary rollback: both executable modules are pinned; missing learning.py is insufficient.
-VERIFIED_VOCABULARY_RUNTIME = {'4d9e26d2d737e5eb1c6f3567f1e6374554106c0455c354a2d930dace7edd09d7': 'f43674a06c3a6920f34290490ceae3c0a9e78bdbaa7423a91a92bc1c86adea8b', 'f624e7c2c8e66c27bc42efb395c9b8e45f3cf09f31756a6cf07e32b15f1ae38a': 'f43674a06c3a6920f34290490ceae3c0a9e78bdbaa7423a91a92bc1c86adea8b'}
+VERIFIED_VOCABULARY_RUNTIME = {'4d9e26d2d737e5eb1c6f3567f1e6374554106c0455c354a2d930dace7edd09d7': 'f43674a06c3a6920f34290490ceae3c0a9e78bdbaa7423a91a92bc1c86adea8b', 'cdd0aa0d2a023c524024e53c9a37f05b4f233fd33de6d519dfca260eaef20e66': 'f43674a06c3a6920f34290490ceae3c0a9e78bdbaa7423a91a92bc1c86adea8b'}
 
 
 def verify_api_compatibility(database, target):

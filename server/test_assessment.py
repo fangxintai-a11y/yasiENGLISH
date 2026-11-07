@@ -1,14 +1,15 @@
 """Per-word assessment snapshots remain compatible with older browser tabs."""
 import copy
+import json
 import sqlite3
 import tempfile
 from pathlib import Path
 import unittest
 
 try:
-    from .app import ApiError, Database, validate_snapshot
+    from .app import ApiError, Database, MAX_BODY, validate_snapshot
 except ImportError:
-    from app import ApiError, Database, validate_snapshot
+    from app import ApiError, Database, MAX_BODY, validate_snapshot
 
 
 def snapshot():
@@ -16,6 +17,20 @@ def snapshot():
 
 
 class AssessmentTest(unittest.TestCase):
+    def test_full_catalog_with_three_memory_tracks_and_assessment_fits_snapshot_limits(self):
+        root = Path(__file__).resolve().parents[1]
+        base = json.loads((root / "public/atlas/index.json").read_text())
+        extra = json.loads((root / "public/atlas/supplement.json").read_text())
+        ids = [row[0] for row in base["words"]] + [row["id"] for row in extra["entries"]]
+        self.assertEqual(len(set(ids)), 9860)
+        card = {"due": 1795000000000, "s": 12.12345678912345, "d": 4.12345678901234, "el": 3, "sd": 12, "ls": 0, "reps": 10, "lapses": 1, "st": 2, "last": 1794000000000, "seen": 1793000000000}
+        value = snapshot()
+        value["progress"]["cards"] = {word: card for word in ids}
+        value["progress"]["skills"] = {prefix + word: card for word in ids for prefix in ("l:", "p:")}
+        value["progress"]["assessment"] = {"marks": {word: {"state": "unknown", "at": 1794000000000} for word in ids}}
+        self.assertLess(len(json.dumps(value, separators=(",", ":")).encode()), MAX_BODY)
+        self.assertEqual(validate_snapshot(value, "words"), value)
+
     def test_word_ids_are_not_credentials_but_unrecognized_mark_fields_are_rejected(self):
         value = snapshot()
         value["progress"]["assessment"] = {"marks": {word: {"state": "unknown", "at": 100} for word in ("key", "secret", "password")}}
