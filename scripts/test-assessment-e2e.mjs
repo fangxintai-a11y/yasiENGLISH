@@ -99,7 +99,22 @@ async function width(page, expected) {
     scroll: document.documentElement.scrollWidth,
   }));
   assert.equal(sizes.viewport, expected);
-  assert.ok(sizes.scroll <= expected, JSON.stringify(sizes));
+  const overflow =
+    sizes.scroll > expected
+      ? await page.evaluate(() =>
+          Array.from(
+            document.querySelectorAll(
+              ".atlas-head,.search,.search input,.filters,.filters-row,.segmented,.vocabulary-overview",
+            ),
+          ).map((element) => ({
+            tag: element.tagName,
+            class: element.className,
+            width: element.getBoundingClientRect().width,
+            right: element.getBoundingClientRect().right,
+          })),
+        )
+      : [];
+  assert.ok(sizes.scroll <= expected, JSON.stringify({ ...sizes, overflow }));
 }
 
 try {
@@ -478,6 +493,13 @@ try {
         .filter({ hasText: /^induce$/ })
         .waitFor();
       await width(visual, w);
+      if (w === 320) {
+        const wideFont = await visual.addStyleTag({
+          content: ".search input { font-family: monospace; font-size: 18px; }",
+        });
+        await width(visual, w);
+        await wideFont.evaluate((element) => element.remove());
+      }
     }
     await visualContext.close();
   }
