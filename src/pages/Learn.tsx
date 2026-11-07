@@ -516,7 +516,7 @@ function Summary({ session }: { session: ActiveSession }) {
           <dl>
             <div>
               <dt>新词</dt>
-              <dd>{session.newIds.length}</dd>
+              <dd>{session.newIds.filter((id) => session.graded[id] !== undefined).length}</dd>
             </div>
             <div>
               <dt>识别</dt>

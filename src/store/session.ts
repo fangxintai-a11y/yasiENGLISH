@@ -349,13 +349,29 @@ export function applyRecallRating(atlas: Atlas, p: Progress, settings: Settings,
   return withDueRecall(atlas, focusAtBoundary(next, now), now);
 }
 
-/** Keep the just-answered question and its history, then focus future questions. */
+/** Keep answered history; focus future questions and trim legacy spelling loops. */
 export function focusAtBoundary(p: Progress, now: number): Progress {
   const s = p.session;
-  if (!s || isPractice(s) || !hasAssessment(p) || s.pending) return p;
-  const steps = s.steps.filter((step, index) => index < s.index || step.check || isWeakWord(p, step.id));
+  if (!s || s.pending) return p;
+  const focused = hasAssessment(p) && !isPractice(s);
+  const retries = new Map<string, number>();
+  const steps = s.steps.filter((step, index) => {
+    const typedRetry = step.kind !== "intro" && step.retry && trackOf(step) !== "r";
+    const key = stepKey(step);
+    if (index < s.index) {
+      if (typedRetry) retries.set(key, (retries.get(key) ?? 0) + 1);
+      return true;
+    }
+    if (focused && !step.check && !isWeakWord(p, step.id)) return false;
+    if (typedRetry) {
+      if ((s.relearn?.[key] ?? 0) >= RELEARN_RUN || (retries.get(key) ?? 0) >= RELEARN_MAX) return false;
+      retries.set(key, (retries.get(key) ?? 0) + 1);
+    }
+    return true;
+  });
   if (steps.length === s.steps.length) return p;
-  return { ...p, session: { ...s, steps, finished: s.index >= steps.length ? now : undefined } };
+  const kept = new Set(steps.map((step) => step.id));
+  return { ...p, session: { ...s, steps, newIds: s.newIds.filter((id) => kept.has(id)), finished: s.index >= steps.length ? now : undefined } };
 }
 
 export function rateRecall(atlas: Atlas, expected: { sessionId: string; index: number; id: string }, grade: RecallGrade, seconds: number) {

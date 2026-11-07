@@ -346,5 +346,48 @@ test("formal and independent spelling alternate due words with previously untrai
     (step) => step.kind === "dictation" || step.kind === "produce",
   );
   assert.ok(p.skills[`${trackOf(spelling[0])}:${spelling[0].id}`]);
-  assert.equal(p.skills[`${trackOf(spelling[1])}:${spelling[1].id}`], undefined);
+  assert.equal(
+    p.skills[`${trackOf(spelling[1])}:${spelling[1].id}`],
+    undefined,
+  );
+});
+
+test("resuming an old round trims queued spelling retries without removing already answered history", () => {
+  const p = emptyProgress(atlas.id);
+  p.session = {
+    id: "legacy-loop",
+    started: now,
+    steps: [
+      { id: "word0", kind: "dictation", track: "l" },
+      ...Array.from({ length: 6 }, () => ({
+        id: "word0",
+        kind: "dictation" as const,
+        track: "l" as const,
+        retry: true,
+      })),
+    ],
+    index: 2,
+    newIds: [],
+    reviewIds: [],
+    graded: { "l:word0": Rating.Again },
+    relearn: { "l:word0": 0 },
+  };
+  const limited = focusAtBoundary(p, now);
+  assert.deepEqual(
+    limited.session!.steps.slice(0, 2),
+    p.session.steps.slice(0, 2),
+  );
+  assert.equal(
+    limited.session!.steps.filter((step) => step.kind !== "intro" && step.retry)
+      .length,
+    2,
+  );
+  assert.equal(limited.session!.id, p.session.id);
+  assert.deepEqual(limited.session!.graded, p.session.graded);
+  const succeeded = focusAtBoundary(
+    { ...limited, session: { ...limited.session!, relearn: { "l:word0": 1 } } },
+    now,
+  );
+  assert.equal(succeeded.session!.steps.length, 2);
+  assert.equal(succeeded.session!.finished, now);
 });
